@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "id": "poem-verse",
+  "name": "POEM · Verse",
+  "description": "중앙 세리프, 넓은 여백, 거의 텍스트만.",
+  "palette": {
+    "background": "#111111",
+    "text": "#f7f3ea",
+    "accent": "#c9b58a",
+    "muted": "#777777"
+  },
+  "typography": {
+    "fontFamily": "serif",
+    "headlineWeight": 400,
+    "bodyWeight": 400,
+    "letterSpacing": 0,
+    "lineHeight": 1.7
+  },
+  "tone": {
+    "fontFamily": "serif",
+    "weight": 400,
+    "lineHeight": 1.7
+  },
+  "presets_by_role": {
+    "cover": "cover-center",
+    "photo": "photo-caption",
+    "info": "quote-center",
+    "quote": "quote-center",
+    "screenshot": "screenshot-frame",
+    "closing": "closing-slide"
+  },
+  "preset_overrides": {
+    "cover-center": {
+      "fontFamily": "serif",
+      "weight": 400
+    }
+  },
+  "references": []
+}

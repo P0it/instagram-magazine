@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "life-quiet-editorial",
+  "name": "LIFE · Quiet Editorial",
+  "description": "어두운 사진, 흰 산세리프, 절제된 그라디언트.",
+  "palette": {
+    "background": "#0a0a0a",
+    "text": "#ffffff",
+    "accent": "#e8e2d3",
+    "muted": "#8a8a8a"
+  },
+  "typography": {
+    "fontFamily": "sans",
+    "headlineWeight": 700,
+    "bodyWeight": 500,
+    "letterSpacing": -1.5,
+    "lineHeight": 1.25
+  },
+  "tone": {},
+  "presets_by_role": {
+    "cover": "large-editorial",
+    "photo": "cover-bottom",
+    "info": "info-dark",
+    "quote": "quote-center",
+    "screenshot": "screenshot-frame",
+    "closing": "closing-slide"
+  },
+  "preset_overrides": {},
+  "references": []
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "mind-soft-paper",
+  "name": "MIND · Soft Paper",
+  "description": "종이색 배경, 세리프 인용, 낮은 대비.",
+  "palette": {
+    "background": "#f5f2ea",
+    "text": "#1c1b18",
+    "accent": "#9a8f7a",
+    "muted": "#7a756b"
+  },
+  "typography": {
+    "fontFamily": "serif",
+    "headlineWeight": 600,
+    "bodyWeight": 400,
+    "letterSpacing": 0,
+    "lineHeight": 1.45
+  },
+  "tone": {
+    "fontFamily": "serif"
+  },
+  "presets_by_role": {
+    "cover": "cover-center",
+    "photo": "photo-caption",
+    "info": "info-light",
+    "quote": "quote-center",
+    "screenshot": "screenshot-frame",
+    "closing": "closing-slide"
+  },
+  "preset_overrides": {
+    "cover-center": {
+      "fontFamily": "serif",
+      "weight": 600
+    },
+    "closing-slide": {
+      "background": "#f5f2ea",
+      "textColor": "#1c1b18",
+      "overlayOpacity": 0
+    }
+  },
+  "references": []
+}

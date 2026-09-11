@@ -1,0 +1,30 @@
+{
+  "id": "closing-slide",
+  "name": "Closing Slide",
+  "description": "마지막 슬라이드. 팔로우/저장 유도, 중앙 정렬.",
+  "roles": [
+    "closing"
+  ],
+  "textPlacement": "center",
+  "defaultFontSize": 56,
+  "textWidthRatio": 0.76,
+  "maxLines": 4,
+  "safeMargin": 110,
+  "align": "center",
+  "toneDefaults": {
+    "background": "#0a0a0a",
+    "textColor": "#ffffff",
+    "overlayOpacity": 0.7,
+    "gradient": "none",
+    "gradientOpacity": 0,
+    "brightness": 0,
+    "contrast": 0,
+    "saturation": 0,
+    "blur": 0,
+    "fontFamily": "sans",
+    "weight": 600,
+    "lineHeight": 1.35,
+    "letterSpacing": -1.5,
+    "frame": false
+  }
+}

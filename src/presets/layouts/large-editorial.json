@@ -1,0 +1,30 @@
+{
+  "id": "large-editorial",
+  "name": "Large Editorial",
+  "description": "큰 헤드라인이 하단 1/3을 차지하는 커버. 어두운 사진 + 흰 산세리프.",
+  "roles": [
+    "cover"
+  ],
+  "textPlacement": "lower-third",
+  "defaultFontSize": 92,
+  "textWidthRatio": 0.86,
+  "maxLines": 4,
+  "safeMargin": 80,
+  "align": "left",
+  "toneDefaults": {
+    "background": "#0a0a0a",
+    "textColor": "#ffffff",
+    "overlayOpacity": 0.3,
+    "gradient": "bottom",
+    "gradientOpacity": 0.7,
+    "brightness": 0,
+    "contrast": 0,
+    "saturation": 0,
+    "blur": 0,
+    "fontFamily": "sans",
+    "weight": 700,
+    "lineHeight": 1.2,
+    "letterSpacing": -1.5,
+    "frame": false
+  }
+}

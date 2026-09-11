@@ -1,0 +1,30 @@
+{
+  "id": "cover-center",
+  "name": "Cover Center",
+  "description": "중앙 정렬 커버. 짧은 한 줄 헤드라인용.",
+  "roles": [
+    "cover"
+  ],
+  "textPlacement": "center",
+  "defaultFontSize": 84,
+  "textWidthRatio": 0.8,
+  "maxLines": 3,
+  "safeMargin": 96,
+  "align": "center",
+  "toneDefaults": {
+    "background": "#0a0a0a",
+    "textColor": "#ffffff",
+    "overlayOpacity": 0.25,
+    "gradient": "full",
+    "gradientOpacity": 0.45,
+    "brightness": 0,
+    "contrast": 0,
+    "saturation": 0,
+    "blur": 0,
+    "fontFamily": "sans",
+    "weight": 700,
+    "lineHeight": 1.2,
+    "letterSpacing": -1.5,
+    "frame": false
+  }
+}

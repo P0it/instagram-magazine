@@ -1,0 +1,30 @@
+{
+  "id": "screenshot-frame",
+  "name": "Screenshot Frame",
+  "description": "스크린샷을 프레임 안에 두고 하단에 설명.",
+  "roles": [
+    "screenshot"
+  ],
+  "textPlacement": "bottom-center",
+  "defaultFontSize": 40,
+  "textWidthRatio": 0.84,
+  "maxLines": 3,
+  "safeMargin": 80,
+  "align": "center",
+  "toneDefaults": {
+    "background": "#111111",
+    "textColor": "#ffffff",
+    "overlayOpacity": 0,
+    "gradient": "none",
+    "gradientOpacity": 0,
+    "brightness": 0,
+    "contrast": 0,
+    "saturation": 0,
+    "blur": 0,
+    "fontFamily": "sans",
+    "weight": 500,
+    "lineHeight": 1.2,
+    "letterSpacing": -1.5,
+    "frame": true
+  }
+}

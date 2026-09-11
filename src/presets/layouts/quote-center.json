@@ -1,0 +1,30 @@
+{
+  "id": "quote-center",
+  "name": "Quote Center",
+  "description": "세리프 인용문, 중앙 정렬.",
+  "roles": [
+    "quote"
+  ],
+  "textPlacement": "center",
+  "defaultFontSize": 60,
+  "textWidthRatio": 0.78,
+  "maxLines": 6,
+  "safeMargin": 110,
+  "align": "center",
+  "toneDefaults": {
+    "background": "#0a0a0a",
+    "textColor": "#ffffff",
+    "overlayOpacity": 0.5,
+    "gradient": "none",
+    "gradientOpacity": 0,
+    "brightness": 0,
+    "contrast": 0,
+    "saturation": 0,
+    "blur": 0,
+    "fontFamily": "serif",
+    "weight": 400,
+    "lineHeight": 1.5,
+    "letterSpacing": 0,
+    "frame": false
+  }
+}

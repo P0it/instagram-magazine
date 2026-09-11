@@ -1,0 +1,30 @@
+{
+  "id": "info-light",
+  "name": "Info Light",
+  "description": "밝은 종이색 배경 + 검은 본문. 정보 슬라이드 변형.",
+  "roles": [
+    "info"
+  ],
+  "textPlacement": "center",
+  "defaultFontSize": 48,
+  "textWidthRatio": 0.84,
+  "maxLines": 10,
+  "safeMargin": 96,
+  "align": "left",
+  "toneDefaults": {
+    "background": "#f5f2ea",
+    "textColor": "#171717",
+    "overlayOpacity": 0,
+    "gradient": "none",
+    "gradientOpacity": 0,
+    "brightness": 0,
+    "contrast": 0,
+    "saturation": 0,
+    "blur": 0,
+    "fontFamily": "sans",
+    "weight": 500,
+    "lineHeight": 1.45,
+    "letterSpacing": -0.5,
+    "frame": false
+  }
+}

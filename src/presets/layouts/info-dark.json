@@ -1,0 +1,30 @@
+{
+  "id": "info-dark",
+  "name": "Info Dark",
+  "description": "어두운 배경 + 본문 텍스트. 정보 슬라이드 기본.",
+  "roles": [
+    "info"
+  ],
+  "textPlacement": "center",
+  "defaultFontSize": 48,
+  "textWidthRatio": 0.84,
+  "maxLines": 10,
+  "safeMargin": 96,
+  "align": "left",
+  "toneDefaults": {
+    "background": "#0a0a0a",
+    "textColor": "#ffffff",
+    "overlayOpacity": 0.55,
+    "gradient": "none",
+    "gradientOpacity": 0,
+    "brightness": 0,
+    "contrast": 0,
+    "saturation": 0,
+    "blur": 0,
+    "fontFamily": "sans",
+    "weight": 500,
+    "lineHeight": 1.45,
+    "letterSpacing": -0.5,
+    "frame": false
+  }
+}

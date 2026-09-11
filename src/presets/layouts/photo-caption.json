@@ -1,0 +1,30 @@
+{
+  "id": "photo-caption",
+  "name": "Photo Caption",
+  "description": "사진 위 짧은 캡션 한두 줄. 상단 좌측.",
+  "roles": [
+    "photo"
+  ],
+  "textPlacement": "top-left",
+  "defaultFontSize": 44,
+  "textWidthRatio": 0.8,
+  "maxLines": 3,
+  "safeMargin": 80,
+  "align": "left",
+  "toneDefaults": {
+    "background": "#0a0a0a",
+    "textColor": "#ffffff",
+    "overlayOpacity": 0.2,
+    "gradient": "top",
+    "gradientOpacity": 0.5,
+    "brightness": 0,
+    "contrast": 0,
+    "saturation": 0,
+    "blur": 0,
+    "fontFamily": "sans",
+    "weight": 500,
+    "lineHeight": 1.2,
+    "letterSpacing": -1.5,
+    "frame": false
+  }
+}

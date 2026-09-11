@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "ai-mono-grid",
+  "name": "AI · Mono Grid",
+  "description": "검정 배경, 스크린샷 프레임, 리스트 중심.",
+  "palette": {
+    "background": "#050505",
+    "text": "#f2f2f2",
+    "accent": "#7dd3fc",
+    "muted": "#6b6b6b"
+  },
+  "typography": {
+    "fontFamily": "sans",
+    "headlineWeight": 700,
+    "bodyWeight": 500,
+    "letterSpacing": -1,
+    "lineHeight": 1.4
+  },
+  "tone": {},
+  "presets_by_role": {
+    "cover": "cover-bottom",
+    "photo": "cover-bottom",
+    "info": "list-editorial",
+    "quote": "quote-center",
+    "screenshot": "screenshot-frame",
+    "closing": "closing-slide"
+  },
+  "preset_overrides": {},
+  "references": []
+}

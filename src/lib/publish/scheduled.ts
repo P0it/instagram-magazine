@@ -28,8 +28,13 @@ export async function runDueScheduled(drive: DriveClient, deps: PublishDeps = {}
       ran.push({ post_id: p.post_id, result: { ok: false, status: "scheduled", error: "publish.account_key missing" } });
       continue;
     }
-    const result = await publishPost(drive, p.post_id, accountKey, deps);
-    ran.push({ post_id: p.post_id, result });
+    try {
+      const result = await publishPost(drive, p.post_id, accountKey, deps);
+      ran.push({ post_id: p.post_id, result });
+    } catch (e) {
+      // 전제 조건 실패(계정 없음 등)는 다른 포스트 실행을 막지 않는다
+      ran.push({ post_id: p.post_id, result: { ok: false, status: "scheduled", error: e instanceof Error ? e.message : String(e) } });
+    }
   }
   return { ran, skipped: Math.max(0, due.length - limit) };
 }

@@ -1,5 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { ZodError } from "zod";
 import { DriveNotFoundError } from "@/lib/drive/types";
 import { VersionConflictError } from "@/lib/drive/system-files";
@@ -21,6 +22,7 @@ export async function handle(fn: () => Promise<NextResponse<unknown>>): Promise<
   try {
     return await fn();
   } catch (e) {
+    unstable_rethrow(e); // Next 내부 bailout/redirect 는 그대로 전파
     if (e instanceof ZodError) return error(400, "Validation failed", "validation", e.issues);
     if (e instanceof PostNotFoundError || e instanceof DriveNotFoundError) return error(404, e.message, "not_found");
     if (e instanceof ConflictError || e instanceof VersionConflictError) return error(409, e.message, "conflict");

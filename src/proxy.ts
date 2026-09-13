@@ -46,8 +46,11 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/api/")) {
     return new NextResponse("Not Found", { status: 404 });
   }
-  return NextResponse.rewrite(new URL("/not-found", request.url), { status: 404 });
+  // 앱 존재를 드러내지 않는 최소 404 (rewrite 는 정적 페이지라 200 이 되므로 직접 응답)
+  return new NextResponse(NOT_FOUND_HTML, { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
+
+const NOT_FOUND_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>404: This page could not be found.</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;color:#000;background:#fff}h1{display:inline-block;margin:0 20px 0 0;padding-right:23px;font-size:24px;font-weight:500;vertical-align:top;line-height:49px;border-right:1px solid rgba(0,0,0,.3)}h2{font-size:14px;font-weight:400;line-height:49px;margin:0;display:inline-block}</style></head><body><div><h1>404</h1><h2>This page could not be found.</h2></div></body></html>`;
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],

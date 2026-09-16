@@ -1,9 +1,11 @@
 # Magazine Desk — 기술 스택 & 시스템 설계 (Claude Code 핸드오프)
 
-**Version:** 1.1 · **Date:** 2026-09-11 · **Source of truth:** `instagram-magazine-cms-prd.md`
+**Version:** 1.2 · **Date:** 2026-09-17 · **Source of truth:** `instagram-magazine-cms-prd.md`
 **용도:** 이 문서를 Claude Code에 그대로 넘겨 프로젝트를 생성한다. PRD와 충돌하면 이 문서가 우선한다.
 
 **v1.1 변경:** DB(Supabase) 완전 제거, 로그인 제거, 개인 용도 Vercel 배포 전제. 상태는 전부 Google Drive + 환경변수에만 둔다.
+
+**v1.2 변경:** 채널 4종 고정(LIFE/MIND/AI/TREND) 폐기. **Instagram 계정 = 채널.** 계정은 OAuth 로 동적으로 추가·해제하고, 키는 연결 시점의 username, Drive 폴더(`/inbox/<username>/`, `/<username>/…`)는 연결 시 자동 생성. `channels.json` 삭제, 채널 설정은 `accounts.json` 항목에 흡수. 상세: `docs/superpowers/specs/2026-09-16-dynamic-accounts-design.md`.
 
 ---
 
@@ -45,7 +47,7 @@ ChatGPT 예약 작업이 Google Drive에 떨어뜨린 초안(텍스트 + 이미�
 ### 결정 사항(PRD 대비)
 
 1. **Drive 접근은 서비스 계정.** 루트 폴더를 서비스 계정 이메일에 "편집자"로 공유. 사용자 OAuth 없음 → refresh token 만료 이슈 없음.
-2. **Inbox + Ingest 계층.** `/inbox/<CHANNEL>/`에 느슨하게 떨어진 ChatGPT 산출물을 앱이 정규화해 정식 포스트 폴더로 옮긴다.
+2. **Inbox + Ingest 계층.** `/inbox/<username>/`에 느슨하게 떨어진 ChatGPT 산출물을 앱이 정규화해 정식 포스트 폴더로 옮긴다. 폴더는 계정 연결 시 자동 생성되므로 매일 지침에는 그 폴더만 목적지로 적으면 된다.
 3. **IG 공개 이미지 URL은 자체 라우트로 중계.** `proxy.ts`에서 `/api/public/*`만 접근 키 검사에서 제외하고, 대신 HMAC 서명 토큰 + 만료로 보호.
 4. **Konva 이미지 소스는 same-origin 프록시**(`/api/drive/file/[id]`)로만 로드 (canvas taint 방지).
 5. **동시성은 낙관적 락으로.** 1인 사용이므로 `metadata.updated_at` 비교 + Drive 파일 `version`만 확인.
@@ -92,12 +94,10 @@ ChatGPT 예약 작업이 Google Drive에 떨어뜨린 초안(텍스트 + 이미�
 
 ```text
 /Instagram Magazine                      ← GOOGLE_DRIVE_ROOT_FOLDER_ID
-  /inbox/{LIFE,MIND,AI,TREND}/            ← ChatGPT 착지 지점
-  /LIFE/{draft,approved,published}/<post-folder>/
-  /MIND …  /AI …  /TREND …
+  /inbox/<username>/                      ← ChatGPT 착지 지점 (계정 연결 시 자동 생성)
+  /<username>/{draft,approved,published}/<post-folder>/
   /_system
-    channels.json        ← 채널 설정
-    accounts.json        ← IG 계정 (토큰 암호화)
+    accounts.json        ← IG 계정 = 채널 (토큰 암호화 + 채널 설정)
     index.json           ← 포스트 인덱스 캐시 (재생성 가능)
     ingest-log.json      ← 최근 인제스트 결과
     /style-packs/*.json
@@ -123,7 +123,7 @@ ChatGPT 예약 작업이 Google Drive에 떨어뜨린 초안(텍스트 + 이미�
 
 ```md
 ---
-channel: LIFE
+channel: life.magazine        # 선택 — inbox 폴더가 기준
 content_type: carousel
 topic: 청년 월세 지원
 headline: "월세 내고 있다면\n이번 주 이건 확인"
@@ -169,7 +169,7 @@ visual_direction: "quiet editorial, dark photo, white sans-serif"
 
 ```ts
 status: 'needs_repair'|'draft'|'approved'|'scheduled'|'publishing'|'published'|'failed'
-fact_check_required: boolean           // 채널 규칙에서 파생 (LIFE=true)
+fact_check_required: boolean           // 계정 editorial_rules 에서 파생
 asset_mode: 'official'|'stock'|'screenshot'|'generated'|'upload'|'text_only'
 publish?: {                            // 잡 테이블 대체
   account_key: string
@@ -190,13 +190,22 @@ publish?: {                            // 잡 테이블 대체
 ### `EditorState` (editor-state.json)
 슬라이드별 `{ image: {crop, zoom, pan, brightness, contrast, saturation, overlay, gradient, blur}, text: {x, y, width, fontSize, weight, lineHeight, letterSpacing, align, color, locked} }`
 
-### `_system/accounts.json`
+### `_system/accounts.json` — 계정 = 채널 (`src/types/account.ts`)
 ```ts
-{ accounts: [{ key: 'life', ig_user_id, username,
+{ accounts: [{
+   key: AccountKey,                 // 연결 시점 IG username. 불변. Drive 폴더명 · post.channel 값
+   ig_user_id, username,            // username 은 IG 최신값; key ≠ username 이면 핸들 변경 경고
    access_token_enc: string /* AES-256-GCM base64 */,
    token_expires_at, last_refreshed_at,
-   status: 'connected'|'expiring'|'expired'|'error' }] }
+   status: 'connected'|'expiring'|'expired'|'error', last_error?,
+   drive_folder_id, inbox_folder_id, // /<key>/ , /inbox/<key>/ (연결 시 생성)
+   // ↓ 채널 설정 (PATCH /api/instagram/accounts/[key] 로만 편집)
+   name, color, default_style_pack, default_presets_by_role,
+   caption_template, default_hashtags, editorial_rules: { fact_check_required } }] }
 ```
+- OAuth 콜백 = 계정 생성. 같은 `ig_user_id` 재연결이면 토큰·username 만 갱신(키·폴더·설정 보존). 같은 key 를 다른 `ig_user_id` 가 쓰면 `username_taken`.
+- 연결 해제는 `accounts.json` 에서만 제거. Drive 폴더·포스트는 남고, 같은 username 으로 재연결하면 폴더를 재사용한다.
+- 계정 0개면 ingest·인덱스·인사이트 크론은 no-op, 화면은 "계정을 연결하세요" 빈 상태.
 
 ### `_system/index.json`
 ```ts
@@ -204,9 +213,6 @@ publish?: {                            // 잡 테이블 대체
    content_type, cover_thumb_file_id, fact_check_status, scheduled_at,
    created_at, updated_at, warnings: ('status_mismatch'|'missing_render'|…)[] }] }
 ```
-
-### `_system/channels.json`
-`[{ key, name, color, drive_folder_id, default_style_pack, default_presets_by_role, instagram_account_key, caption_template, default_hashtags, editorial_rules: {fact_check_required} }]`
 
 ### `LayoutPreset` (`src/presets/layouts/*.json`) — PRD §9 10종
 `{ id, textPlacement, defaultFontSize, textWidthRatio, maxLines, safeMargin, toneDefaults, align }`
@@ -227,7 +233,7 @@ failed → approved               재시도 준비
 ```
 
 - 폴더 위치 ≠ `metadata.status` → `warnings: ['status_mismatch']`, 복구 다이얼로그에서 "폴더 기준 / 메타 기준" 선택.
-- 승인 게이트(서버 강제): renders 수 == slides 수, 각 1080×1350, caption ≤ 2200, hashtags ≤ 30, LIFE는 fact_check approved.
+- 승인 게이트(서버 강제): renders 수 == slides 수, 각 metadata.format 의 픽셀 크기(기본 1080×1350), caption ≤ 2200, hashtags ≤ 30, `fact_check_required` 계정은 fact_check approved.
 - `publishing` 상태에 `locked_at`이 10분 이상 지났으면 stale로 보고 재시도 허용.
 
 ---
@@ -266,7 +272,7 @@ publish(post):
 
 ## 8b. 인사이트 (M6, 서버 전용 · DB 없음)
 
-앱은 업로더가 아니라 4개 인스타 계정의 **피드·성과 관리 페이지**다. 인사이트는 Graph API를 매번 라이브로 부르지 않고 **Drive 스냅샷**으로 쌓는다.
+앱은 업로더가 아니라 연결된 인스타 계정들의 **피드·성과 관리 페이지**다. 인사이트는 Graph API를 매번 라이브로 부르지 않고 **Drive 스냅샷**으로 쌓는다.
 
 ```text
 /_system/insights/<account_key>.json
@@ -278,9 +284,9 @@ publish(post):
 - 스코프: `instagram_business_manage_insights` 추가. 계정은 비즈니스/크리에이터(전환 무료).
 - 수집(`lib/insights/collect.ts`): 계정당 `GET /{ig-user-id}?fields=followers_count` + `GET /{ig-user-id}/insights?metric=reach,views,profile_views&period=day&metric_type=total_value` (어제 하루) + 최근 60일 published 게시물의 `GET /{ig-media-id}/insights`. 계정 단위로 실패 격리, `last_error` 기록.
 - 조회(`lib/insights/summarize.ts`, 순수 함수): 기간(7/28/90) 합계 + 직전 동일 기간 대비, 팔로워는 최신값 vs 직전 기간 말, 게시물당 평균 도달·저장률(saves/reach). index.json과 `post_id`로 조인해 헤드라인·썸네일·채널을 붙인다 → 채널/템플릿별 비교가 가능한 것이 인스타 기본 인사이트와의 차이.
-- 화면: 홈 상단 `작업 | 성과` 토글. 성과 = 팔로워·도달·조회·프로필 방문 타일(스파크라인) · 일별 도달 차트 · TOP 게시물(조회/저장/도달/반응) · 4채널 비교.
+- 화면: 홈 상단 `작업 | 성과` 토글. 성과 = 팔로워·도달·조회·프로필 방문 타일(스파크라인) · 일별 도달 차트 · TOP 게시물(조회/저장/도달/반응) · 계정 간 비교.
 - 전략 루프: ChatGPT 일일 태스크가 이 JSON을 읽고 다음 초안의 주제·포맷 비중을 조정한다. 대시보드는 사람이 확인하는 창.
-- Mock Drive는 4계정 × 120일 결정적 스냅샷을 시드한다.
+- Mock Drive는 시드 계정(`life.magazine`, `trend.magazine`) × 120일 결정적 스냅샷을 시드한다.
 
 ---
 
@@ -310,7 +316,10 @@ publish(post):
 | GET | `/api/drive/file/[fileId]` | 이미지 프록시 (루트 하위 검증, ETag, private cache) |
 | GET | `/api/public/[token]` | IG용 서명 URL (접근 키 제외) |
 | POST | `/api/ingest/sync` | inbox 정규화 + index.json 재생성 |
-| GET/POST/DELETE | `/api/instagram/accounts`, `/oauth/start`, `/oauth/callback` | 계정 연결/해제 |
+| GET/DELETE | `/api/instagram/accounts` | 계정(=채널) 목록(토큰 제외) / 연결 해제(폴더 보존) |
+| PATCH | `/api/instagram/accounts/[key]` | 채널 설정 편집. key·ig_user_id·토큰·폴더 id 는 바디에서 무시 |
+| POST | `/api/instagram/accounts/mock` | Mock Drive 전용 가짜 연결 (Google 모드 404) |
+| GET | `/api/instagram/oauth/start`, `/oauth/callback` | OAuth. 콜백이 username 을 키로 계정+폴더 생성 |
 | GET | `/api/cron/publish` | (1.1) `scheduled` 중 run_at ≤ now 실행. Bearer CRON_SECRET |
 | GET | `/api/insights?range=7\|28\|90` | (M6) `_system/insights/*.json` 스냅샷 → 계정 요약·시계열·게시물 지표 |
 | POST | `/api/insights/collect` | (M6) 사용자가 "지금 수집" — 모든 연결 계정 인사이트 수집 |
@@ -328,7 +337,7 @@ src/
     (desk)/home/  publish/[postId]/  queue/  settings/   (dashboard·library 는 /home 리다이렉트)
     (builder)/layout.tsx          ← 빌더는 자체 헤더 (상단 바 없음)
     (builder)/editor/[postId]/
-    (desk)/settings/{accounts,channels,style-packs,drive}/
+    (desk)/settings/{accounts,style-packs,drive}/
     api/…                         ← §10
   components/ shell/{TopBar}  md/{Segmented,StageBadge,…Montage 프리미티브}  home/{HomeBoard}
               editor/{Canvas,LeftPanel,StageArea,RightPanel,SlideStrip,PreviewMode}

@@ -14,7 +14,7 @@ cp .env.example .env.local      # 기본값: DRIVE_CLIENT=mock, APP_ACCESS_KEY �
 npm run dev                     # http://localhost:3000 → /home
 ```
 
-Mock 모드는 인메모리 Drive 에 채널별 샘플 포스트(draft/approved/published/failed/scheduled/needs_repair)와 inbox 샘플(.md + .png)이 시드된다. 상단 바의 **Drive 새로고침**을 누르면 inbox 샘플이 "초안" 카드로 나타난다. 서버 재시작 시 초기화.
+Mock 모드는 인메모리 Drive 에 시드 계정 2개(`life.magazine`, `trend.magazine`)와 계정별 샘플 포스트(draft/approved/published/failed/scheduled/needs_repair)와 inbox 샘플(.md + .png)이 시드된다. 상단 바의 **Drive 새로고침**을 누르면 inbox 샘플이 "초안" 카드로 나타난다. 서버 재시작 시 초기화.
 
 ```bash
 npm run typecheck   # tsc --noEmit
@@ -31,7 +31,16 @@ npm run build
 | `/editor/[postId]` | 빌더. 좌: 프리셋(내장 10 + **스크린샷으로 만든 내 프리셋**) / 요소(스티커·아이콘·**밈 누끼**) / 레이어, 중앙: Konva 캔버스(폭 1080, 높이는 **포스트 규격** 4:5·3:4·1:1·1.91:1) + 선택 툴바 + 안전 영역 + 줌, 우: 텍스트(폰트 7종)·이미지·요소·포스트 패널, 하단 슬라이드 스트립. **자동 저장**(1.5s) + 유휴 렌더(12s), undo/redo, 미리보기, **게시 바텀시트** |
 | `/publish/[postId]` | 게시 기록 · 승인 체크리스트(서버 강제) · 상태 전이 · status_mismatch 복구 · 재게시 · 그리드 미리보기 |
 | `/queue` | publishing / scheduled / failed / approved 목록, 재시도, 예약 취소 (상단 바 아이콘) |
-| `/settings/*` | Instagram 계정(OAuth·해제), 채널(channels.json), 스타일팩(임포트·채널 기본값), Drive·시스템 |
+| `/settings/*` | 계정 · 채널(OAuth 연결/해제, inbox 폴더 링크, 채널 설정), 스타일팩(임포트·계정 기본값), Drive·시스템 |
+
+## AI · 브라우저 처리
+
+- **스크린샷 → 프리셋** (`POST /api/presets/analyze`): 마음에 든 피드 스크린샷을 올리면 비전 모델이 텍스트 위치·크기·정렬·톤을 읽어 "기본 프리셋 + 오버라이드"로 만들고, 이름을 붙여 `_system/custom-presets.json` 에 저장한다. 호출 순서는 `ANTHROPIC_API_KEY`(또는 `ANTHROPIC_AUTH_TOKEN`)가 있으면 `@anthropic-ai/sdk`, 없으면 **이 PC 에 로그인된 Claude Code CLI(구독)** 를 `claude -p --output-format json` 으로 실행(서버가 로컬 PC 에서 돌 때만 동작). 결과는 항상 Zod 로 검증.
+- **밈 누끼**: `@imgly/background-removal` 로 **브라우저 안에서** 배경을 지운다(외부 서비스·키 없음). 처음 한 번 모델(~40MB)을 내려받는다. 결과 PNG 는 포스트 `assets/cutout_NN.png` 로 올라가 누끼 라이브러리가 되고, 레이어(`kind: cutout`)로 캔버스에 얹는다.
+- **피드 규격**: 포스트 패널에서 4:5(기본) · 3:4(새 그리드 비율) · 1:1(재활용) · 1.91:1(링크 카드) 선택. 전환 시 텍스트·레이어 세로 좌표를 비례 이동. 승인 게이트·렌더 업로드가 규격 픽셀을 검사한다.
+- **폰트**: 캔버스용 7종(Noto Sans/Serif KR, 나눔명조, 송명, 고운돋움, Black Han Sans, 개구) 전부 `next/font` self-host → 내보내기 결정적.
+
+이미 dev 서버가 떠 있으면 `npx playwright test -c playwright.existing.config.ts` (기본 http://localhost:3000, `E2E_BASE_URL` 로 변경).
 
 ## Google Drive 연결 (M2)
 
@@ -55,11 +64,11 @@ base64 -w0 service-account.json
 
 ## ChatGPT 예약 작업 계약 (inbox)
 
-`inbox/<CHANNEL>/` 에 다음 파일을 올린다. 파일명 접두 `YYYY-MM-DD_slug`, 이미지는 같은 접두 + `_1.png`, `_2.png` …
+`inbox/<username>/` (설정 › 계정 카드의 inbox 링크) 에 다음 파일을 올린다. 파일명 접두 `YYYY-MM-DD_slug`, 이미지는 같은 접두 + `_1.png`, `_2.png` …
 
 ```md
 ---
-channel: LIFE
+channel: life.magazine        # 선택 — inbox 폴더가 기준
 content_type: carousel
 topic: 청년 월세 지원
 headline: "월세 내고 있다면\n이번 주 이건 확인"
@@ -89,8 +98,9 @@ Instagram API with Instagram Login 을 사용한다 (Facebook 페이지 연결 �
 1. [Meta for Developers](https://developers.facebook.com) 에서 앱 생성 → **Instagram** 제품 추가 → "API setup with Instagram login".
 2. 리디렉션 URI 에 `https://<app>.vercel.app/api/instagram/oauth/callback` 등록 (로컬은 `http://localhost:3000/...`).
 3. 환경변수 `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI` 설정.
-4. 앱 → 설정 → Instagram 계정 → 계정 키(예: `life`) 선택 → **Instagram 으로 연결**. 장기 토큰(60일)이 `_system/accounts.json` 에 AES-256-GCM 으로 저장된다.
-5. 채널 설정의 `instagram_account_key` 가 이 키와 일치해야 게시 시트에서 기본 선택된다.
+4. 앱 → 설정 → 계정 · 채널 → **Instagram 계정 연결**. 장기 토큰(60일)이 `_system/accounts.json` 에 AES-256-GCM 으로 저장된다.
+5. 연결된 username 이 곧 채널 키. Drive 에 `/inbox/<username>/` 과 `/<username>/{draft,approved,published}/` 가 자동 생성되고, 계정 카드에 inbox 폴더 링크가 표시된다. 매일 지침에는 그 링크만 목적지로 적으면 된다.
+6. 계정 카드를 펼치면 채널 이름·색·기본 스타일팩·역할별 프리셋·캡션 템플릿·기본 해시태그·팩트체크 필수 여부를 편집할 수 있다. Mock 모드에서는 "가짜 연결" 로 같은 흐름을 시험할 수 있다.
 
 토큰은 앱을 열 때(`/api/system/status`) 만료 7일 이내면 자동 갱신된다. 브라우저에는 `username / status / expires_at` 만 내려간다.
 
@@ -147,15 +157,15 @@ vercel --prod
 
 ```text
 /Instagram Magazine
-  /inbox/{LIFE,MIND,AI,TREND}/
-  /<CH>/{draft,approved,published}/<YYYY-MM-DD_slug>/
+  /inbox/<username>/                       ← 계정 연결 시 자동 생성
+  /<username>/{draft,approved,published}/<YYYY-MM-DD_slug>/
       metadata.json        PostMetadata (status, slides[], caption, hashtags, publish{…})
       sources.json         SourcesFile (fact_check_status, items[])
       visual-brief.json    VisualBrief
       editor-state.json    EditorState (슬라이드별 image/text 좌표·톤)
       /assets/source_NN.*  /renders/slide_NN.jpg  /_inbox_original/
   /_system
-      channels.json · accounts.json(토큰 암호화) · index.json(캐시) · ingest-log.json · /style-packs/*.json
+      accounts.json(계정=채널, 토큰 암호화) · index.json(캐시) · ingest-log.json · /style-packs/*.json
 ```
 
 상태 머신: `needs_repair → draft → approved ⇄ scheduled → publishing → published | failed → approved`. 폴더 위치와 `metadata.status` 가 어긋나면 인덱스에 `status_mismatch` 경고가 붙고 게시 화면에서 폴더 기준 / 메타 기준으로 복구한다.

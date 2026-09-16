@@ -7,7 +7,8 @@ test("home 3-stage board → builder → preset switch → sticker → export 10
   page.on("pageerror", (e) => errors.push(e.message));
 
   await page.goto("/home");
-  await expect(page.getByRole("heading", { name: /LIFE — 생활·주거/ })).toBeVisible();
+  // 계정 목록은 system status 에서 오므로 콜드 스타트 땐 조금 기다린다
+  await expect(page.getByRole("heading", { name: /@life\.magazine — 라이프/ })).toBeVisible({ timeout: 30_000 });
   // 3단계 세그먼트
   await expect(page.getByRole("tab", { name: /^초안 \d+/ })).toBeVisible();
   await expect(page.getByRole("tab", { name: /^편집 중 \d+/ })).toBeVisible();
@@ -64,7 +65,7 @@ test("publish sheet blocks on fact-check, publish page shows checklist", async (
   await expect(page.locator("canvas").first()).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "게시", exact: true }).click();
   await expect(page.getByRole("heading", { name: "인스타그램에 게시할까요?" })).toBeVisible();
-  // LIFE 는 팩트체크 필수 → CTA 비활성 + 사유 표시
+  // life.magazine 은 팩트체크 필수 → CTA 비활성 + 사유 표시
   await expect(page.getByRole("button", { name: /인스타그램에 게시하기/ })).toBeDisabled();
   await expect(page.getByText(/팩트체크 승인/)).toBeVisible();
 
@@ -74,10 +75,29 @@ test("publish sheet blocks on fact-check, publish page shows checklist", async (
   await expect(page.getByRole("button", { name: "승인" })).toBeDisabled();
 });
 
+test("mock connect adds a channel tab and an inbox folder; disconnect removes the tab", async ({ page }) => {
+  await page.goto("/settings/accounts");
+  await page.getByLabel("Mock 계정 username").fill("@New.Channel");
+  await page.getByRole("button", { name: "가짜 연결" }).click();
+  await expect(page.getByText(/inbox\/new\.channel\//)).toBeVisible();
+  // 상단바에 채널 탭이 생기고 홈이 빈 보드로 열린다
+  await expect(page.getByRole("navigation").getByRole("button", { name: "new.channel" })).toBeVisible();
+  await page.goto("/home?ch=new.channel");
+  await expect(page.getByRole("heading", { name: /@new\.channel/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("tab", { name: /^초안 0/ })).toBeVisible();
+  // 연결 해제 → 탭 사라짐
+  await page.goto("/settings/accounts");
+  await page.getByTestId("account-card-new.channel").getByRole("button", { name: "연결 해제" }).click();
+  await expect(page.getByTestId("account-card-new.channel")).toHaveCount(0);
+  await expect(page.getByRole("navigation").getByRole("button", { name: "new.channel" })).toHaveCount(0);
+});
+
 test("settings and queue render under the top bar", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "설정" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "인스타그램 계정" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "계정 · 채널" })).toBeVisible();
+  await expect(page.getByTestId("account-card-life.magazine")).toBeVisible();
+  await expect(page.getByTestId("account-card-trend.magazine")).toBeVisible();
   await page.goto("/queue");
   await expect(page.getByRole("heading", { name: /게시 큐/ })).toBeVisible();
 });
@@ -101,7 +121,7 @@ test("home 성과 tab shows insight tiles, top posts and channel comparison from
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
 
-  await page.goto("/home?ch=TREND");
+  await page.goto("/home?ch=trend.magazine");
   await page.getByRole("tab", { name: "성과" }).click();
   await expect(page.getByText("프로필 방문")).toBeVisible();
   await expect(page.getByRole("heading", { name: /일별 도달/ })).toBeVisible();
@@ -113,12 +133,28 @@ test("home 성과 tab shows insight tiles, top posts and channel comparison from
   await page.getByRole("tab", { name: "7일" }).click();
   await expect(page.getByRole("heading", { name: /일별 도달 · 7일/ })).toBeVisible();
 
-  // 계정 없는 mock 에서 수집은 안내 토스트
+  // Mock 계정의 가짜 토큰으로는 IG API 수집이 실패 → 실패 토스트 (계정 2개)
   await page.getByRole("button", { name: "지금 수집" }).click();
-  await expect(page.getByText(/연결된 Instagram 계정이 없어요/)).toBeVisible();
+  await expect(page.getByText(/수집 0\/\d+ · 실패/)).toBeVisible({ timeout: 20_000 });
 
   expect(errors).toEqual([]);
 });
+
+test("post format 1:1 → export 1080x1080, fonts and element library are present", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(`/editor/${POST}`);
+  await expect(page.locator("canvas").first()).toBeVisible({ timeout: 15_000 });
+
+  // 포스트 패널에서 규격 전환
+  await page.keyboard.press("Escape");
+  // 이전 실행이 남긴 규격과 무관하게 실제 전환이 한 번은 일어나도록 3:4 를 거쳐 1:1 로
+  await page.getByRole("tab", { name: "3:4", exact: true }).click();
+  await page.waitForTimeout(2500);
+  await page.getByRole("tab", { name: "1:1", exact: true }).click();
+  await expect(page.getByText("1:1 · 1080 × 1080")).toBeVisible();
+  await expect(page.getByText(/저장됨 · 방금/)).toBeVisible({ timeout: 10_000 });
+
   const downloads: Promise<import("@playwright/test").Download>[] = [];
   page.on("download", (d) => downloads.push(Promise.resolve(d)));
   await page.getByRole("button", { name: /JPEG 내려받기/ }).click();
@@ -145,3 +181,5 @@ test("home 성과 tab shows insight tiles, top posts and channel comparison from
   await page.keyboard.press("Escape");
   await page.getByRole("tab", { name: "4:5", exact: true }).click();
   await expect(page.getByText(/저장됨 · 방금/)).toBeVisible({ timeout: 10_000 });
+  expect(errors).toEqual([]);
+});

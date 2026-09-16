@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Bookmark, Eye, RefreshCw, Users } from "lucide-react";
-import type { AccountDay, AccountSummary, ChannelKey, InsightsRange, MediaRow, MetricDelta } from "@/types";
-import { CHANNEL_KEYS } from "@/types";
+import type { AccountDay, AccountKey, AccountSummary, InsightsRange, MediaRow, MetricDelta, PublicAccount } from "@/types";
 import { useCollectInsights, useInsights } from "@/lib/client/queries";
-import { CHANNEL_META, channelGround } from "@/lib/client/channel";
+import { accountMeta, useAccountList, useChannelMeta } from "@/lib/client/channel";
+import { ImagePlaceholder } from "@/components/md/placeholder";
+import { CardGridSkeleton, Skeleton } from "@/components/md/skeleton";
 import { driveFileUrl } from "@/lib/client/api";
 import { fmtDay, fmtRelative } from "@/lib/client/format";
 import { pctChange } from "@/lib/insights/summarize";
@@ -18,13 +19,14 @@ const TOP_METRIC_LABEL: Record<TopMetric, string> = { views: "조회", saves: "�
 
 const RANGE_LABEL: Record<InsightsRange, string> = { "7": "7일", "28": "28일", "90": "90일" };
 
-/** 홈 "성과" 탭 — 선택 채널 계정 요약 · 추이 · TOP 게시물 · 4채널 비교. 데이터는 Drive 스냅샷. */
-export function InsightsBoard({ channel }: { channel: ChannelKey }) {
+/** 홈 "성과" 탭 — 선택 계정 요약 · 추이 · TOP 게시물 · 계정 간 비교. 데이터는 Drive 스냅샷. */
+export function InsightsBoard({ channel }: { channel: AccountKey }) {
   const [range, setRange] = useState<InsightsRange>("28");
   const [topMetric, setTopMetric] = useState<TopMetric>("views");
   const insights = useInsights(range);
   const collect = useCollectInsights();
-  const meta = CHANNEL_META[channel];
+  const meta = useChannelMeta(channel);
+  const { accounts: connected } = useAccountList();
   const now = insights.dataUpdatedAt;
 
   const mine = insights.data?.accounts.find((a) => a.channel === channel) ?? null;
@@ -70,7 +72,7 @@ export function InsightsBoard({ channel }: { channel: ChannelKey }) {
       ) : !mine || (mine.series.length === 0 && mine.followers.value === 0) ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface px-5 py-[100px] text-center">
           <p className="max-w-[360px] text-[15px] leading-normal text-label-alt">
-            아직 {meta.short} 계정의 인사이트가 없어요. 설정에서 Instagram 비즈니스 계정을 연결하고 &ldquo;지금 수집&rdquo;을 누르면 여기 쌓여요.
+            아직 @{meta.handle} 계정의 인사이트가 없어요. 설정에서 Instagram 비즈니스 계정을 연결하고 &ldquo;지금 수집&rdquo;을 누르면 여기 쌓여요.
           </p>
           <Link href="/settings/accounts" className="text-[13px] font-semibold text-brand">
             계정 연결 →
@@ -113,7 +115,7 @@ export function InsightsBoard({ channel }: { channel: ChannelKey }) {
             ) : (
               <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
                 {top.map((m, i) => (
-                  <TopCard key={m.ig_media_id} m={m} rank={i + 1} metric={topMetric} color={meta.color} />
+                  <TopCard key={m.ig_media_id} m={m} rank={i + 1} metric={topMetric} />
                 ))}
               </div>
             )}
@@ -121,7 +123,7 @@ export function InsightsBoard({ channel }: { channel: ChannelKey }) {
 
           <section className="rounded-2xl bg-surface p-5 hairline">
             <h2 className="mb-4 text-[15px] font-semibold">채널 비교 · {RANGE_LABEL[range]}</h2>
-            <ChannelCompare accounts={insights.data?.accounts ?? []} current={channel} />
+            <ChannelCompare connected={connected} accounts={insights.data?.accounts ?? []} current={channel} />
           </section>
         </>
       )}
@@ -221,14 +223,14 @@ function TopCard({ m, rank, metric }: { m: MediaRow; rank: number; metric: TopMe
   const href = m.post_id ? `/editor/${encodeURIComponent(m.post_id)}` : "#";
   return (
     <Link href={href} className="flex flex-col gap-2 transition-transform duration-200 hover:-translate-y-[3px]">
-      <div className="relative aspect-[4/5] overflow-hidden rounded-xl hairline-neutral" style={{ background: channelGround(color, rank) }}>
-        {m.cover_thumb_file_id && (
+      <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-fill-alt hairline-neutral">
+        {m.cover_thumb_file_id ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={driveFileUrl(m.cover_thumb_file_id)} alt="" className="size-full object-cover" loading="lazy" />
-        )}
-        <span className="absolute left-2.5 top-2.5 grid size-6 place-items-center rounded-full bg-white text-[12px] font-bold text-black">{rank}</span>
         ) : (
           <ImagePlaceholder label={m.headline.split("\n")[0]} />
+        )}
+        <span className="absolute left-2.5 top-2.5 grid size-6 place-items-center rounded-full bg-white text-[12px] font-bold text-black">{rank}</span>
         <div className="absolute inset-x-0 bottom-0 px-3 pb-2.5 pt-8 text-white" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))" }}>
           <div className="text-[20px] font-bold leading-none tabular-nums">{fmtNum(m[metric])}</div>
           <div className="text-[11px] opacity-80">{TOP_METRIC_LABEL[metric]}</div>
@@ -244,16 +246,15 @@ function TopCard({ m, rank, metric }: { m: MediaRow; rank: number; metric: TopMe
   );
 }
 
-function ChannelCompare({ accounts, current }: { accounts: AccountSummary[]; current: ChannelKey }) {
-  const rows = CHANNEL_KEYS.map((ch) => ({ ch, a: accounts.find((x) => x.channel === ch) ?? null }));
+function ChannelCompare({ connected, accounts, current }: { connected: PublicAccount[]; accounts: AccountSummary[]; current: AccountKey }) {
+  const rows = connected.map((acc) => ({ ch: acc.key, c: accountMeta(acc), a: accounts.find((x) => x.channel === acc.key) ?? null }));
   const maxReach = Math.max(1, ...rows.map((r) => r.a?.reach.value ?? 0));
   return (
     <div className="grid gap-x-6 gap-y-2 text-[13px]" style={{ gridTemplateColumns: "auto 1fr auto auto auto" }}>
       <div className="contents text-[12px] text-label-alt">
         <span>채널</span><span>도달</span><span className="text-right">팔로워</span><span className="text-right">게시물</span><span className="text-right">저장률</span>
       </div>
-      {rows.map(({ ch, a }) => {
-        const c = CHANNEL_META[ch];
+      {rows.map(({ ch, c, a }) => {
         const on = ch === current;
         return (
           <div key={ch} className={cn("contents", on ? "font-semibold" : "text-label-neutral")}>

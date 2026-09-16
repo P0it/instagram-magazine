@@ -5,9 +5,9 @@ import { Check, CircleCheck, ExternalLink } from "lucide-react";
 import { formatDims, type PostBundle, type PostStatus } from "@/types";
 import type { EditorSnapshot } from "@/stores/editor-store";
 import { api } from "@/lib/client/api";
-import { useAccounts, useInvalidatePosts, useSystemStatus } from "@/lib/client/queries";
+import { useAccounts, useInvalidatePosts } from "@/lib/client/queries";
 import { evaluateApprovalGate } from "@/lib/metadata/approval-gate";
-import { CHANNEL_META } from "@/lib/client/channel";
+import { useChannelMeta } from "@/lib/client/channel";
 import { fmtTime } from "@/lib/client/format";
 import { Segmented } from "@/components/md/segmented";
 import { fieldClass } from "@/components/md/primitives";
@@ -38,8 +38,9 @@ function SheetBody({ onClose, snapshot, prepare, onDone }: SheetProps) {
   const accounts = useAccounts();
   const invalidate = useInvalidatePosts();
   const m = snapshot.metadata;
-  const meta = CHANNEL_META[m.channel];
-  const channelAccountKey = status.data?.channels.find((c) => c.key === m.channel)?.instagram_account_key ?? null;
+  const meta = useChannelMeta(m.channel);
+  // 계정 = 채널: 포스트의 channel 이 곧 게시 계정 키
+  const channelAccountKey = m.channel;
   const list = useMemo(() => accounts.data?.accounts ?? [], [accounts.data]);
   const [pickedKey, setPickedKey] = useState<string | null>(null);
   const accountKey = pickedKey ?? m.publish?.account_key ?? channelAccountKey ?? list[0]?.key ?? "";
@@ -135,11 +136,11 @@ function SheetBody({ onClose, snapshot, prepare, onDone }: SheetProps) {
                   const bad = a.status === "expired" || a.status === "error";
                   return (
                     <button key={a.key} type="button" onClick={() => setAccountKey(a.key)} className={cn("flex items-center gap-3 rounded-xl px-3.5 py-3 text-left", on ? "bg-fill" : "bg-fill-alt hover:bg-fill")}>
-                      <div className="size-10 shrink-0 rounded-full" style={{ background: a.key === channelAccountKey ? meta.color : "var(--semantic-interaction-inactive)" }} />
+                      <AvatarPlaceholder size={40} ring={a.key === channelAccountKey ? meta.color : undefined} />
                       <div className="flex flex-1 flex-col gap-0.5">
                         <span className="text-[15px] font-semibold">@{a.username}</span>
                         <span className={cn("text-[13px]", bad ? "text-negative" : "text-label-alt")}>
-                          {a.key === channelAccountKey ? `${m.channel} 채널 기본 계정` : a.key}
+                          {a.key === channelAccountKey ? `이 채널의 계정` : `다른 채널 · ${a.name || a.key}`}
                           {bad ? " · 토큰 만료 — 재연결 필요" : a.status === "expiring" ? " · 만료 임박" : ""}
                         </span>
                       </div>

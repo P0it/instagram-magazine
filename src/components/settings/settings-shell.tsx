@@ -7,9 +7,8 @@ import { ChevronLeft } from "lucide-react";
 import { Segmented } from "@/components/md/segmented";
 
 const TABS = [
-  { href: "/settings/accounts", label: "인스타그램 계정" },
+  { href: "/settings/accounts", label: "계정 · 채널" },
   { href: "/settings/drive", label: "Google Drive" },
-  { href: "/settings/channels", label: "채널" },
   { href: "/settings/style-packs", label: "스타일팩" },
 ] as const;
 

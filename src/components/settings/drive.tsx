@@ -2,18 +2,17 @@
 
 import { useState } from "react";
 import { ChevronRight, CircleCheck } from "lucide-react";
-import { CHANNEL_KEYS } from "@/types";
 import { useSync, useSystemStatus } from "@/lib/client/queries";
 import { fmtTime } from "@/lib/client/format";
 import { SettingsRow, SettingsSection } from "./settings-shell";
 import { cn } from "@/lib/utils";
 
 const TREE = `/Instagram Magazine                      <- GOOGLE_DRIVE_ROOT_FOLDER_ID
-  /inbox/{LIFE,MIND,AI,TREND}/            <- ChatGPT 착지 지점: YYYY-MM-DD_slug.md + _1.png ...
-  /LIFE/{draft,approved,published}/<post>/
+  /inbox/<username>/                      <- 계정 연결 시 자동 생성. ChatGPT 착지 지점: YYYY-MM-DD_slug.md + _1.png ...
+  /<username>/{draft,approved,published}/<post>/
       metadata.json · sources.json · visual-brief.json · editor-state.json
       /assets/source_01.png ... · /renders/slide_01.jpg ... · /_inbox_original/
-  /_system/channels.json · accounts.json(암호화) · index.json(캐시) · ingest-log.json · /style-packs/*.json`;
+  /_system/accounts.json(암호화) · index.json(캐시) · ingest-log.json · /style-packs/*.json`;
 
 export function DriveSettings() {
   const status = useSystemStatus();
@@ -60,11 +59,12 @@ export function DriveSettings() {
           </div>
           {checked && (
             <div className="flex flex-col gap-2">
-              {CHANNEL_KEYS.map((c) => (
-                <div key={c} className="flex items-center gap-2 text-[13px]">
+              {(s?.accounts ?? []).length === 0 && <span className="text-[13px] text-label-alt">연결된 계정이 없어 확인할 inbox 폴더가 없어요.</span>}
+              {(s?.accounts ?? []).map((a) => (
+                <div key={a.key} className="flex items-center gap-2 text-[13px]">
                   <CircleCheck className="size-4 text-positive" />
-                  <span className="font-semibold">{c}</span>
-                  <span className="text-label-alt">초안 폴더 확인 · 동기화 완료</span>
+                  <span className="font-semibold">@{a.key}</span>
+                  <span className="text-label-alt">inbox 폴더 확인 · 동기화 완료</span>
                 </div>
               ))}
             </div>
@@ -81,7 +81,7 @@ export function DriveSettings() {
             {s.recent_ingest.map((e, i) => (
               <div key={i} className="flex items-center gap-3 px-5 py-2.5 text-xs" style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
                 <span className="w-24 shrink-0 text-label-alt">{fmtTime(e.at)}</span>
-                <span className="w-10 shrink-0 font-semibold">{e.channel}</span>
+                <span className="w-28 shrink-0 truncate font-semibold">@{e.channel}</span>
                 <span className="min-w-0 flex-1 truncate font-mono">{e.prefix}</span>
                 <span className={cn("shrink-0 rounded px-1.5 py-0.5", e.result === "created" ? "text-positive" : e.result === "needs_repair" || e.result === "error" ? "text-negative" : "bg-fill text-label-alt")} style={e.result === "created" ? { background: "var(--semantic-background-status-positive)" } : e.result === "needs_repair" || e.result === "error" ? { background: "var(--semantic-background-status-negative)" } : undefined}>
                   {e.result}

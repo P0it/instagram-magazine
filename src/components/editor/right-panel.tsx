@@ -10,7 +10,7 @@ import { api, driveFileUrl } from "@/lib/client/api";
 import { useInvalidatePosts, useSystemStatus } from "@/lib/client/queries";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/metadata/approval-gate";
 import { iconLabel, stickerDef } from "@/lib/render/stickers";
-import { CHANNEL_META } from "@/lib/client/channel";
+import { useAccount } from "@/lib/client/channel";
 import { Segmented } from "@/components/md/segmented";
 import { Collapsible, PaletteGrid, PanelLabel, RangeRow, fieldClass } from "@/components/md/primitives";
 import { cn } from "@/lib/utils";
@@ -201,7 +201,8 @@ function LayerPanel({ slide, state, layer: L }: { slide: SlideDef; state: SlideE
   const updateLayer = useEditorStore((s) => s.updateLayer);
   const removeLayer = useEditorStore((s) => s.removeLayer);
   const moveLayer = useEditorStore((s) => s.moveLayer);
-  const channel = useEditorStore((s) => s.snapshot?.metadata.channel ?? "LIFE");
+  const channel = useEditorStore((s) => s.snapshot?.metadata.channel);
+  const channelColor = useAccount(channel)?.color ?? "#171717";
   const set = (patch: Partial<SlideLayer>) => updateLayer(slide.id, L.id, patch);
   const def = L.kind === "sticker" ? stickerDef(L.key) : null;
   const name = L.kind === "cutout" ? "누끼 PNG" : L.kind === "icon" ? `아이콘 · ${iconLabel(L.key)}` : `스티커 · ${def?.label ?? ""}`;
@@ -215,8 +216,8 @@ function LayerPanel({ slide, state, layer: L }: { slide: SlideDef; state: SlideE
         <span className="flex-1 text-[13px] font-semibold">{name}</span>
         <span className="text-[11px] text-label-alt">순서 {idx + 1} / {state.layers.length}</span>
       </div>
-      <RangeRow label="크기" value={L.width} display={`${Math.round((L.width / 1080) * 100)}%`} min={60} max={1080} step={2} onChange={(v) => set({ width: v, height: L.height !== undefined ? Math.round((L.height * v) / L.width) : undefined })} />
       {L.kind === "cutout" && <span className="text-xs leading-normal text-label-assistive">브라우저에서 배경을 지운 투명 PNG예요. 크기·회전은 선택 프레임으로도 조정할 수 있어요.</span>}
+      <RangeRow label="크기" value={L.width} display={`${Math.round((L.width / 1080) * 100)}%`} min={60} max={1080} step={2} onChange={(v) => set({ width: v, height: L.height !== undefined ? Math.round((L.height * v) / L.width) : undefined })} />
       <RangeRow label="회전" value={L.rotation} display={`${L.rotation}°`} min={-180} max={180} step={1} onChange={(v) => set({ rotation: v })} />
       <RangeRow label="불투명도" value={L.opacity} display={`${Math.round(L.opacity * 100)}%`} min={0.1} max={1} step={0.01} onChange={(v) => set({ opacity: v })} />
       {hasText && (
@@ -230,9 +231,9 @@ function LayerPanel({ slide, state, layer: L }: { slide: SlideDef; state: SlideE
           </Collapsible>
         </>
       )}
-      <Collapsible title={colorLabel} summary={<span className="size-3.5 rounded-full" style={{ background: L.color, boxShadow: "inset 0 0 0 1px rgba(23,23,25,0.2)" }} />}>
-        <PaletteGrid value={L.color} onChange={(c) => set({ color: c })} extra={CHANNEL_META[channel].color} />
-      </Collapsible>
+      {L.kind !== "cutout" && <Collapsible title={colorLabel} summary={<span className="size-3.5 rounded-full" style={{ background: L.color, boxShadow: "inset 0 0 0 1px rgba(23,23,25,0.2)" }} />}>
+        <PaletteGrid value={L.color} onChange={(c) => set({ color: c })} extra={channelColor} />
+      </Collapsible>}
       <Collapsible title="정렬 · 순서">
         <div className="grid grid-cols-2 gap-2">
           <PanelButton onClick={() => set({ flip: !L.flip })}>좌우 반전</PanelButton>
@@ -257,13 +258,13 @@ function PostPanel({ onDownload }: { onDownload: () => void }) {
   const snap = useEditorStore((s) => s.snapshot);
   const updateMetadata = useEditorStore((s) => s.updateMetadata);
   const setFactCheck = useEditorStore((s) => s.setFactCheck);
-  const status = useSystemStatus();
   const setFormat = useEditorStore((s) => s.setFormat);
+  const status = useSystemStatus();
   if (!snap) return null;
   const m = snap.metadata;
   const src = snap.sources;
   const captionTotal = m.caption.length + m.hashtags.reduce((n, h) => n + h.length + 2, 0);
-  const channelTags = status.data?.channels.find((c) => c.key === m.channel)?.default_hashtags ?? [];
+  const channelTags = status.data?.accounts.find((a) => a.key === m.channel)?.default_hashtags ?? [];
 
   return (
     <div className="flex flex-col gap-[18px] px-4 pb-8 pt-4">

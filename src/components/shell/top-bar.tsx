@@ -4,10 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { RefreshCw, Settings, ListOrdered } from "lucide-react";
-import { CHANNEL_KEYS } from "@/types";
 import { cn } from "@/lib/utils";
 import { useSync, useSystemStatus, usePosts } from "@/lib/client/queries";
-import { CHANNEL_META, useChannel } from "@/lib/client/channel";
+import { accountMeta, useAccountList, useChannel } from "@/lib/client/channel";
 import { GhostIcon } from "@/components/md/primitives";
 
 function syncLabel(iso: string | null | undefined): string {
@@ -19,10 +18,11 @@ function syncLabel(iso: string | null | undefined): string {
   return `마지막 동기화 ${d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })}`;
 }
 
-/** 목업 S-01 상단 바: 로고 · 채널 탭 · 동기화 · 설정 (56px) */
+/** 목업 S-01 상단 바: 로고 · 채널(=계정) 탭 · 동기화 · 설정 (56px). 계정 0개면 탭이 비어 있다. */
 export function TopBar() {
   const pathname = usePathname();
   const [channel, setChannel] = useChannel();
+  const { accounts } = useAccountList();
   const status = useSystemStatus();
   const sync = useSync();
   const posts = usePosts({});
@@ -45,22 +45,24 @@ export function TopBar() {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-6 bg-surface px-5" style={{ boxShadow: "inset 0 -1px 0 var(--semantic-line-solid-neutral)" }}>
       <div className="flex min-w-0 items-center gap-5">
-        <Link href={`/home?ch=${channel}`} className="flex items-center gap-2 pr-1">
+        <Link href={channel ? `/home?ch=${channel}` : "/home"} className="flex items-center gap-2 pr-1">
           <span className="size-5 rounded-md" style={{ background: "linear-gradient(135deg, var(--semantic-primary-normal), var(--semantic-accent-background-violet))" }} />
           <span className="text-[15px] font-semibold tracking-[-0.01em]">Magazine Desk</span>
         </Link>
         <nav className="flex items-center gap-0.5">
-          {CHANNEL_KEYS.map((c) => {
-            const on = c === channel && !inSettings && !inQueue;
+          {accounts.map((a) => {
+            const m = accountMeta(a);
+            const on = a.key === channel && !inSettings && !inQueue;
             return (
               <button
                 key={a.key}
                 type="button"
-                onClick={() => setChannel(c)}
+                onClick={() => setChannel(a.key)}
+                title={`@${m.handle}`}
                 className="flex items-center gap-[7px] rounded-lg px-3 py-[7px] text-sm transition-colors hover:bg-fill-alt"
               >
-                <span className="size-[7px] rounded-full" style={{ background: CHANNEL_META[c].color }} />
-                <span className={cn("tracking-[0.01em]", on ? "font-bold text-label" : "font-medium text-label-alt")}>{c}</span>
+                <span className="size-[7px] rounded-full" style={{ background: m.color }} />
+                <span className={cn("tracking-[0.01em]", on ? "font-bold text-label" : "font-medium text-label-alt")}>{m.name}</span>
               </button>
             );
           })}
@@ -71,7 +73,7 @@ export function TopBar() {
         <GhostIcon title="Drive 새로고침" onClick={() => sync.mutate()} disabled={sync.isPending} className="rounded-full">
           <RefreshCw className={cn("size-[18px] opacity-70", sync.isPending && "animate-spin")} />
         </GhostIcon>
-        <Link href={`/queue?ch=${channel}`} title="게시 큐" className={cn("relative grid size-8 place-items-center rounded-full hover:bg-fill", inQueue && "bg-fill")}>
+        <Link href={channel ? `/queue?ch=${channel}` : "/queue"} title="게시 큐" className={cn("relative grid size-8 place-items-center rounded-full hover:bg-fill", inQueue && "bg-fill")}>
           <ListOrdered className="size-[18px] opacity-70" />
           {queued > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">{queued}</span>}
         </Link>

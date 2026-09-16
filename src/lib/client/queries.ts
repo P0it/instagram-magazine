@@ -11,8 +11,8 @@ export const qk = {
   post: (id: string) => ["post", id] as const,
   approval: (id: string) => ["approval", id] as const,
   accounts: ["accounts"] as const,
-  customPresets: ["custom-presets"] as const,
   stylePacks: ["style-packs"] as const,
+  customPresets: ["custom-presets"] as const,
   insights: (range: InsightsRange) => ["insights", range] as const,
 };
 

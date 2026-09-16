@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Eye, EyeOff, Scissors, Trash2, Type, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { LAYOUT_PRESETS } from "@/presets";
-import { SlideRoleSchema, type PresetId, type SlideDef, type SlideEditorState, type SlideRole, type StickerKey } from "@/types";
+import { CUTOUT_PREFIX, SlideRoleSchema, type CustomPreset, type LayoutAnalysis, type PostBundle, type PresetId, type SlideDef, type SlideEditorState, type SlideLayer, type SlideRole, type StickerKey } from "@/types";
 import { useEditorStore } from "@/stores/editor-store";
 import { api, driveFileUrl } from "@/lib/client/api";
 import { qk, useCustomPresets, useInvalidatePosts } from "@/lib/client/queries";
@@ -12,7 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { removeBackgroundToPng } from "@/lib/render/cutout";
 import { ICONS, STICKERS, iconLabel, stickerDef } from "@/lib/render/stickers";
 import { ICON_COMPONENTS } from "@/lib/render/icon-svg";
-import { CHANNEL_META } from "@/lib/client/channel";
+import { useAccount } from "@/lib/client/channel";
 import { Segmented } from "@/components/md/segmented";
 import { PanelLabel, fieldClass } from "@/components/md/primitives";
 import { cn } from "@/lib/utils";
@@ -224,7 +224,45 @@ function ElementsTab({ slide, bundle }: { slide: SlideDef; bundle: PostBundle })
   const addLayer = useEditorStore((s) => s.addLayer);
   const markSaved = useEditorStore((s) => s.markSaved);
   const channel = useEditorStore((s) => s.snapshot?.metadata.channel);
-  const chColor = channel ? CHANNEL_META[channel].color : "#0066FF";
+  const chColor = useAccount(channel)?.color ?? "#0066FF";
+  const invalidate = useInvalidatePosts();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [cutting, setCutting] = useState<{ step: string; pct: number } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const cutouts = bundle.assets.filter((a) => a.name.startsWith(CUTOUT_PREFIX));
+
+  /** 누끼 라이브러리 항목을 현재 슬라이드에 얹는다 (원본 비율 유지) */
+  const addCutout = (assetName: string, url: string) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = 460;
+      const h = Math.round((w * img.naturalHeight) / Math.max(1, img.naturalWidth));
+      addLayer(slide.id, { ...BASE_LAYER, kind: "cutout", key: "cutout", asset: assetName, width: w, height: h, y: 760 });
+    };
+    img.onerror = () => addLayer(slide.id, { ...BASE_LAYER, kind: "cutout", key: "cutout", asset: assetName, width: 460, height: 460 });
+    img.src = url;
+  };
+
+  /** 이미지 → 브라우저에서 배경 제거 → assets/cutout_NN.png 업로드 → 레이어 추가 */
+  const cutUpload = async (file: File) => {
+    if (cutting) return;
+    setCutting({ step: "모델 준비", pct: 0 });
+    try {
+      const png = await removeBackgroundToPng(file, (step, pct) => setCutting({ step, pct }));
+      setCutting({ step: "Drive에 저장", pct: 1 });
+      const res = await api.uploadAsset(bundle.metadata.post_id, png, undefined, "cutout");
+      // 업로드가 updated_at 을 올리므로 낙관적 락 기준을 맞춘다
+      markSaved(res, useEditorStore.getState().snapshot);
+      invalidate(bundle.metadata.post_id);
+      const uploaded = res.assets.find((a) => a.name === res.uploaded);
+      if (uploaded) addCutout(uploaded.name, driveFileUrl(uploaded.fileId));
+      toast.success("배경을 지워 라이브러리에 담았어요.");
+    } catch (e) {
+      toast.error(`배경 제거 실패: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setCutting(null);
+    }
+  };
 
   const addSticker = (key: StickerKey) => {
     const d = stickerDef(key);
@@ -288,6 +326,29 @@ function ElementsTab({ slide, bundle }: { slide: SlideDef; bundle: PostBundle })
           </button>
           <span className="text-[11px] leading-normal text-label-assistive">브라우저 안에서 배경을 지워요(외부 서비스·키 없음). 처음 한 번은 모델(약 40MB)을 내려받아요.</span>
         </div>
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-xs font-semibold text-label-alt">누끼 라이브러리</span>
+          <span className="text-[11px] text-label-assistive">{cutouts.length}개</span>
+        </div>
+        {cutouts.length === 0 ? (
+          <span className="text-[11px] text-label-assistive">아직 없어요. 위에 이미지를 올리면 여기 쌓여요.</span>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {cutouts.map((a) => {
+              const url = driveFileUrl(a.fileId);
+              return (
+                <button key={a.fileId} type="button" title={a.name} onClick={() => addCutout(a.name, url)} className="flex flex-col gap-1 text-left">
+                  <div className="relative aspect-square overflow-hidden rounded-[10px] hairline-neutral" style={{ backgroundImage: "linear-gradient(45deg, #E8E9EB 25%, transparent 25%), linear-gradient(-45deg, #E8E9EB 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #E8E9EB 75%), linear-gradient(-45deg, transparent 75%, #E8E9EB 75%)", backgroundSize: "12px 12px", backgroundPosition: "0 0, 0 6px, 6px -6px, -6px 0" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="size-full object-contain" />
+                  </div>
+                  <span className="truncate text-[11px] font-semibold">{a.name.replace(/\.png$/, "")}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <span className="text-[11px] leading-normal text-label-assistive">라이브러리 항목을 누르면 현재 슬라이드에 다시 얹혀요. 캔버스에서 끌어 옮기고 크기·회전은 선택 프레임으로 조정해요.</span>
       </div>
     </div>
   );
@@ -326,29 +387,6 @@ function LayersTab({ slide, state }: { slide: SlideDef; state: SlideEditorState 
 
   return (
     <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-xs font-semibold text-label-alt">누끼 라이브러리</span>
-          <span className="text-[11px] text-label-assistive">{cutouts.length}개</span>
-        </div>
-        {cutouts.length === 0 ? (
-          <span className="text-[11px] text-label-assistive">아직 없어요. 위에 이미지를 올리면 여기 쌓여요.</span>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
-            {cutouts.map((a) => {
-              const url = driveFileUrl(a.fileId);
-              return (
-                <button key={a.fileId} type="button" title={a.name} onClick={() => addCutout(a.name, url)} className="flex flex-col gap-1 text-left">
-                  <div className="relative aspect-square overflow-hidden rounded-[10px] hairline-neutral" style={{ backgroundImage: "linear-gradient(45deg, #E8E9EB 25%, transparent 25%), linear-gradient(-45deg, #E8E9EB 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #E8E9EB 75%), linear-gradient(-45deg, transparent 75%, #E8E9EB 75%)", backgroundSize: "12px 12px", backgroundPosition: "0 0, 0 6px, 6px -6px, -6px 0" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="" className="size-full object-contain" />
-                  </div>
-                  <span className="truncate text-[11px] font-semibold">{a.name.replace(/\.png$/, "")}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-        <span className="text-[11px] leading-normal text-label-assistive">라이브러리 항목을 누르면 현재 슬라이드에 다시 얹혀요. 캔버스에서 끌어 옮기고 크기·회전은 선택 프레임으로 조정해요.</span>
       {layers.map((l) => {
         const on = selection?.kind === "layer" && selection.id === l.id;
         const name = l.kind === "cutout" ? `누끼 · ${(l.asset ?? "").replace(/\.png$/, "")}` : l.kind === "icon" ? `아이콘 · ${iconLabel(l.key)}` : `${stickerDef(l.key).label}${l.text ? ` · ${l.text}` : ""}`;

@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trash2, Upload } from "lucide-react";
-import { CHANNEL_KEYS, type StylePack } from "@/types";
-import { useChannels, useStylePacks } from "@/lib/client/queries";
+import type { StylePack } from "@/types";
+import { useStylePacks, useSystemStatus } from "@/lib/client/queries";
 import { api } from "@/lib/client/api";
 import { BUILTIN_STYLE_PACKS } from "@/presets";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ const TEMPLATE: StylePack = {
 
 export function StylePacksSettings() {
   const packs = useStylePacks();
-  const channels = useChannels();
+  const status = useSystemStatus();
   const qc = useQueryClient();
   const [json, setJson] = useState(JSON.stringify(TEMPLATE, null, 2));
   const fileRef = useRef<HTMLInputElement>(null);
@@ -37,7 +37,7 @@ export function StylePacksSettings() {
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["style-packs"] });
-    void qc.invalidateQueries({ queryKey: ["channels"] });
+    void qc.invalidateQueries({ queryKey: ["accounts"] });
     void qc.invalidateQueries({ queryKey: ["system-status"] });
   };
   const importPack = useMutation({
@@ -51,8 +51,8 @@ export function StylePacksSettings() {
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
   const assign = useMutation({
-    mutationFn: (args: { channel: string; pack_id: string | null }) => api.assignStylePack(args.channel, args.pack_id),
-    onSuccess: () => { invalidate(); toast.success("채널 기본 스타일팩 변경"); },
+    mutationFn: (args: { channel: string; pack_id: string | null }) => api.updateAccount(args.channel, { default_style_pack: args.pack_id }),
+    onSuccess: () => { invalidate(); toast.success("계정 기본 스타일팩 변경"); },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 
@@ -68,14 +68,15 @@ export function StylePacksSettings() {
     <div className="grid gap-5">
       <div className="flex flex-col gap-4">
         <Card className="rounded-2xl border-0 shadow-none">
-          <CardHeader><CardTitle className="text-sm">채널 기본값</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">계정(채널)별 기본 스타일팩</CardTitle></CardHeader>
           <CardContent className="grid gap-2 md:grid-cols-2">
-            {CHANNEL_KEYS.map((ch) => {
-              const cur = channels.data?.channels.find((c) => c.key === ch)?.default_style_pack ?? null;
+            {(status.data?.accounts ?? []).length === 0 && <span className="text-xs text-muted-foreground">연결된 계정이 없어요.</span>}
+            {(status.data?.accounts ?? []).map((a) => {
+              const cur = a.default_style_pack;
               return (
-                <div key={ch} className="flex items-center gap-2 rounded-lg border border-border p-2">
-                  <span className="w-12 text-xs font-bold">{ch}</span>
-                  <Select value={cur ?? "__none"} onValueChange={(v) => assign.mutate({ channel: ch, pack_id: v === "__none" ? null : v })}>
+                <div key={a.key} className="flex items-center gap-2 rounded-lg border border-border p-2">
+                  <span className="w-28 truncate text-xs font-bold" title={`@${a.key}`}>{a.name || a.key}</span>
+                  <Select value={cur ?? "__none"} onValueChange={(v) => assign.mutate({ channel: a.key, pack_id: v === "__none" ? null : v })}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none">(없음)</SelectItem>

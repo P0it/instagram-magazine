@@ -1,12 +1,12 @@
 "use client";
 
-import type { ChannelKey } from "@/types";
+import type { AccountKey } from "@/types";
 import { usePosts } from "@/lib/client/queries";
 import { driveFileUrl } from "@/lib/client/api";
 import { cn } from "@/lib/utils";
 
 /** 채널의 published + approved(+예정) 를 IG 프로필 그리드 모양으로. highlight 는 현재 포스트. */
-export function GridPreview({ channel, highlight }: { channel: ChannelKey; highlight?: string }) {
+export function GridPreview({ channel, highlight }: { channel: AccountKey; highlight?: string }) {
   const posts = usePosts({ channel });
   const list = (posts.data?.posts ?? [])
     .filter((p) => p.status === "published" || p.status === "approved" || p.status === "scheduled")

@@ -2,36 +2,74 @@
 
 import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CHANNEL_KEYS, ChannelKeySchema, type ChannelKey } from "@/types";
+import type { AccountKey, PublicAccount } from "@/types";
+import { useSystemStatus } from "./queries";
+
+/**
+ * 계정 = 채널. 채널 목록·이름·색은 하드코딩이 아니라 system status 의 accounts 에서 온다.
+ * 이 모듈은 클라이언트에서 "현재 채널" 을 고르는 헬퍼만 둔다.
+ */
 
 export interface ChannelMeta {
+  key: AccountKey;
+  /** 사용자가 지은 채널 이름 (기본 username) */
   name: string;
-  short: string;
-  /** "LIFE — 생활·주거" 형태의 보드 제목 */
+  /** 보드 제목: "@handle — 이름" 형태 */
   title: string;
-  /** 기본 인스타 핸들 (계정 미연결 시 표시용) */
   handle: string;
   color: string;
+  /** 연결 시점 username 과 현재 IG username 이 다르면 true */
+  handleChanged: boolean;
 }
 
-export const CHANNEL_META: Record<ChannelKey, ChannelMeta> = {
-  LIFE: { name: "라이프", short: "LIFE", title: "LIFE — 생활·주거", handle: "life.magazine", color: "#FF5E00" },
-  MIND: { name: "마인드", short: "MIND", title: "MIND — 마음·관계", handle: "mind.magazine", color: "#6541F2" },
-  AI: { name: "AI", short: "AI", title: "AI — 도구·업무", handle: "ai.magazine", color: "#00BDDE" },
-  TREND: { name: "트렌드", short: "TREND", title: "TREND — 핫플·유행", handle: "trend.magazine", color: "#F553DA" },
-};
+export function accountMeta(a: PublicAccount): ChannelMeta {
+  const handleChanged = a.username !== a.key;
+  return {
+    key: a.key,
+    name: a.name || a.key,
+    title: a.name && a.name !== a.key ? `@${a.key} — ${a.name}` : `@${a.key}`,
+    handle: a.username,
+    color: a.color,
+    handleChanged,
+  };
+}
 
-export const DEFAULT_CHANNEL: ChannelKey = CHANNEL_KEYS[0];
+/** 연결된 계정 목록 (system status 기준). 로딩 중이면 빈 배열. */
+export function useAccountList(): { accounts: PublicAccount[]; isLoading: boolean } {
+  const status = useSystemStatus();
+  return { accounts: status.data?.accounts ?? [], isLoading: status.isLoading };
+}
 
-/** URL ?ch= 로 유지되는 현재 채널. 목업대로 항상 하나가 선택돼 있다(기본 LIFE). */
-export function useChannel(): [ChannelKey, (ch: ChannelKey) => void] {
+/** key 로 계정 찾기. 목록에 없으면 null. */
+export function useAccount(key: AccountKey | null | undefined): PublicAccount | null {
+  const { accounts } = useAccountList();
+  if (!key) return null;
+  return accounts.find((a) => a.key === key) ?? null;
+}
+
+/** 이름·색 없이 키만 있을 때(연결 해제된 계정의 포스트 등) 쓰는 대체 메타 */
+export function fallbackMeta(key: string): ChannelMeta {
+  return { key, name: key, title: `@${key}`, handle: key, color: "#8B8B8B", handleChanged: false };
+}
+
+export function useChannelMeta(key: string | null | undefined): ChannelMeta {
+  const a = useAccount(key);
+  return a ? accountMeta(a) : fallbackMeta(key ?? "");
+}
+
+/**
+ * URL ?ch= 로 유지되는 현재 채널. 값은 계정 key(username).
+ * 없거나 목록에 없는 값이면 첫 계정. 계정이 0개면 null.
+ */
+export function useChannel(): [AccountKey | null, (ch: AccountKey) => void] {
   const sp = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const parsed = ChannelKeySchema.safeParse(sp.get("ch"));
-  const current = parsed.success ? parsed.data : DEFAULT_CHANNEL;
+  const { accounts } = useAccountList();
+  const wanted = sp.get("ch");
+  const current = accounts.find((a) => a.key === wanted)?.key ?? accounts[0]?.key ?? null;
   const set = useCallback(
-    (ch: ChannelKey) => {
+    (ch: AccountKey) => {
       const next = new URLSearchParams(sp.toString());
       next.set("ch", ch);
       router.replace(`${pathname}?${next.toString()}`);

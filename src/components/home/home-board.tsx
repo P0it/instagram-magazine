@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { FileText, Heart, Layers2 } from "lucide-react";
 import type { IndexEntry } from "@/types";
-import { usePosts, useSync, useSystemStatus } from "@/lib/client/queries";
-import { CHANNEL_META, channelGround, useChannel } from "@/lib/client/channel";
+import { usePosts, useSync } from "@/lib/client/queries";
+import { useAccountList, useChannel, useChannelMeta } from "@/lib/client/channel";
+import { NoAccounts } from "@/components/shell/no-accounts";
+import { AvatarPlaceholder, ImagePlaceholder } from "@/components/md/placeholder";
+import { CardGridSkeleton, ProfileGridSkeleton } from "@/components/md/skeleton";
 import { driveFileUrl } from "@/lib/client/api";
 import { fmtDay, fmtRelative } from "@/lib/client/format";
 import { STAGES, STAGE_LABEL, needsAttention, stageOfEntry, type Stage } from "@/lib/metadata/stage";
@@ -19,13 +22,13 @@ type View = "work" | "insights";
 /** 목업 S-01 홈 보드: 작업(초안 → 편집 중 → 게시됨 3단계) · 성과(인사이트) */
 export function HomeBoard() {
   const [channel] = useChannel();
-  const posts = usePosts({ channel });
-  const status = useSystemStatus();
+  const { accounts, isLoading: accountsLoading } = useAccountList();
+  const posts = usePosts({ channel: channel ?? undefined }, Boolean(channel));
   const sync = useSync();
   const [view, setView] = useState<View>("work");
   const [tab, setTab] = useState<Stage>("inbox");
   const [sort, setSort] = useState<Sort>("newest");
-  const meta = CHANNEL_META[channel];
+  const meta = useChannelMeta(channel);
   const now = posts.dataUpdatedAt;
 
   const grouped = useMemo(() => {
@@ -38,8 +41,10 @@ export function HomeBoard() {
   }, [posts.data, sort]);
 
   const list = grouped[tab];
-  const account = status.data?.accounts.find((a) => a.key === status.data?.channels.find((c) => c.key === channel)?.instagram_account_key);
-  const handle = account?.username ?? meta.handle;
+  const handle = meta.handle;
+
+  if (!accountsLoading && accounts.length === 0) return <NoAccounts />;
+  if (!channel) return <div className="flex-1" />;
 
   return (
     <div className="mx-auto box-border w-full max-w-[1560px] flex-1 overflow-auto px-10 pb-16 pt-7">
@@ -98,20 +103,22 @@ export function HomeBoard() {
       ) : tab === "published" ? (
         <div className="max-w-[900px]">
           <div className="flex items-center gap-4 px-1 pb-6 pt-5">
-            <div className="grid size-14 place-items-center rounded-full text-xl font-bold text-white" style={{ background: meta.color }}>
-              {channel[0]}
-            </div>
+            <AvatarPlaceholder size={56} ring={meta.color} />
             <div className="flex flex-col gap-1">
               <span className="text-[17px] font-semibold">@{handle}</span>
               <span className="text-[13px] text-label-alt">게시물 {list.length} · 톤 일관성 확인용 그리드</span>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-1">
-            {list.map((p, i) => (
-              <Link key={p.post_id} href={`/editor/${encodeURIComponent(p.post_id)}`} className="relative aspect-square overflow-hidden" style={{ background: channelGround(meta.color, i) }}>
-                {p.cover_thumb_file_id && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={driveFileUrl(p.cover_thumb_file_id)} alt="" className="size-full object-cover" loading="lazy" />
+            {list.map((p) => (
+              <Link key={p.post_id} href={`/editor/${encodeURIComponent(p.post_id)}`} className="relative aspect-square overflow-hidden bg-fill-alt">
+                {p.cover_thumb_file_id ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={driveFileUrl(p.cover_thumb_file_id)} alt="" className="size-full object-cover" loading="lazy" />
+                  </>
+                ) : (
+                  <ImagePlaceholder label={p.headline.split("\n")[0]} />
                 )}
               </Link>
             ))}
@@ -119,8 +126,8 @@ export function HomeBoard() {
         </div>
       ) : (
         <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
-          {list.map((p, i) => (
-            <HomeCard key={p.post_id} post={p} index={i} stage={tab} now={now} color={meta.color} />
+          {list.map((p) => (
+            <HomeCard key={p.post_id} post={p} stage={tab} now={now} />
           ))}
         </div>
       )}
@@ -148,15 +155,14 @@ function HomeCard({ post, stage, now }: { post: IndexEntry; stage: Stage; now: n
       className="flex cursor-pointer flex-col gap-2.5 transition-transform duration-200 hover:-translate-y-[3px]"
       style={{ transitionTimingFunction: "cubic-bezier(0.4,0,0.2,1)" }}
     >
-      <div className="relative aspect-[4/5] overflow-hidden rounded-xl hairline-neutral" style={{ background: channelGround(color, index) }}>
-        {post.cover_thumb_file_id && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={driveFileUrl(post.cover_thumb_file_id)} alt="" className="size-full object-cover" loading="lazy" />
-        )}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.42), rgba(0,0,0,0) 62%)" }} />
-        {/* 렌더가 있으면 텍스트가 이미 그려져 있으니 겹치지 않는다 */}
-        {post.render_count === 0 && (
-          <p className="absolute inset-x-4 bottom-4 m-0 text-[17px] font-bold leading-[1.3] tracking-[-0.01em] text-white">{cover.length > 16 ? `${cover.slice(0, 14)}…` : cover}</p>
+      <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-fill-alt hairline-neutral">
+        {post.cover_thumb_file_id ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={driveFileUrl(post.cover_thumb_file_id)} alt="" className="size-full object-cover" loading="lazy" />
+          </>
+        ) : (
+          <ImagePlaceholder label={cover} />
         )}
         {post.content_type === "carousel" && (
           <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-[32px]" style={{ background: "rgba(23,23,25,0.52)" }}>

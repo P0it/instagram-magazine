@@ -10,12 +10,11 @@ import { useEditorStore, selectSelectedSlide, selectSelectedLayer } from "@/stor
 import { usePost, useSavePost, useStylePacks, useSystemStatus } from "@/lib/client/queries";
 import { api, ApiClientError, driveFileUrl } from "@/lib/client/api";
 import { exportStageToBlob } from "@/lib/render/export";
-import { CHANNEL_DEFAULT_STYLE_PACK } from "@/presets";
-import { CHANNEL_META } from "@/lib/client/channel";
+import { useChannelMeta } from "@/lib/client/channel";
 import { fmtRelative } from "@/lib/client/format";
 import { isTouched } from "@/lib/metadata/stage";
-import { BuilderSkeleton } from "@/components/md/skeleton";
 import { GhostIcon, StageBadge } from "@/components/md/primitives";
+import { BuilderSkeleton } from "@/components/md/skeleton";
 import { SlideCanvas } from "./canvas";
 import { SlideStrip } from "./slide-strip";
 import { LeftPanel, type LeftTab } from "./left-panel";
@@ -66,12 +65,12 @@ export function EditorInner({ postId }: { postId: string }) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [, setTick] = useState(0);
 
-  // 스타일팩 결정: 채널 설정 → 기본
+  // 스타일팩 결정: 계정(=채널) 설정의 default_style_pack. 없으면 null(프리셋 기본값).
+  const channelMeta = useChannelMeta(post.data?.metadata.channel);
   const stylePack = useMemo(() => {
     if (!post.data) return null;
-    const ch = post.data.metadata.channel;
-    const packId = status.data?.channels.find((c) => c.key === ch)?.default_style_pack ?? CHANNEL_DEFAULT_STYLE_PACK[ch];
-    return stylePacks.data?.packs.find((p) => p.id === packId) ?? null;
+    const packId = status.data?.accounts.find((a) => a.key === post.data.metadata.channel)?.default_style_pack ?? null;
+    return packId ? (stylePacks.data?.packs.find((p) => p.id === packId) ?? null) : null;
   }, [post.data, status.data, stylePacks.data]);
 
   // 최초 로드 (다른 포스트로 바뀔 때만)
@@ -120,8 +119,8 @@ export function EditorInner({ postId }: { postId: string }) {
           caption: s.snapshot.metadata.caption,
           hashtags: s.snapshot.metadata.hashtags,
           alt_text: s.snapshot.metadata.alt_text,
-          format: s.snapshot.metadata.format,
           content_type: s.snapshot.metadata.content_type,
+          format: s.snapshot.metadata.format,
           slides: s.snapshot.metadata.slides,
         },
         editorState: s.snapshot.editorState,
@@ -289,7 +288,7 @@ export function EditorInner({ postId }: { postId: string }) {
             <ChevronLeft className="size-[18px] opacity-60" />홈
           </Link>
           <div className="h-5 w-px bg-line" />
-          <span className="size-2 shrink-0 rounded-full" style={{ background: CHANNEL_META[m.channel].color }} />
+          <span className="size-2 shrink-0 rounded-full" style={{ background: channelMeta.color }} />
           <input
             value={m.headline.split("\n")[0]}
             onChange={(e) => updateMetadata({ headline: [e.target.value, ...m.headline.split("\n").slice(1)].join("\n") })}
@@ -363,8 +362,8 @@ export function EditorInner({ postId }: { postId: string }) {
                 if (i < m.slides.length - 1) select(m.slides[i + 1].id);
               }}
               selection={selection}
-              resolveAsset={assetUrl}
               selectedLayer={selectedLayer}
+              resolveAsset={assetUrl}
             />
             <RightPanel slide={selected} state={selectedState} bundle={bundle} disabled={readOnly} onDownload={async () => {
               try {

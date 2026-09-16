@@ -2,8 +2,8 @@ import { z } from "zod";
 import { AccountKeySchema } from "./account";
 import { SlideRoleSchema } from "./slide-role";
 import { LayoutPresetOverridesSchema, PresetIdSchema } from "./preset";
-
 import { PostFormatSchema } from "./editor-state";
+
 export const POST_STATUSES = [
   "needs_repair",
   "draft",
@@ -59,9 +59,9 @@ export const PostMetadataSchema = z.object({
   channel: AccountKeySchema,
   status: PostStatusSchema.default("draft"),
   content_type: ContentTypeSchema.default("carousel"),
-  topic: z.string().default(""),
   /** 피드 규격(포스트 단위). 캔버스·렌더·승인 게이트가 이 값을 따른다 */
   format: PostFormatSchema.default("4:5"),
+  topic: z.string().default(""),
   headline: z.string().default(""),
   slides: z.array(SlideDefSchema).default([]),
   caption: z.string().default(""),
@@ -87,6 +87,6 @@ export const PostMetadataPatchSchema = PostMetadataSchema.pick({
   alt_text: true,
   asset_mode: true,
   content_type: true,
-}).partial();
   format: true,
+}).partial();
 export type PostMetadataPatch = z.infer<typeof PostMetadataPatchSchema>;

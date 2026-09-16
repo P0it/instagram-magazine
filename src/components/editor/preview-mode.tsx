@@ -6,7 +6,8 @@ import type { PostBundle } from "@/types";
 import type { EditorSnapshot } from "@/stores/editor-store";
 import { usePosts } from "@/lib/client/queries";
 import { driveFileUrl } from "@/lib/client/api";
-import { CHANNEL_META, channelGround } from "@/lib/client/channel";
+import { useChannelMeta } from "@/lib/client/channel";
+import { AvatarPlaceholder, ImagePlaceholder } from "@/components/md/placeholder";
 import { Segmented } from "@/components/md/segmented";
 import { SlideCanvas } from "./canvas";
 import { cn } from "@/lib/utils";
@@ -19,9 +20,8 @@ export function PreviewMode({ bundle, snapshot, assetUrl, onBack }: { bundle: Po
   const [dark, setDark] = useState(false);
   const [i, setI] = useState(0);
   const m = snapshot.metadata;
-  const meta = CHANNEL_META[m.channel];
-  const account = status.data?.accounts.find((a) => a.key === status.data?.channels.find((c) => c.key === m.channel)?.instagram_account_key);
-  const handle = account?.username ?? meta.handle;
+  const meta = useChannelMeta(m.channel);
+  const handle = meta.handle;
   const slides = m.slides;
   const slide = slides[Math.min(i, slides.length - 1)];
   const st = slide ? snapshot.editorState.slides[slide.id] : null;
@@ -45,9 +45,7 @@ export function PreviewMode({ bundle, snapshot, assetUrl, onBack }: { bundle: Po
         <div className="relative shrink-0 rounded-[48px] p-3 shadow-e-lg" style={{ background: "#1B1C1E" }}>
           <div className="flex flex-col overflow-hidden rounded-[38px]" style={{ width: W, background: dark ? "#000" : "#fff" }}>
             <div className="flex items-center gap-2.5 px-3.5 pb-2.5 pt-4">
-              <div className="size-8 shrink-0 rounded-full p-0.5" style={{ background: `linear-gradient(135deg, ${meta.color}, var(--semantic-accent-background-pink))` }}>
-                <div className="size-full rounded-full" style={{ background: meta.color }} />
-              </div>
+              <AvatarPlaceholder size={32} ring={meta.color} />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-[13px] font-semibold" style={{ color: ink }}>{handle}</span>
                 <span className="text-[11px]" style={{ color: inkSoft }}>서울 · {meta.title}</span>
@@ -90,7 +88,7 @@ export function PreviewMode({ bundle, snapshot, assetUrl, onBack }: { bundle: Po
           </div>
         </div>
       ) : (
-        <ProfileGrid channel={m.channel} highlight={m.post_id} currentThumb={slide && st ? { st, text: slide.text, img: assetUrl(slide.asset) } : null} />
+        <ProfileGrid channel={m.channel} highlight={m.post_id} currentThumb={slide && st ? { st, text: slide.text, img: assetUrl(slide.asset), h: H } : null} />
       )}
 
       <div className="self-end">
@@ -100,9 +98,8 @@ export function PreviewMode({ bundle, snapshot, assetUrl, onBack }: { bundle: Po
   );
 }
 
-function ProfileGrid({ channel, highlight, currentThumb }: { channel: PostBundle["metadata"]["channel"]; highlight: string; currentThumb: { st: EditorSnapshot["editorState"]["slides"][string]; text: string; img: string | null } | null }) {
+function ProfileGrid({ channel, highlight, currentThumb }: { channel: PostBundle["metadata"]["channel"]; highlight: string; currentThumb: { st: EditorSnapshot["editorState"]["slides"][string]; text: string; img: string | null; h: number } | null }) {
   const posts = usePosts({ channel });
-  const meta = CHANNEL_META[channel];
   const others = (posts.data?.posts ?? [])
     .filter((p) => p.post_id !== highlight && (p.status === "published" || p.status === "approved" || p.status === "scheduled"))
     .sort((a, b) => (b.published_at ?? b.scheduled_at ?? "9999").localeCompare(a.published_at ?? a.scheduled_at ?? "9999"))
@@ -117,13 +114,13 @@ function ProfileGrid({ channel, highlight, currentThumb }: { channel: PostBundle
         )}
         <div className="pointer-events-none absolute inset-0" style={{ boxShadow: "inset 0 0 0 2px var(--semantic-primary-normal)" }} />
       </div>
-      {others.map((p, i) => (
-        <div key={p.post_id} className="relative aspect-square overflow-hidden" style={{ background: channelGround(meta.color, i + 2) }}>
-          ) : (
-            <ImagePlaceholder compact />
-          {p.cover_thumb_file_id && (
+      {others.map((p) => (
+        <div key={p.post_id} className="relative aspect-square overflow-hidden bg-fill-alt">
+          {p.cover_thumb_file_id ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={driveFileUrl(p.cover_thumb_file_id)} alt="" className={cn("size-full object-cover", p.status !== "published" && "opacity-70")} />
+          ) : (
+            <ImagePlaceholder compact />
           )}
         </div>
       ))}

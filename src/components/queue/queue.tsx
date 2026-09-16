@@ -4,7 +4,8 @@ import Link from "next/link";
 import { ChevronLeft, RotateCcw, XCircle } from "lucide-react";
 import type { IndexEntry, PostStatus } from "@/types";
 import { usePosts } from "@/lib/client/queries";
-import { useChannel, CHANNEL_META } from "@/lib/client/channel";
+import { useAccountList, useChannel, useChannelMeta } from "@/lib/client/channel";
+import { NoAccounts } from "@/components/shell/no-accounts";
 import { api } from "@/lib/client/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -21,7 +22,9 @@ const GROUPS: { status: PostStatus; title: string; hint: string }[] = [
 /** 게시 큐 — 예약·실패·진행 중 항목만. 자동 게시는 없다. */
 export function Queue() {
   const [channel] = useChannel();
-  const posts = usePosts({ channel });
+  const { accounts, isLoading: accountsLoading } = useAccountList();
+  const meta = useChannelMeta(channel);
+  const posts = usePosts({ channel: channel ?? undefined }, Boolean(channel));
   const qc = useQueryClient();
   const retry = useMutation({
     mutationFn: (id: string) => api.retry(id),
@@ -39,12 +42,15 @@ export function Queue() {
   });
   const all = posts.data?.posts ?? [];
 
+  if (!accountsLoading && accounts.length === 0) return <NoAccounts />;
+  if (!channel) return <div className="flex-1" />;
+
   return (
     <div className="mx-auto box-border flex w-full max-w-[900px] flex-1 flex-col gap-7 overflow-auto px-5 pb-20 pt-8">
       <div className="flex items-center gap-2.5">
         <Link href={`/home?ch=${channel}`} className="grid size-8 place-items-center rounded-full hover:bg-fill" title="홈으로"><ChevronLeft className="size-5 opacity-70" /></Link>
-        <span className="size-2 rounded-full" style={{ background: CHANNEL_META[channel].color }} />
-        <h1 className="m-0 text-2xl font-bold leading-8 tracking-[-0.023em]">게시 큐 · {channel}</h1>
+        <span className="size-2 rounded-full" style={{ background: meta.color }} />
+        <h1 className="m-0 text-2xl font-bold leading-8 tracking-[-0.023em]">게시 큐 · {meta.name}</h1>
         <span className="text-[13px] text-label-alt">자동 게시는 없어요. 모든 게시는 빌더에서 시작해요.</span>
       </div>
       {GROUPS.map((g) => {

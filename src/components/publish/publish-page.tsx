@@ -5,7 +5,7 @@ import { useState } from "react";
 import { AlertTriangle, ChevronLeft, ExternalLink, PencilLine, RotateCcw } from "lucide-react";
 import { useApproval, usePost, useRepair, useRetry, useTransition } from "@/lib/client/queries";
 import { driveFileUrl } from "@/lib/client/api";
-import { CHANNEL_META } from "@/lib/client/channel";
+import { useChannelMeta } from "@/lib/client/channel";
 import { fmtTime } from "@/lib/client/format";
 import { STATUS_LABEL, USER_TRANSITIONS, folderForStatus, isStaleLock } from "@/lib/metadata/transitions";
 import { isTouched } from "@/lib/metadata/stage";
@@ -23,6 +23,7 @@ export function PublishPage({ postId }: { postId: string }) {
   const repair = useRepair(postId);
   const retry = useRetry(postId);
   const [repairOpen, setRepairOpen] = useState(false);
+  const channelMeta = useChannelMeta(post.data?.metadata.channel);
 
   if (post.isError) return <div className="p-8 text-sm text-negative">포스트를 불러올 수 없습니다.</div>;
   if (!post.data) return <SectionsSkeleton sections={2} maxWidth={1100} />;
@@ -37,7 +38,7 @@ export function PublishPage({ postId }: { postId: string }) {
     <div className="mx-auto box-border w-full max-w-[1100px] flex-1 overflow-auto px-5 pb-20 pt-8">
       <div className="mb-7 flex flex-wrap items-center gap-2.5">
         <Link href={`/home?ch=${m.channel}`} className="grid size-8 place-items-center rounded-full hover:bg-fill"><ChevronLeft className="size-5 opacity-70" /></Link>
-        <span className="size-2 rounded-full" style={{ background: CHANNEL_META[m.channel].color }} />
+        <span className="size-2 rounded-full" style={{ background: channelMeta.color }} />
         <h1 className="m-0 truncate text-2xl font-bold leading-8 tracking-[-0.023em]">{m.headline.split("\n")[0] || m.post_id}</h1>
         <StageBadge status={m.status} touched={isTouched({ render_count: b.renders.length, created_at: m.created_at, updated_at: m.updated_at })} />
         <span className="font-mono text-xs text-label-assistive">{m.post_id} · /{b.folderStatus} · {fmtTime(m.updated_at)}</span>
@@ -118,7 +119,7 @@ export function PublishPage({ postId }: { postId: string }) {
         </div>
 
         <div className="flex flex-col gap-5">
-          <Section title={`그리드 미리보기 · ${m.channel}`}><GridPreview channel={m.channel} highlight={m.post_id} /></Section>
+          <Section title={`그리드 미리보기 · ${channelMeta.name}`}><GridPreview channel={m.channel} highlight={m.post_id} /></Section>
           <Section title="출처">
             <div className="mb-2 text-xs text-label-alt">팩트체크: <b className="text-label">{b.sources.fact_check_status}</b>{m.fact_check_required && " (필수)"}</div>
             {b.sources.items.length === 0 ? <p className="m-0 text-xs text-label-alt">없음</p> : (

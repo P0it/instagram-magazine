@@ -1,79 +1,100 @@
 "use client";
 
+import { useState } from "react";
+import { ChevronRight, CircleCheck } from "lucide-react";
+import { CHANNEL_KEYS } from "@/types";
 import { useSync, useSystemStatus } from "@/lib/client/queries";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fmtTime } from "@/components/dashboard/dashboard";
+import { fmtTime } from "@/lib/client/format";
+import { SettingsRow, SettingsSection } from "./settings-shell";
 import { cn } from "@/lib/utils";
+
+const TREE = `/Instagram Magazine                      <- GOOGLE_DRIVE_ROOT_FOLDER_ID
+  /inbox/{LIFE,MIND,AI,POEM}/            <- ChatGPT 착지 지점: YYYY-MM-DD_slug.md + _1.png ...
+  /LIFE/{draft,approved,published}/<post>/
+      metadata.json · sources.json · visual-brief.json · editor-state.json
+      /assets/source_01.png ... · /renders/slide_01.jpg ... · /_inbox_original/
+  /_system/channels.json · accounts.json(암호화) · index.json(캐시) · ingest-log.json · /style-packs/*.json`;
 
 export function DriveSettings() {
   const status = useSystemStatus();
   const sync = useSync();
+  const [checked, setChecked] = useState(false);
   const s = status.data;
 
   return (
-    <div className="grid gap-5 xl:grid-cols-2">
-      <Card className="shadow-none">
-        <CardHeader><CardTitle className="text-sm">저장소</CardTitle></CardHeader>
-        <CardContent className="flex flex-col gap-3 text-sm">
-          <Kv k="Drive 클라이언트" v={s ? (s.drive_kind === "google" ? "Google Drive (서비스 계정)" : "Mock (인메모리)") : "…"} />
-          <Kv k="접근 키" v={s ? (s.access_key_enabled ? "활성 (APP_ACCESS_KEY)" : "비활성 — 로컬 개발 모드") : "…"} warn={s ? !s.access_key_enabled : false} />
-          <Kv k="Meta OAuth" v={s ? (s.oauth_configured ? "설정됨" : "미설정") : "…"} warn={s ? !s.oauth_configured : false} />
-          <Kv k="마지막 Inbox 동기화" v={s?.last_sync_at ? fmtTime(s.last_sync_at) : "없음"} />
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" onClick={() => sync.mutate()} disabled={sync.isPending}>{sync.isPending ? "동기화 중…" : "Inbox 동기화 + index.json 재생성"}</Button>
+    <>
+      <SettingsSection title="Google Drive" description="초안이 들어오는 폴더예요.">
+        <SettingsRow>
+          <div className="flex flex-1 flex-col gap-[3px]">
+            <span className="text-[15px] font-semibold">저장소</span>
+            <span className="text-[13px] text-label-alt">{s ? (s.drive_kind === "google" ? "Google Drive · 서비스 계정" : "Mock · 인메모리 (DRIVE_CLIENT=mock)") : "…"}</span>
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            index.json 은 캐시입니다. 언제든 삭제해도 다음 동기화에서 재생성됩니다. Google 모드는 <code>DRIVE_CLIENT=google</code> + 서비스 계정 JSON(base64) + 루트 폴더 ID 가 필요합니다.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-none">
-        <CardHeader><CardTitle className="text-sm">최근 인제스트 로그 (최대 50)</CardTitle></CardHeader>
-        <CardContent>
-          {!s || s.recent_ingest.length === 0 ? (
-            <p className="text-sm text-muted-foreground">기록 없음</p>
-          ) : (
-            <div className="max-h-[480px] overflow-y-auto">
-              <table className="w-full text-xs">
-                <tbody>
-                  {s.recent_ingest.map((e, i) => (
-                    <tr key={i} className="border-b border-border/60 align-top last:border-0">
-                      <td className="py-1.5 pr-2 whitespace-nowrap text-muted-foreground">{fmtTime(e.at)}</td>
-                      <td className="py-1.5 pr-2 font-semibold">{e.channel}</td>
-                      <td className="py-1.5 pr-2 font-mono">{e.prefix}</td>
-                      <td className="py-1.5 pr-2"><span className={cn("rounded px-1 py-0.5", e.result === "created" ? "bg-emerald-500/12" : e.result === "needs_repair" || e.result === "error" ? "bg-rose-500/12" : "bg-muted")}>{e.result}</span></td>
-                      <td className="py-1.5 text-muted-foreground">{e.message}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <ChevronRight className="size-[18px] opacity-40" />
+        </SettingsRow>
+        <SettingsRow>
+          <div className="flex flex-1 flex-col gap-[3px]">
+            <span className="text-[15px] font-semibold">루트 폴더</span>
+            <span className="text-[13px] text-label-alt">GOOGLE_DRIVE_ROOT_FOLDER_ID · inbox/채널 아래에 .md + 이미지</span>
+            <span className="text-xs text-label-assistive">서비스 계정 이메일에 이 폴더를 편집자로 공유하세요.</span>
+          </div>
+        </SettingsRow>
+        <SettingsRow>
+          <div className="flex flex-1 flex-col gap-[3px]">
+            <span className="text-[15px] font-semibold">접근 키 · Meta OAuth</span>
+            <span className="text-[13px] text-label-alt">
+              {s ? (s.access_key_enabled ? "APP_ACCESS_KEY 활성" : "접근 키 없음 — 로컬 개발 모드") : "…"} · {s ? (s.oauth_configured ? "OAuth 설정됨" : "OAuth 미설정") : "…"}
+            </span>
+          </div>
+        </SettingsRow>
+        <div className="flex flex-col gap-3 px-5 pb-5 pt-4" style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => sync.mutate(undefined, { onSuccess: () => setChecked(true) })}
+              disabled={sync.isPending}
+              className="h-10 w-[120px] rounded-[10px] text-sm font-semibold text-label-neutral hairline hover:bg-fill-alt disabled:opacity-50"
+            >
+              {sync.isPending ? "확인 중…" : "연결 확인"}
+            </button>
+            <span className="text-[13px] text-label-alt">마지막 동기화 {s?.last_sync_at ? fmtTime(s.last_sync_at) : "없음"}</span>
+          </div>
+          {checked && (
+            <div className="flex flex-col gap-2">
+              {CHANNEL_KEYS.map((c) => (
+                <div key={c} className="flex items-center gap-2 text-[13px]">
+                  <CircleCheck className="size-4 text-positive" />
+                  <span className="font-semibold">{c}</span>
+                  <span className="text-label-alt">초안 폴더 확인 · 동기화 완료</span>
+                </div>
+              ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+          <p className="m-0 text-[11px] leading-relaxed text-label-assistive">index.json 은 캐시예요. 삭제해도 다음 동기화에서 다시 만들어요.</p>
+        </div>
+      </SettingsSection>
 
-      <Card className="shadow-none xl:col-span-2">
-        <CardHeader><CardTitle className="text-sm">Drive 폴더 구조</CardTitle></CardHeader>
-        <CardContent>
-          <pre className="overflow-x-auto rounded-lg bg-muted/50 p-4 font-mono text-xs leading-relaxed">{`/Instagram Magazine                      ← GOOGLE_DRIVE_ROOT_FOLDER_ID (서비스 계정에 편집자 공유)
-  /inbox/{LIFE,MIND,AI,POEM}/            ← ChatGPT 착지 지점: YYYY-MM-DD_slug.md + _1.png, _2.png …
-  /LIFE/{draft,approved,published}/<post>/
-      metadata.json · sources.json · visual-brief.json · editor-state.json
-      /assets/source_01.png … · /renders/slide_01.jpg … · /_inbox_original/
-  /_system/channels.json · accounts.json(암호화) · index.json(캐시) · ingest-log.json · /style-packs/*.json`}</pre>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+      <SettingsSection title="최근 인제스트" description="Drive inbox 에서 가져온 결과 (최대 50)">
+        {!s || s.recent_ingest.length === 0 ? (
+          <SettingsRow><span className="text-sm text-label-alt">기록 없음</span></SettingsRow>
+        ) : (
+          <div className="max-h-[420px] overflow-y-auto">
+            {s.recent_ingest.map((e, i) => (
+              <div key={i} className="flex items-center gap-3 px-5 py-2.5 text-xs" style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
+                <span className="w-24 shrink-0 text-label-alt">{fmtTime(e.at)}</span>
+                <span className="w-10 shrink-0 font-semibold">{e.channel}</span>
+                <span className="min-w-0 flex-1 truncate font-mono">{e.prefix}</span>
+                <span className={cn("shrink-0 rounded px-1.5 py-0.5", e.result === "created" ? "text-positive" : e.result === "needs_repair" || e.result === "error" ? "text-negative" : "bg-fill text-label-alt")} style={e.result === "created" ? { background: "var(--semantic-background-status-positive)" } : e.result === "needs_repair" || e.result === "error" ? { background: "var(--semantic-background-status-negative)" } : undefined}>
+                  {e.result}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </SettingsSection>
 
-function Kv({ k, v, warn }: { k: string; v: string; warn?: boolean }) {
-  return (
-    <div className="flex items-center justify-between border-b border-border/60 pb-2">
-      <span className="text-xs text-muted-foreground">{k}</span>
-      <span className={cn("text-sm", warn && "text-amber-600")}>{v}</span>
-    </div>
+      <SettingsSection title="Drive 폴더 구조">
+        <pre className="m-0 overflow-x-auto px-5 pb-5 font-mono text-[11px] leading-relaxed text-label-neutral">{TREE}</pre>
+      </SettingsSection>
+    </>
   );
 }

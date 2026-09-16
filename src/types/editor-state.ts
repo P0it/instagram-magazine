@@ -52,9 +52,46 @@ export const SlideTextStateSchema = z.object({
 });
 export type SlideTextState = z.infer<typeof SlideTextStateSchema>;
 
+export const STICKER_KEYS = ["tape", "badge", "pill", "quote", "arrow", "highlight", "date", "frame"] as const;
+export const StickerKeySchema = z.enum(STICKER_KEYS);
+export type StickerKey = z.infer<typeof StickerKeySchema>;
+
+export const ICON_KEYS = ["sparkles", "heart", "check", "clock", "bookmark", "pencil", "eye", "link", "circle-check", "info"] as const;
+export const IconKeySchema = z.enum(ICON_KEYS);
+export type IconKey = z.infer<typeof IconKeySchema>;
+
+/**
+ * 텍스트/이미지 위에 얹는 요소 레이어(스티커·아이콘). 좌표는 1080×1350 논리 px, (x,y) 는 중심.
+ * 누끼(cutout) 는 배경 제거 백엔드가 없어 아직 kind 에 없다.
+ */
+export const SlideLayerSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["sticker", "icon"]),
+  key: z.string(),
+  x: z.number().default(540),
+  y: z.number().default(540),
+  width: z.number().min(24).max(1080).default(300),
+  /** 사용자가 박스를 직접 늘렸을 때만 존재. 없으면 스티커 기본 비율 */
+  height: z.number().min(24).max(1350).optional(),
+  rotation: z.number().default(0),
+  opacity: z.number().min(0).max(1).default(1),
+  flip: z.boolean().default(false),
+  text: z.string().default(""),
+  /** 주 색: 배지/하이라이트 배경, 아이콘 색, 그 외 스티커의 글자색 */
+  color: z.string().default("#FFFFFF"),
+  /** 배경/글자색 오버라이드 ("none" 은 배경 없음) */
+  bg: z.string().nullable().default(null),
+  ink: z.string().nullable().default(null),
+  fontFamily: FontFamilySchema.default("sans"),
+  hidden: z.boolean().default(false),
+  locked: z.boolean().default(false),
+});
+export type SlideLayer = z.infer<typeof SlideLayerSchema>;
+
 export const SlideEditorStateSchema = z.object({
   image: SlideImageStateSchema.prefault({}),
   text: SlideTextStateSchema.prefault({}),
+  layers: z.array(SlideLayerSchema).default([]),
 });
 export type SlideEditorState = z.infer<typeof SlideEditorStateSchema>;
 

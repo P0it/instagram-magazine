@@ -11,5 +11,6 @@ const EditorInner = dynamic(() => import("./editor-inner").then((m) => m.EditorI
 });
 
 export function Editor({ postId }: { postId: string }) {
-  return <EditorInner postId={postId} />;
+  // postId 마다 리마운트 → 저장 상태·모드 같은 로컬 상태가 포스트 간에 섞이지 않는다
+  return <EditorInner key={postId} postId={postId} />;
 }

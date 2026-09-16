@@ -2,15 +2,17 @@ import { expect, test } from "@playwright/test";
 
 const POST = "2026-09-11_youth-housing-support";
 
-test("dashboard → library → editor → preset switch → export 1080x1350 JPEG", async ({ page }) => {
+test("home 3-stage board → builder → preset switch → sticker → export 1080x1350 JPEG", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
 
-  await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: /데스크/ })).toBeVisible();
+  await page.goto("/home");
+  await expect(page.getByRole("heading", { name: /LIFE — 생활·주거/ })).toBeVisible();
+  // 3단계 세그먼트
+  await expect(page.getByRole("tab", { name: /^초안 \d+/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^편집 중 \d+/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^게시됨 \d+/ })).toBeVisible();
 
-  await page.goto("/library");
-  await expect(page.getByRole("heading", { name: /라이브러리/ })).toBeVisible();
   await page.getByRole("link", { name: /월세 내고 있다면/ }).first().click();
   await expect(page).toHaveURL(new RegExp(`/editor/${POST}`));
 
@@ -18,9 +20,14 @@ test("dashboard → library → editor → preset switch → export 1080x1350 JP
   const canvas = page.locator("canvas").first();
   await expect(canvas).toBeVisible({ timeout: 15_000 });
 
-  // 프리셋 전환
+  // 프리셋 전환 → 자동 저장
   await page.getByRole("button", { name: /Cover Center/ }).click();
-  await expect(page.getByText("● 저장되지 않음")).toBeVisible();
+  await expect(page.getByText(/저장됨 · 방금/)).toBeVisible({ timeout: 10_000 });
+
+  // 요소 탭에서 스티커 추가 → 요소 레이어 패널
+  await page.getByRole("tab", { name: "요소" }).click();
+  await page.getByRole("button", { name: "테이프" }).click();
+  await expect(page.getByText("요소 레이어")).toBeVisible();
 
   // 슬라이드 순서 변경: 2번 선택 후 왼쪽으로
   const thumbs = page.getByTestId("slide-thumb");
@@ -29,11 +36,12 @@ test("dashboard → library → editor → preset switch → export 1080x1350 JP
   await thumbs.nth(1).hover();
   await page.getByTitle("왼쪽으로").click();
 
-  // 내보내기 — 4장 다운로드
+  // 포스트 패널에서 JPEG 내려받기 — 4장
+  await page.keyboard.press("Escape");
   const downloads: Promise<import("@playwright/test").Download>[] = [];
   page.on("download", (d) => downloads.push(Promise.resolve(d)));
-  await page.getByRole("button", { name: /JPEG/ }).click();
-  await page.waitForTimeout(4000);
+  await page.getByRole("button", { name: /JPEG 내려받기/ }).click();
+  await page.waitForTimeout(5000);
   expect(downloads.length).toBe(4);
   const first = await downloads[0];
   expect(first.suggestedFilename()).toMatch(/slide_01\.jpg$/);
@@ -41,26 +49,34 @@ test("dashboard → library → editor → preset switch → export 1080x1350 JP
   expect(path).toBeTruthy();
   const fs = await import("node:fs");
   const buf = fs.readFileSync(path!);
-  // JPEG SOI + 크기 확인
   expect(buf[0]).toBe(0xff);
   expect(buf[1]).toBe(0xd8);
-  const dims = readJpegDims(buf);
-  expect(dims).toEqual({ width: 1080, height: 1350 });
+  expect(readJpegDims(buf)).toEqual({ width: 1080, height: 1350 });
 
   expect(errors).toEqual([]);
 });
 
-test("save + render uploads to mock drive, publish page shows checklist", async ({ page }) => {
+test("publish sheet blocks on fact-check, publish page shows checklist", async ({ page }) => {
   await page.goto(`/editor/${POST}`);
   await expect(page.locator("canvas").first()).toBeVisible({ timeout: 15_000 });
-  await page.getByRole("button", { name: /저장 \+ 렌더/ }).click();
-  await expect(page.getByText(/저장 완료 · 렌더 4장/)).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "게시", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "인스타그램에 게시할까요?" })).toBeVisible();
+  // LIFE 는 팩트체크 필수 → CTA 비활성 + 사유 표시
+  await expect(page.getByRole("button", { name: /인스타그램에 게시하기/ })).toBeDisabled();
+  await expect(page.getByText(/팩트체크 승인/)).toBeVisible();
 
   await page.goto(`/publish/${POST}`);
-  await expect(page.getByText(/렌더 \(4 \/ 4\)/)).toBeVisible();
+  await expect(page.getByText(/렌더 \d+ \/ 4/)).toBeVisible();
   await expect(page.getByText("렌더 수 = 슬라이드 수")).toBeVisible({ timeout: 20_000 });
-  // LIFE 는 팩트체크 필수 → 승인 버튼 비활성
   await expect(page.getByRole("button", { name: "승인" })).toBeDisabled();
+});
+
+test("settings and queue render under the top bar", async ({ page }) => {
+  await page.goto("/settings");
+  await expect(page.getByRole("heading", { name: "설정" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "인스타그램 계정" })).toBeVisible();
+  await page.goto("/queue");
+  await expect(page.getByRole("heading", { name: /게시 큐/ })).toBeVisible();
 });
 
 function readJpegDims(buf: Buffer): { width: number; height: number } | null {

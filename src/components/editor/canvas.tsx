@@ -1,11 +1,14 @@
 "use client";
 
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import { Stage, Layer, Rect, Image as KImage, Text as KText, Group, Transformer } from "react-konva";
+import { Stage, Layer, Rect, Image as KImage, Text as KText, Group, Transformer, Line } from "react-konva";
 import Konva from "konva";
 import useImage from "use-image";
-import { CANVAS_HEIGHT, CANVAS_WIDTH, type SlideEditorState } from "@/types";
+import { CANVAS_HEIGHT, CANVAS_WIDTH, type SlideEditorState, type SlideLayer } from "@/types";
 import { konvaFontFamily } from "@/lib/render/export";
+import { stickerColors, stickerDef, stickerHeight } from "@/lib/render/stickers";
+import { iconSvgDataUrl } from "@/lib/render/icon-svg";
+import type { Selection } from "@/stores/editor-store";
 
 export interface CanvasProps {
   slideState: SlideEditorState;
@@ -13,38 +16,43 @@ export interface CanvasProps {
   imageUrl: string | null;
   displayWidth: number;
   editable?: boolean;
+  selection?: Selection;
+  onSelect?: (sel: Selection) => void;
   onTextChange?: (patch: Partial<SlideEditorState["text"]>) => void;
   onImageChange?: (patch: Partial<SlideEditorState["image"]>) => void;
+  onLayerChange?: (id: string, patch: Partial<SlideLayer>) => void;
+  onGuides?: (g: { v: boolean; h: boolean }) => void;
   showSafeArea?: boolean;
 }
 
+const SNAP = 14;
+
 /**
  * 1080×1350 논리 좌표 고정. 화면에는 scale 만 적용.
- * 이미지는 same-origin 프록시(/api/drive/file/…) 만 → canvas taint 없음.
+ * 이미지는 same-origin 프록시(/api/drive/file/…) 와 data: URL 만 → canvas taint 없음.
  */
 export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCanvas(
-  { slideState, text, imageUrl, displayWidth, editable = false, onTextChange, onImageChange, showSafeArea = false },
+  { slideState, text, imageUrl, displayWidth, editable = false, selection = null, onSelect, onTextChange, onImageChange, onLayerChange, onGuides, showSafeArea = false },
   ref,
 ) {
   const scale = displayWidth / CANVAS_WIDTH;
   const [img] = useImage(imageUrl ?? "", "anonymous");
   const imageRef = useRef<Konva.Image>(null);
   const textRef = useRef<Konva.Text>(null);
+  const layerRefs = useRef<Map<string, Konva.Group>>(new Map());
   const trRef = useRef<Konva.Transformer>(null);
-  const [selected, setSelected] = useState(false);
-  const [fontsReady, setFontsReady] = useState(false);
+  const [fontsReady, setFontsReady] = useState(() => typeof document === "undefined" || !("fonts" in document));
 
   useEffect(() => {
+    if (fontsReady) return;
     let alive = true;
-    if (typeof document !== "undefined" && "fonts" in document) {
-      document.fonts.ready.then(() => alive && setFontsReady(true));
-    } else setFontsReady(true);
+    document.fonts.ready.then(() => alive && setFontsReady(true));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [fontsReady]);
 
-  const { image: im, text: tx } = slideState;
+  const { image: im, text: tx, layers } = slideState;
 
   // 필터 적용은 cache 필요
   useEffect(() => {
@@ -54,13 +62,19 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
     node.getLayer()?.batchDraw();
   }, [img, im.brightness, im.contrast, im.saturation, im.blur, im.zoom, im.pan.x, im.pan.y]);
 
+  const selectedLayer = selection?.kind === "layer" ? layers.find((l) => l.id === selection.id) : undefined;
+
+  // Transformer 를 현재 선택 노드에 붙인다
   useEffect(() => {
     if (!editable) return;
     const tr = trRef.current;
     if (!tr) return;
-    tr.nodes(selected && textRef.current ? [textRef.current] : []);
+    let node: Konva.Node | null = null;
+    if (selection?.kind === "text" && !tx.locked) node = textRef.current;
+    else if (selection?.kind === "layer" && selectedLayer && !selectedLayer.locked && !selectedLayer.hidden) node = layerRefs.current.get(selection.id) ?? null;
+    tr.nodes(node ? [node] : []);
     tr.getLayer()?.batchDraw();
-  }, [selected, editable, tx.locked]);
+  }, [selection, editable, tx.locked, selectedLayer, layers.length]);
 
   const cover = useMemo(() => {
     if (!img) return null;
@@ -103,6 +117,19 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
   }, [im.gradient.color, im.gradient.direction, im.gradient.opacity]);
 
   const fontFamily = fontsReady ? konvaFontFamily(tx.fontFamily) : "sans-serif";
+  const isTextSel = selection?.kind === "text";
+  const trIsText = isTextSel;
+  const keepRatio = selectedLayer ? (selectedLayer.kind === "icon" || stickerDef(selectedLayer.key).aspect !== null) && selectedLayer.height === undefined : false;
+
+  /** 드래그 중 중앙선 스냅 (레이어 중심 기준) */
+  const snapCenter = (pos: { x: number; y: number }) => {
+    const lx = pos.x / scale;
+    const ly = pos.y / scale;
+    const snapV = Math.abs(lx - CANVAS_WIDTH / 2) < SNAP;
+    const snapH = Math.abs(ly - CANVAS_HEIGHT / 2) < SNAP;
+    onGuides?.({ v: snapV, h: snapH });
+    return { x: (snapV ? CANVAS_WIDTH / 2 : lx) * scale, y: (snapH ? CANVAS_HEIGHT / 2 : ly) * scale };
+  };
 
   return (
     <Stage
@@ -112,19 +139,15 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
       scaleX={scale}
       scaleY={scale}
       onMouseDown={(e) => {
-        if (e.target === e.target.getStage() || e.target.name() === "bg" || e.target.name() === "photo") setSelected(false);
+        if (!editable) return;
+        if (e.target === e.target.getStage() || e.target.name() === "bg" || e.target.name() === "photo") onSelect?.({ kind: "image" });
       }}
       style={{ background: im.background, cursor: editable ? "default" : undefined }}
     >
       <Layer listening={editable}>
         <Rect name="bg" x={0} y={0} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} fill={im.background} />
         {img && cover && (
-          <Group
-            clipX={0}
-            clipY={0}
-            clipWidth={CANVAS_WIDTH}
-            clipHeight={CANVAS_HEIGHT}
-          >
+          <Group clipX={0} clipY={0} clipWidth={CANVAS_WIDTH} clipHeight={CANVAS_HEIGHT}>
             <KImage
               ref={imageRef}
               name="photo"
@@ -138,9 +161,8 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
               contrast={im.contrast}
               saturation={im.saturation}
               blurRadius={im.blur}
-              draggable={editable && !tx.locked}
+              draggable={editable && selection?.kind === "image"}
               dragBoundFunc={(pos) => {
-                // 화면 좌표 → 논리 좌표로 환산 후 슬랙 범위로 클램프
                 const lx = pos.x / scale;
                 const ly = pos.y / scale;
                 const minX = -cover.slackX;
@@ -159,10 +181,11 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
           </Group>
         )}
         {im.overlay.opacity > 0 && (
-          <Rect x={0} y={0} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} fill={im.overlay.color} opacity={im.overlay.opacity} listening={false} />
+          <Rect name="bg" x={0} y={0} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} fill={im.overlay.color} opacity={im.overlay.opacity} />
         )}
         {gradientStops && (
           <Rect
+            name="bg"
             x={0}
             y={0}
             width={CANVAS_WIDTH}
@@ -170,14 +193,13 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
             fillLinearGradientStartPoint={gradientStops.start}
             fillLinearGradientEndPoint={gradientStops.end}
             fillLinearGradientColorStops={gradientStops.stops}
-            listening={false}
           />
         )}
         {tx.frame && (
           <Rect x={40} y={40} width={CANVAS_WIDTH - 80} height={CANVAS_HEIGHT - 80} stroke={tx.color} strokeWidth={2} opacity={0.5} listening={false} />
         )}
         {showSafeArea && (
-          <Rect x={80} y={80} width={CANVAS_WIDTH - 160} height={CANVAS_HEIGHT - 160} stroke="#22d3ee" dash={[12, 12]} strokeWidth={2} listening={false} />
+          <Rect x={65} y={81} width={CANVAS_WIDTH - 130} height={CANVAS_HEIGHT - 162} stroke="rgba(255,255,255,0.45)" dash={[14, 12]} strokeWidth={2} listening={false} />
         )}
         <KText
           ref={textRef}
@@ -194,34 +216,187 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
           align={tx.align}
           fill={tx.color}
           wrap="word"
+          shadowColor="rgba(0,0,0,0.28)"
+          shadowBlur={18}
+          shadowOffsetY={1}
           draggable={editable && !tx.locked}
-          onClick={() => editable && setSelected(true)}
-          onTap={() => editable && setSelected(true)}
+          onMouseDown={(e) => {
+            if (!editable) return;
+            e.cancelBubble = true;
+            onSelect?.({ kind: "text" });
+          }}
+          onTap={() => editable && onSelect?.({ kind: "text" })}
           onDragEnd={(e) => onTextChange?.({ x: Math.round(e.target.x()), y: Math.round(e.target.y()) })}
           onTransformEnd={(e) => {
             const node = e.target as Konva.Text;
             const newWidth = Math.max(120, Math.round(node.width() * node.scaleX()));
+            const sy = node.scaleY();
             node.scaleX(1);
             node.scaleY(1);
-            onTextChange?.({ x: Math.round(node.x()), y: Math.round(node.y()), width: newWidth });
+            const patch: Partial<SlideEditorState["text"]> = { x: Math.round(node.x()), y: Math.round(node.y()), width: newWidth };
+            if (Math.abs(sy - 1) > 0.01) patch.fontSize = clamp(Math.round(tx.fontSize * sy), 12, 300);
+            onTextChange?.(patch);
           }}
         />
+
+        {layers.map((l) =>
+          l.hidden ? null : (
+            <LayerNode
+              key={l.id}
+              layer={l}
+              editable={editable}
+              fontsReady={fontsReady}
+              register={(n) => {
+                if (n) layerRefs.current.set(l.id, n);
+                else layerRefs.current.delete(l.id);
+              }}
+              onSelect={() => onSelect?.({ kind: "layer", id: l.id })}
+              onChange={(patch) => onLayerChange?.(l.id, patch)}
+              dragBound={snapCenter}
+              onDragEnd={() => onGuides?.({ v: false, h: false })}
+            />
+          ),
+        )}
+
         {editable && (
           <Transformer
             ref={trRef}
-            rotateEnabled={false}
-            enabledAnchors={["middle-left", "middle-right"]}
-            boundBoxFunc={(_old, next) => (next.width < 120 * scale ? _old : next)}
-            anchorSize={10}
-            borderStroke="#22d3ee"
-            anchorStroke="#22d3ee"
+            rotateEnabled={!trIsText}
+            keepRatio={keepRatio}
+            enabledAnchors={trIsText ? ["middle-left", "middle-right", "top-left", "top-right", "bottom-left", "bottom-right"] : ["top-left", "top-right", "bottom-left", "bottom-right"]}
+            boundBoxFunc={(_old, next) => (next.width < 40 * scale || next.height < 16 * scale ? _old : next)}
+            anchorSize={9}
+            anchorCornerRadius={3}
+            borderStroke="#0066FF"
+            anchorStroke="#0066FF"
             anchorFill="#ffffff"
+            rotateAnchorOffset={26}
           />
         )}
       </Layer>
     </Stage>
   );
 });
+
+/** 요소 레이어 하나 — Group(중심 기준) 안에 스티커/아이콘 */
+function LayerNode({
+  layer: l,
+  editable,
+  fontsReady,
+  register,
+  onSelect,
+  onChange,
+  dragBound,
+  onDragEnd,
+}: {
+  layer: SlideLayer;
+  editable: boolean;
+  fontsReady: boolean;
+  register: (n: Konva.Group | null) => void;
+  onSelect: () => void;
+  onChange: (patch: Partial<SlideLayer>) => void;
+  dragBound: (pos: { x: number; y: number }) => { x: number; y: number };
+  onDragEnd: () => void;
+}) {
+  const def = l.kind === "sticker" ? stickerDef(l.key) : null;
+  const w = l.width;
+  const h = l.height ?? (def ? stickerHeight(def, w) : w);
+  const colors = def ? stickerColors(def, l) : { bg: null, ink: l.color };
+
+  return (
+    <Group
+      ref={register}
+      name={`layer-${l.id}`}
+      x={l.x}
+      y={l.y}
+      offsetX={w / 2}
+      offsetY={h / 2}
+      width={w}
+      height={h}
+      rotation={l.rotation}
+      opacity={l.opacity}
+      scaleX={l.flip ? -1 : 1}
+      draggable={editable && !l.locked}
+      dragBoundFunc={dragBound}
+      onMouseDown={(e) => {
+        if (!editable) return;
+        e.cancelBubble = true;
+        onSelect();
+      }}
+      onTap={() => editable && onSelect()}
+      onDragEnd={(e) => {
+        onDragEnd();
+        onChange({ x: Math.round(e.target.x()), y: Math.round(e.target.y()) });
+      }}
+      onTransformEnd={(e) => {
+        const node = e.target as Konva.Group;
+        const nw = Math.max(24, Math.round(w * node.scaleX() * (l.flip ? -1 : 1)));
+        const nh = Math.max(24, Math.round(h * node.scaleY()));
+        node.scaleX(l.flip ? -1 : 1);
+        node.scaleY(1);
+        const patch: Partial<SlideLayer> = { width: nw, rotation: Math.round(node.rotation()) };
+        // 고정 비율(아이콘·정사각 스티커)이 아니면 사용자가 정한 높이를 기억한다
+        const fixed = l.kind === "icon" || (def?.aspect !== null && l.height === undefined);
+        if (!fixed || Math.abs(nh / nw - h / w) > 0.02) patch.height = nh;
+        // 중심 좌표는 offset 으로 유지되므로 그대로 저장
+        patch.x = Math.round(node.x());
+        patch.y = Math.round(node.y());
+        onChange(patch);
+      }}
+    >
+      {l.kind === "icon" ? (
+        <IconImage iconKey={l.key} color={l.color} width={w} height={h} />
+      ) : def ? (
+        <>
+          {colors.bg && !def.dashed && (
+            <Rect
+              width={w}
+              height={h}
+              fill={colors.bg}
+              cornerRadius={def.radius}
+              shadowColor="rgba(0,0,0,0.2)"
+              shadowBlur={def.shadow ? 24 : 0}
+              shadowOffsetY={def.shadow ? 8 : 0}
+              shadowEnabled={def.shadow}
+            />
+          )}
+          {def.dashed && <Rect width={w} height={h} stroke={colors.ink} strokeWidth={4} dash={[18, 12]} cornerRadius={def.radius} />}
+          {def.rules && (
+            <>
+              <Line points={[0, 0, w, 0]} stroke={colors.ink} strokeWidth={2} opacity={0.65} />
+              <Line points={[0, h, w, h]} stroke={colors.ink} strokeWidth={2} opacity={0.65} />
+            </>
+          )}
+          {def.text !== "" && (
+            <KText
+              text={l.text || def.text}
+              width={w}
+              height={h}
+              align="center"
+              verticalAlign="middle"
+              fontSize={Math.max(8, w * def.textScale)}
+              fontFamily={fontsReady ? konvaFontFamily(l.fontFamily) : "sans-serif"}
+              fontStyle={def.weight >= 600 ? "bold" : "normal"}
+              letterSpacing={def.letterSpacing}
+              fill={colors.ink}
+              wrap="none"
+              ellipsis
+            />
+          )}
+        </>
+      ) : null}
+    </Group>
+  );
+}
+
+function IconImage({ iconKey, color, width, height }: { iconKey: string; color: string; width: number; height: number }) {
+  const url = useMemo(() => iconSvgDataUrl(iconKey, color), [iconKey, color]);
+  const [img] = useImage(url);
+  if (!img) return null;
+  return (
+    <KImage image={img} width={width} height={height} shadowColor="rgba(0,0,0,0.3)" shadowBlur={12} shadowOffsetY={4} />
+  );
+}
 
 function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));

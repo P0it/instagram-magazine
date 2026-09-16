@@ -79,14 +79,18 @@ export function textStateFromPreset(preset: LayoutPreset, text: string): SlideTe
 }
 
 export function slideStateFromPreset(preset: LayoutPreset, text: string): SlideEditorState {
-  return { image: imageStateFromPreset(preset), text: textStateFromPreset(preset, text) };
+  return { image: imageStateFromPreset(preset), text: textStateFromPreset(preset, text), layers: [] };
 }
 
-/** 프리셋 전환 시: 이미지 크롭/줌/팬은 유지, 톤·텍스트 배치는 프리셋으로 */
-export function applyPresetToState(prev: SlideEditorState, preset: LayoutPreset, text: string): SlideEditorState {
+/**
+ * 프리셋 전환 시: 이미지 크롭/줌/팬·요소 레이어는 유지, 텍스트 배치는 프리셋으로.
+ * withImage=false 면 이미지 보정(톤)도 그대로 두고 레이아웃만 바꾼다.
+ */
+export function applyPresetToState(prev: SlideEditorState, preset: LayoutPreset, text: string, withImage = true): SlideEditorState {
   const fresh = slideStateFromPreset(preset, text);
   return {
-    image: { ...fresh.image, crop: prev.image.crop, zoom: prev.image.zoom, pan: prev.image.pan },
+    image: withImage ? { ...fresh.image, crop: prev.image.crop, zoom: prev.image.zoom, pan: prev.image.pan } : prev.image,
     text: { ...fresh.text, locked: prev.text.locked },
+    layers: prev.layers,
   };
 }

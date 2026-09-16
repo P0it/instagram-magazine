@@ -216,7 +216,9 @@ function isoAt(date: string, hour: number): string {
 
 function buildMetadata(p: SeedPost, slides: SlideDef[]): PostMetadata {
   const created = isoAt(p.date, 6);
-  const updated = isoAt(p.date, 8);
+  // 손대지 않은 초안은 updated_at === created_at (홈 3단계에서 "초안" 으로 분류)
+  const untouched = (p.status === "draft" || p.status === "needs_repair") && !p.withRenders;
+  const updated = untouched ? created : isoAt(p.date, 8);
   const base = PostMetadataSchema.parse({
     post_id: `${p.date}_${p.slug}`,
     channel: p.channel,

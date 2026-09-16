@@ -65,9 +65,9 @@ export function StylePacksSettings() {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[1fr_420px]">
+    <div className="grid gap-5">
       <div className="flex flex-col gap-4">
-        <Card className="shadow-none">
+        <Card className="rounded-2xl border-0 shadow-none">
           <CardHeader><CardTitle className="text-sm">채널 기본값</CardTitle></CardHeader>
           <CardContent className="grid gap-2 md:grid-cols-2">
             {CHANNEL_KEYS.map((ch) => {
@@ -90,7 +90,7 @@ export function StylePacksSettings() {
 
         <div className="grid gap-3 md:grid-cols-2">
           {(packs.data?.packs ?? []).map((p) => (
-            <Card key={p.id} className="shadow-none">
+            <Card key={p.id} className="rounded-2xl border-0 shadow-none">
               <CardHeader className="flex flex-row items-start justify-between gap-2">
                 <div>
                   <CardTitle className="text-sm">{p.name}</CardTitle>
@@ -119,7 +119,7 @@ export function StylePacksSettings() {
         </div>
       </div>
 
-      <Card className="shadow-none">
+      <Card className="rounded-2xl border-0 shadow-none">
         <CardHeader><CardTitle className="text-sm">style-pack.json 임포트</CardTitle></CardHeader>
         <CardContent className="flex flex-col gap-3">
           <Textarea value={json} onChange={(e) => setJson(e.target.value)} rows={22} className="font-mono text-xs" />

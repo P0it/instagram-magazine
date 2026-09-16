@@ -31,6 +31,17 @@ describe("EditorState schema", () => {
     const s = EditorStateSchema.parse({ slides: { s1: {} } });
     expect(s.slides.s1.text.fontSize).toBe(72);
     expect(s.slides.s1.image.zoom).toBe(1);
+    // 기존 editor-state.json(레이어 없음)도 그대로 읽힌다
+    expect(s.slides.s1.layers).toEqual([]);
+  });
+  it("layer defaults + validation", () => {
+    const s = EditorStateSchema.parse({ slides: { s1: { layers: [{ id: "l1", kind: "sticker", key: "tape" }] } } });
+    const l = s.slides.s1.layers[0];
+    expect(l.x).toBe(540);
+    expect(l.width).toBe(300);
+    expect(l.opacity).toBe(1);
+    expect(l.height).toBeUndefined();
+    expect(() => EditorStateSchema.parse({ slides: { s1: { layers: [{ id: "l1", kind: "blob", key: "x" }] } } })).toThrow();
   });
 });
 

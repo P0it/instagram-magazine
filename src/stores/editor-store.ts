@@ -10,6 +10,7 @@ import {
   type PresetId,
   type SlideDef,
   type SlideEditorState,
+  type SlideLayer,
   type SlideRole,
   type SourcesFile,
   type StylePack,
@@ -23,6 +24,9 @@ export interface EditorSnapshot {
   sources: SourcesFile;
 }
 
+/** 캔버스 선택 대상. null = 포스트(캡션·태그) 패널 */
+export type Selection = { kind: "text" } | { kind: "image" } | { kind: "layer"; id: string } | null;
+
 interface EditorStore {
   postId: string | null;
   bundle: PostBundle | null;
@@ -31,11 +35,14 @@ interface EditorStore {
   past: EditorSnapshot[];
   future: EditorSnapshot[];
   selectedSlideId: string | null;
+  selection: Selection;
   dirty: boolean;
 
   load: (bundle: PostBundle, stylePack: StylePack | null) => void;
-  markSaved: (bundle: PostBundle) => void;
+  /** 저장 완료 반영. savedSnapshot 을 주면 그 뒤에 생긴 변경은 dirty 로 남긴다 (null 이면 항상 dirty 유지) */
+  markSaved: (bundle: PostBundle, savedSnapshot?: EditorSnapshot | null) => void;
   select: (slideId: string) => void;
+  setSelection: (sel: Selection) => void;
 
   undo: () => void;
   redo: () => void;
@@ -44,8 +51,13 @@ interface EditorStore {
   updateSlideText: (slideId: string, text: string) => void;
   updateSlideRole: (slideId: string, role: SlideRole) => void;
   setSlideAsset: (slideId: string, asset: string | null) => void;
-  applyPreset: (slideId: string, presetId: PresetId) => void;
+  applyPreset: (slideId: string, presetId: PresetId, withImage?: boolean) => void;
   updateSlideState: (slideId: string, fn: (s: SlideEditorState) => void) => void;
+  addLayer: (slideId: string, layer: Omit<SlideLayer, "id">) => string;
+  updateLayer: (slideId: string, layerId: string, patch: Partial<SlideLayer>) => void;
+  removeLayer: (slideId: string, layerId: string) => void;
+  duplicateLayer: (slideId: string, layerId: string) => void;
+  moveLayer: (slideId: string, layerId: string, dir: 1 | -1) => void;
   addSlide: (role?: SlideRole) => void;
   removeSlide: (slideId: string) => void;
   moveSlide: (from: number, to: number) => void;
@@ -72,6 +84,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   past: [],
   future: [],
   selectedSlideId: null,
+  selection: { kind: "text" },
   dirty: false,
 
   load: (bundle, stylePack) => {
@@ -91,21 +104,24 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       past: [],
       future: [],
       selectedSlideId: bundle.metadata.slides[0]?.id ?? null,
+      selection: { kind: "text" },
       dirty: false,
     });
   },
 
-  markSaved: (bundle) => {
+  markSaved: (bundle, savedSnapshot) => {
     const s = get();
     if (!s.snapshot) return;
+    const stillDirty = savedSnapshot === undefined ? false : s.snapshot !== savedSnapshot;
     set({
       bundle,
       snapshot: { ...s.snapshot, metadata: { ...s.snapshot.metadata, updated_at: bundle.metadata.updated_at, status: bundle.metadata.status } },
-      dirty: false,
+      dirty: stillDirty,
     });
   },
 
-  select: (slideId) => set({ selectedSlideId: slideId }),
+  select: (slideId) => set({ selectedSlideId: slideId, selection: { kind: "text" } }),
+  setSelection: (selection) => set({ selection }),
 
   undo: () => {
     const s = get();
@@ -183,7 +199,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     );
   },
 
-  applyPreset: (slideId, presetId) => {
+  applyPreset: (slideId, presetId, withImage = true) => {
     const s = get();
     if (!s.snapshot) return;
     set(
@@ -198,10 +214,74 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
             d.editorState.slides[slideId] ?? ensureSlideState(s.snapshot!, slide, s.stylePack),
             resolvePreset(presetId, undefined, s.stylePack),
             slide.text,
+            withImage,
           );
         }),
       ),
     );
+  },
+
+  addLayer: (slideId, layer) => {
+    const s = get();
+    if (!s.snapshot) return "";
+    const existing = s.snapshot.editorState.slides[slideId]?.layers ?? [];
+    const ids = existing.map((l) => Number(l.id.replace(/^l/, "")) || 0);
+    const id = `l${(ids.length ? Math.max(...ids) : 0) + 1}`;
+    set({
+      ...commit(
+        s,
+        produce(s.snapshot, (d) => {
+          const slide = d.metadata.slides.find((x) => x.id === slideId);
+          if (!slide) return;
+          d.editorState.slides[slideId] ??= ensureSlideState(s.snapshot!, slide, s.stylePack);
+          d.editorState.slides[slideId].layers.push({ ...layer, id });
+        }),
+      ),
+      selection: { kind: "layer", id },
+    });
+    return id;
+  },
+
+  updateLayer: (slideId, layerId, patch) => {
+    get().updateSlideState(slideId, (st) => {
+      const l = st.layers.find((x) => x.id === layerId);
+      if (l) Object.assign(l, patch);
+    });
+  },
+
+  removeLayer: (slideId, layerId) => {
+    const s = get();
+    if (!s.snapshot) return;
+    set({
+      ...commit(
+        s,
+        produce(s.snapshot, (d) => {
+          const st = d.editorState.slides[slideId];
+          if (st) st.layers = st.layers.filter((l) => l.id !== layerId);
+        }),
+      ),
+      selection: s.selection?.kind === "layer" && s.selection.id === layerId ? null : s.selection,
+    });
+  },
+
+  duplicateLayer: (slideId, layerId) => {
+    const s = get();
+    const src = s.snapshot?.editorState.slides[slideId]?.layers.find((l) => l.id === layerId);
+    if (!src) return;
+    const { id: _id, ...rest } = src;
+    void _id;
+    s.addLayer(slideId, { ...rest, x: Math.min(1040, src.x + 60), y: Math.min(1310, src.y + 60) });
+  },
+
+  moveLayer: (slideId, layerId, dir) => {
+    get().updateSlideState(slideId, (st) => {
+      const i = st.layers.findIndex((l) => l.id === layerId);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= st.layers.length) return;
+      const a = st.layers[i];
+      st.layers[i] = st.layers[j];
+      st.layers[j] = a;
+    });
   },
 
   updateSlideState: (slideId, fn) => {
@@ -309,3 +389,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
 export const selectSelectedSlide = (s: EditorStore): SlideDef | null =>
   s.snapshot?.metadata.slides.find((x) => x.id === s.selectedSlideId) ?? null;
+
+export const selectSelectedLayer = (s: EditorStore): SlideLayer | null => {
+  if (!s.snapshot || !s.selectedSlideId || s.selection?.kind !== "layer") return null;
+  const id = s.selection.id;
+  return s.snapshot.editorState.slides[s.selectedSlideId]?.layers.find((l) => l.id === id) ?? null;
+};

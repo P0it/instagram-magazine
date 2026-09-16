@@ -34,7 +34,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko" className={`${sansKr.variable} ${serifKr.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <head>
+        {/* Montage(Wanted DS) UI 폰트 — Pretendard Variable(본문) + Wanted Sans Variable(디스플레이) */}
+        <link rel="preconnect" href="https://static.wanted.co.kr" crossOrigin="anonymous" />
+        <link rel="stylesheet" href="https://static.wanted.co.kr/fonts/pretendard/pretendard/pretendardvariable-dynamic-subset.min.css" />
+        <link rel="stylesheet" href="https://static.wanted.co.kr/fonts/wantedsans/WantedSansVariable.min.css" />
+      </head>
+      <body className="min-h-full flex flex-col">
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

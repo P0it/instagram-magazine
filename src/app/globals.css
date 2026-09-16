@@ -2,14 +2,17 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* Montage 웹폰트(Pretendard Variable · Wanted Sans Variable)는 app/layout.tsx 의 <link> 로 로드 */
+
+@custom-variant dark (&:is(.dark *, [data-theme="dark"] *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-family-core);
+  --font-display: var(--font-family-display);
+  --font-mono: var(--font-family-mono);
+  --font-heading: var(--font-family-core);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -39,6 +42,30 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* Montage semantic 토큰을 Tailwind 유틸리티로 */
+  --color-label: var(--semantic-label-normal);
+  --color-label-neutral: var(--semantic-label-neutral);
+  --color-label-alt: var(--semantic-label-alternative);
+  --color-label-assistive: var(--semantic-label-assistive);
+  --color-surface: var(--semantic-background-normal-normal);
+  --color-surface-alt: var(--semantic-background-normal-alternative);
+  --color-elevated: var(--semantic-background-elevated-normal);
+  --color-fill: var(--semantic-fill-normal);
+  --color-fill-strong: var(--semantic-fill-strong);
+  --color-fill-alt: var(--semantic-fill-alternative);
+  --color-line: var(--semantic-line-solid-normal);
+  --color-line-neutral: var(--semantic-line-solid-neutral);
+  --color-line-alt: var(--semantic-line-solid-alternative);
+  --color-brand: var(--semantic-primary-normal);
+  --color-brand-strong: var(--semantic-primary-strong);
+  --color-positive: var(--semantic-status-positive);
+  --color-cautionary: var(--semantic-status-cautionary);
+  --color-negative: var(--semantic-status-negative);
+  --shadow-e-xs: var(--semantic-elevation-shadow-normal-xsmall);
+  --shadow-e-sm: var(--semantic-elevation-shadow-normal-small);
+  --shadow-e-md: var(--semantic-elevation-shadow-normal-medium);
+  --shadow-e-lg: var(--semantic-elevation-shadow-normal-large);
+  --shadow-e-xl: var(--semantic-elevation-shadow-normal-xlarge);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,83 +75,171 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ---------- Montage semantic 토큰 (light) ---------- */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --font-family-core: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --font-family-display: "Wanted Sans Variable", "Wanted Sans", var(--font-family-core);
+  --font-family-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --semantic-primary-normal: #0066FF;
+  --semantic-primary-strong: #005EEB;
+  --semantic-primary-heavy: #0054D1;
+  --semantic-label-normal: #171719;
+  --semantic-label-strong: #000000;
+  --semantic-label-neutral: #2E2F33E0;
+  --semantic-label-alternative: #37383C9C;
+  --semantic-label-assistive: #37383C47;
+  --semantic-label-disable: #37383C29;
+  --semantic-background-normal-normal: #ffffff;
+  --semantic-background-normal-alternative: #F7F7F8;
+  --semantic-background-elevated-normal: #ffffff;
+  --semantic-background-elevated-alternative: #F7F7F8;
+  --semantic-background-status-negative: #FF424214;
+  --semantic-background-status-cautionary: #FF920014;
+  --semantic-background-status-positive: #00BF4014;
+  --semantic-interaction-inactive: #989BA2;
+  --semantic-interaction-disable: #F4F4F5;
+  --semantic-line-normal-normal: #70737C38;
+  --semantic-line-normal-neutral: #70737C29;
+  --semantic-line-normal-alternative: #70737C14;
+  --semantic-line-solid-normal: #E1E2E4;
+  --semantic-line-solid-neutral: #EAEBEC;
+  --semantic-line-solid-alternative: #F4F4F5;
+  --semantic-status-positive: #00BF40;
+  --semantic-status-cautionary: #FF9200;
+  --semantic-status-negative: #FF4242;
+  --semantic-accent-background-redOrange: #FF5E00;
+  --semantic-accent-background-cyan: #00BDDE;
+  --semantic-accent-background-violet: #6541F2;
+  --semantic-accent-background-pink: #F553DA;
+  --semantic-accent-foreground-green: #009632;
+  --semantic-accent-foreground-blue: #005EEB;
+  --semantic-accent-foreground-red: #E52222;
+  --semantic-inverse-background: #1B1C1E;
+  --semantic-inverse-label: #F7F7F8;
+  --semantic-fill-normal: #70737C14;
+  --semantic-fill-strong: #70737C29;
+  --semantic-fill-alternative: #70737C0D;
+  --semantic-material-dimmer: #17171985;
+  --semantic-elevation-shadow-normal-xsmall: 0px 1px 2px -1px #1717171A;
+  --semantic-elevation-shadow-normal-small: 0px 2px 4px -2px #1717170F, 0px 4px 6px -1px #1717170F;
+  --semantic-elevation-shadow-normal-medium: 0px 4px 6px -2px #17171712, 0px 10px 15px -3px #17171712;
+  --semantic-elevation-shadow-normal-large: 0px 6px 10px -4px #17171714, 0px 16px 24px -6px #17171714;
+  --semantic-elevation-shadow-normal-xlarge: 0px 10px 15px -5px #1717171A, 0px 24px 38px -10px #1717171F;
+
+  /* shadcn 변수 → Montage 토큰 매핑 (기존 ui/* 컴포넌트가 그대로 Montage 룩을 얻는다) */
+  --background: var(--semantic-background-normal-normal);
+  --foreground: var(--semantic-label-normal);
+  --card: var(--semantic-background-normal-normal);
+  --card-foreground: var(--semantic-label-normal);
+  --popover: var(--semantic-background-elevated-normal);
+  --popover-foreground: var(--semantic-label-normal);
+  --primary: var(--semantic-primary-normal);
+  --primary-foreground: #ffffff;
+  --secondary: var(--semantic-fill-normal);
+  --secondary-foreground: var(--semantic-label-normal);
+  --muted: var(--semantic-fill-alternative);
+  --muted-foreground: var(--semantic-label-alternative);
+  --accent: var(--semantic-fill-normal);
+  --accent-foreground: var(--semantic-label-normal);
+  --destructive: var(--semantic-status-negative);
+  --border: var(--semantic-line-solid-neutral);
+  --input: var(--semantic-line-normal-normal);
+  --ring: var(--semantic-primary-normal);
+  --chart-1: #0066FF;
+  --chart-2: #00BDDE;
+  --chart-3: #6541F2;
+  --chart-4: #F553DA;
+  --chart-5: #FF5E00;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: var(--semantic-background-normal-normal);
+  --sidebar-foreground: var(--semantic-label-normal);
+  --sidebar-primary: var(--semantic-primary-normal);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--semantic-fill-normal);
+  --sidebar-accent-foreground: var(--semantic-label-normal);
+  --sidebar-border: var(--semantic-line-solid-neutral);
+  --sidebar-ring: var(--semantic-primary-normal);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* ---------- Montage semantic 토큰 (dark) ---------- */
+.dark,
+[data-theme="dark"] {
+  --semantic-primary-normal: #3385FF;
+  --semantic-primary-strong: #1A75FF;
+  --semantic-primary-heavy: #0066FF;
+  --semantic-label-normal: #F7F7F8;
+  --semantic-label-strong: #ffffff;
+  --semantic-label-neutral: #C2C4C8E0;
+  --semantic-label-alternative: #AEB0B69C;
+  --semantic-label-assistive: #AEB0B647;
+  --semantic-label-disable: #989BA229;
+  --semantic-background-normal-normal: #1B1C1E;
+  --semantic-background-normal-alternative: #0F0F10;
+  --semantic-background-elevated-normal: #212225;
+  --semantic-background-elevated-alternative: #141415;
+  --semantic-background-status-negative: #FF636314;
+  --semantic-background-status-cautionary: #FFA93814;
+  --semantic-background-status-positive: #1ED45A14;
+  --semantic-interaction-inactive: #5A5C63;
+  --semantic-interaction-disable: #2E2F33;
+  --semantic-line-normal-normal: #70737C52;
+  --semantic-line-normal-neutral: #70737C47;
+  --semantic-line-normal-alternative: #70737C38;
+  --semantic-line-solid-normal: #37383C;
+  --semantic-line-solid-neutral: #333438;
+  --semantic-line-solid-alternative: #2E2F33;
+  --semantic-status-positive: #1ED45A;
+  --semantic-status-cautionary: #FFA938;
+  --semantic-status-negative: #FF6363;
+  --semantic-accent-background-redOrange: #FF7B2E;
+  --semantic-accent-background-cyan: #28D0ED;
+  --semantic-accent-background-violet: #7D5EF7;
+  --semantic-accent-background-pink: #FA73E3;
+  --semantic-accent-foreground-green: #1ED45A;
+  --semantic-accent-foreground-blue: #4F95FF;
+  --semantic-accent-foreground-red: #FF6363;
+  --semantic-inverse-background: #ffffff;
+  --semantic-inverse-label: #171719;
+  --semantic-fill-normal: #70737C38;
+  --semantic-fill-strong: #70737C47;
+  --semantic-fill-alternative: #70737C1F;
+  --semantic-material-dimmer: #171719BD;
+  --primary-foreground: #ffffff;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
-    @apply font-sans;
+    font-family: var(--font-family-core);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: var(--semantic-background-normal-alternative);
+    color: var(--semantic-label-normal);
+    word-break: keep-all;
+  }
+  input[type="range"] {
+    accent-color: var(--semantic-primary-normal);
+    width: 100%;
+    height: 18px;
   }
 }
+
+/* Montage 관례: border 대신 inset box-shadow 1px */
+@utility hairline {
+  box-shadow: inset 0 0 0 1px var(--semantic-line-normal-normal);
+}
+@utility hairline-neutral {
+  box-shadow: inset 0 0 0 1px var(--semantic-line-normal-neutral);
+}
+
+@keyframes md-sheet-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.md-sheet-up { animation: md-sheet-up 200ms cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* 캔버스 렌더 폰트(Noto)는 next/font 로 self-host — UI 폰트와 분리 */

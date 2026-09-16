@@ -11,15 +11,15 @@
 ```bash
 npm install
 cp .env.example .env.local      # 기본값: DRIVE_CLIENT=mock, APP_ACCESS_KEY 비움
-npm run dev                     # http://localhost:3000 → /dashboard
+npm run dev                     # http://localhost:3000 → /home
 ```
 
-Mock 모드는 인메모리 Drive 에 채널별 샘플 포스트(draft/approved/published/failed/scheduled/needs_repair)와 inbox 샘플(.md + .png)이 시드된다. 사이드바 **Inbox 동기화**를 누르면 inbox 샘플이 draft 카드로 나타난다. 서버 재시작 시 초기화.
+Mock 모드는 인메모리 Drive 에 채널별 샘플 포스트(draft/approved/published/failed/scheduled/needs_repair)와 inbox 샘플(.md + .png)이 시드된다. 상단 바의 **Drive 새로고침**을 누르면 inbox 샘플이 "초안" 카드로 나타난다. 서버 재시작 시 초기화.
 
 ```bash
 npm run typecheck   # tsc --noEmit
 npm test            # vitest (스키마·프리셋·상태전이·승인게이트·인제스트·암호화·Mock Drive·게시 흐름)
-npm run e2e         # playwright: 대시보드 → 라이브러리 → 에디터 → 프리셋 전환 → 1080×1350 JPEG 내보내기 → 저장+렌더 → 게시 화면
+npm run e2e         # playwright: 홈 3단계 보드 → 빌더 → 프리셋 전환(자동 저장) → 스티커 → 1080×1350 JPEG → 게시 시트 게이트 → 게시 기록 화면
 npm run build
 ```
 
@@ -27,11 +27,10 @@ npm run build
 
 | 경로 | 역할 |
 |---|---|
-| `/dashboard` | 채널별 상태 카운트, 24h 게시 수(한도), 확인 필요 항목, 편집 대기 초안, 최근 인제스트 |
-| `/library` | index.json 기반 필터(채널/상태/형식/기간/검색), 카드 그리드 |
-| `/editor/[postId]` | Konva 1080×1350 캔버스, 프리셋 10종, 텍스트/이미지 패널, 캐러셀 스트립(리오더·복제·삭제), 캡션/해시태그, 출처·팩트체크, undo/redo, 피드 미리보기, JPEG 다운로드, **저장 + 렌더** |
-| `/publish/[postId]` | 렌더 확인, 승인 체크리스트(서버 강제), 상태 전이, status_mismatch 복구, 즉시/예약 게시 시트, 그리드 미리보기 |
-| `/queue` | publishing / scheduled / failed / approved 목록, 재시도, 예약 취소 |
+| `/home` | 채널별 홈 보드. 화면에 보이는 파이프라인은 **초안 → 편집 중 → 게시됨** 3단계뿐(`src/lib/metadata/stage.ts` 매핑). 게시됨 탭은 프로필 그리드. `/dashboard`·`/library` 는 여기로 리다이렉트 |
+| `/editor/[postId]` | 빌더. 좌: 프리셋 / 요소(스티커·아이콘 레이어) / 레이어, 중앙: Konva 1080×1350 캔버스 + 선택 툴바 + 안전 영역 + 줌, 우: 선택에 따른 텍스트·이미지·요소·포스트 패널, 하단 슬라이드 스트립. **자동 저장**(1.5s) + 유휴 렌더(12s), undo/redo, 미리보기(피드·프로필 그리드·다크), **게시 바텀시트**(저장→렌더→승인→게시, 지금/나중에) |
+| `/publish/[postId]` | 게시 기록 · 승인 체크리스트(서버 강제) · 상태 전이 · status_mismatch 복구 · 재게시 · 그리드 미리보기 |
+| `/queue` | publishing / scheduled / failed / approved 목록, 재시도, 예약 취소 (상단 바 아이콘) |
 | `/settings/*` | Instagram 계정(OAuth·해제), 채널(channels.json), 스타일팩(임포트·채널 기본값), Drive·시스템 |
 
 ## Google Drive 연결 (M2)

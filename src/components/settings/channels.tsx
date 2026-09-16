@@ -61,9 +61,9 @@ function ChannelsForm({ initial }: { initial: ChannelsFile }) {
       {rawMode ? (
         <Textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={28} className="font-mono text-xs" />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-4">
           {draft.channels.map((c) => (
-            <Card key={c.key} className="shadow-none">
+            <Card key={c.key} className="rounded-2xl border-0 shadow-none">
               <CardHeader className="flex flex-row items-center gap-2">
                 <span className="size-3 rounded-full" style={{ background: c.color }} />
                 <CardTitle className="text-sm">{c.key}</CardTitle>

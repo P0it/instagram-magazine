@@ -1,31 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { PageHeader } from "@/components/shell/page-header";
-import { cn } from "@/lib/utils";
+import { ChevronLeft } from "lucide-react";
+import { Segmented } from "@/components/md/segmented";
 
 const TABS = [
-  { href: "/settings/accounts", label: "Instagram 계정" },
+  { href: "/settings/accounts", label: "인스타그램 계정" },
+  { href: "/settings/drive", label: "Google Drive" },
   { href: "/settings/channels", label: "채널" },
   { href: "/settings/style-packs", label: "스타일팩" },
-  { href: "/settings/drive", label: "Drive · 시스템" },
-];
+] as const;
 
+/** 목업 S-05 설정: 720px 중앙 컬럼, 섹션 카드 */
 export function SettingsShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const current = TABS.find((t) => pathname === t.href)?.href ?? TABS[0].href;
   return (
-    <>
-      <PageHeader title="설정" description="모든 설정은 Drive 의 _system/*.json 과 환경변수에 저장됩니다." />
-      <div className="flex gap-1 border-b border-border px-6">
-        {TABS.map((t) => (
-          <Link key={t.href} href={t.href} className={cn("-mb-px border-b-2 px-3 py-2.5 text-sm", pathname === t.href ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}>
-            {t.label}
-          </Link>
-        ))}
+    <div className="mx-auto box-border flex w-full max-w-[720px] flex-1 flex-col gap-7 overflow-auto px-5 pb-20 pt-8">
+      <div className="flex items-center gap-2.5">
+        <Link href="/home" className="grid size-8 place-items-center rounded-full hover:bg-fill" title="홈으로"><ChevronLeft className="size-5 opacity-70" /></Link>
+        <h1 className="m-0 text-2xl font-bold leading-8 tracking-[-0.023em]">설정</h1>
       </div>
-      <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
-    </>
+      <Segmented size="medium" value={current} onChange={(href) => router.push(href)} items={TABS.map((t) => ({ value: t.href, label: t.label }))} />
+      {children}
+    </div>
+  );
+}
+
+export function SettingsSection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return (
+    <section className="overflow-hidden rounded-2xl bg-surface">
+      <div className="px-5 pb-2.5 pt-[18px]">
+        <h2 className="m-0 text-[17px] font-semibold">{title}</h2>
+        {description && <p className="m-0 mt-1.5 text-[13px] text-label-alt">{description}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function SettingsRow({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3.5 px-5 py-3.5" style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
+      {children}
+    </div>
   );
 }

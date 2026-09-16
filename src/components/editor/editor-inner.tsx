@@ -1,27 +1,36 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Eye, Grid3x3, Redo2, Save, Send, Undo2 } from "lucide-react";
-import { useEditorStore, selectSelectedSlide } from "@/stores/editor-store";
+import { ChevronLeft, Eye, Redo2, Undo2 } from "lucide-react";
+import { useEditorStore, selectSelectedSlide, selectSelectedLayer } from "@/stores/editor-store";
 import { usePost, useSavePost, useStylePacks, useSystemStatus } from "@/lib/client/queries";
 import { api, ApiClientError, driveFileUrl } from "@/lib/client/api";
-import { downloadBlob, exportStageToBlob } from "@/lib/render/export";
+import { exportStageToBlob } from "@/lib/render/export";
 import { CHANNEL_DEFAULT_STYLE_PACK } from "@/presets";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { StatusBadge } from "@/components/library/status-badge";
 import { CHANNEL_META } from "@/lib/client/channel";
+import { fmtRelative } from "@/lib/client/format";
+import { isTouched } from "@/lib/metadata/stage";
+import { GhostIcon, StageBadge } from "@/components/md/primitives";
 import { SlideCanvas } from "./canvas";
 import { SlideStrip } from "./slide-strip";
-import { CaptionPanel, ImagePanel, PresetPicker, SourcesPanel, TextPanel } from "./panels";
-import { FeedPreview } from "@/components/preview/feed-preview";
+import { LeftPanel, type LeftTab } from "./left-panel";
+import { RightPanel } from "./right-panel";
+import { StageArea } from "./stage-area";
+import { PreviewMode } from "./preview-mode";
+import { PublishSheet } from "@/components/publish/publish-sheet";
 import { cn } from "@/lib/utils";
 
+const AUTOSAVE_MS = 1500;
+const RENDER_IDLE_MS = 12_000;
+
+type SaveState = "loaded" | "saving" | "saved" | "failed";
+
 export function EditorInner({ postId }: { postId: string }) {
+  const router = useRouter();
   const post = usePost(postId);
   const stylePacks = useStylePacks();
   const status = useSystemStatus();
@@ -37,15 +46,24 @@ export function EditorInner({ postId }: { postId: string }) {
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
   const selected = useEditorStore(selectSelectedSlide);
-  const updateSlideState = useEditorStore((s) => s.updateSlideState);
+  const selectedLayer = useEditorStore(selectSelectedLayer);
+  const selection = useEditorStore((s) => s.selection);
+  const setSelection = useEditorStore((s) => s.setSelection);
+  const select = useEditorStore((s) => s.select);
+  const updateMetadata = useEditorStore((s) => s.updateMetadata);
+  const updateLayer = useEditorStore((s) => s.updateLayer);
+  const removeLayer = useEditorStore((s) => s.removeLayer);
+  const duplicateLayer = useEditorStore((s) => s.duplicateLayer);
 
-  const stageRef = useRef<Konva.Stage>(null);
   const hiddenStageRef = useRef<Konva.Stage>(null);
   const [exportSlide, setExportSlide] = useState<string | null>(null);
-  const [showSafe, setShowSafe] = useState(false);
-  const [preview, setPreview] = useState(false);
-  const canvasHost = useRef<HTMLDivElement>(null);
-  const [displayWidth, setDisplayWidth] = useState(480);
+  const [mode, setMode] = useState<"edit" | "preview">("edit");
+  const [leftTab, setLeftTab] = useState<LeftTab>("presets");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("loaded");
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [, setTick] = useState(0);
 
   // 스타일팩 결정: 채널 설정 → 기본
   const stylePack = useMemo(() => {
@@ -60,26 +78,22 @@ export function EditorInner({ postId }: { postId: string }) {
     if (post.data && loadedId !== postId && stylePacks.isFetched) load(post.data, stylePack);
   }, [post.data, loadedId, postId, load, stylePack, stylePacks.isFetched]);
 
-  // 캔버스 크기 반응형
+  // "저장됨 · N분 전" 라벨 갱신
   useEffect(() => {
-    const el = canvasHost.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([e]) => {
-      const w = e.contentRect.width - 32;
-      const h = e.contentRect.height - 32;
-      setDisplayWidth(Math.max(240, Math.floor(Math.min(w, (h * 1080) / 1350))));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
   }, []);
 
-  // 이탈 경고
+  const readOnly = snap?.metadata.status === "published" || snap?.metadata.status === "publishing";
+
+  // 게시/전이 뒤 서버 상태를 스냅샷에 반영 (낙관적 락 기준 updated_at 포함)
   useEffect(() => {
-    if (!dirty) return;
-    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); };
-    window.addEventListener("beforeunload", h);
-    return () => window.removeEventListener("beforeunload", h);
-  }, [dirty]);
+    const b = post.data;
+    if (!b || !snap || loadedId !== postId) return;
+    if (b.metadata.status !== snap.metadata.status || (!dirty && b.metadata.updated_at !== snap.metadata.updated_at)) {
+      markSaved(b, dirty ? null : snap);
+    }
+  }, [post.data, snap, loadedId, postId, dirty, markSaved]);
 
   const assetUrl = useCallback(
     (name: string | null | undefined) => {
@@ -90,12 +104,57 @@ export function EditorInner({ postId }: { postId: string }) {
     [post.data],
   );
 
+  /** 메타·에디터 상태만 Drive 에 저장 (렌더 없음). 성공 시 새 번들 반환 */
+  const saveNow = useCallback(async () => {
+    const s = useEditorStore.getState();
+    if (!s.snapshot || readOnly) return null;
+    const snapAtSave = s.snapshot;
+    setSaveState("saving");
+    try {
+      const saved = await save.mutateAsync({
+        expected_updated_at: s.snapshot.metadata.updated_at,
+        metadata: {
+          headline: s.snapshot.metadata.headline,
+          topic: s.snapshot.metadata.topic,
+          caption: s.snapshot.metadata.caption,
+          hashtags: s.snapshot.metadata.hashtags,
+          alt_text: s.snapshot.metadata.alt_text,
+          content_type: s.snapshot.metadata.content_type,
+          slides: s.snapshot.metadata.slides,
+        },
+        editorState: s.snapshot.editorState,
+        sources: s.snapshot.sources,
+      });
+      markSaved(saved, snapAtSave);
+      setSaveState("saved");
+      setSavedAt(Date.now());
+      setSaveError(null);
+      return saved;
+    } catch (e) {
+      setSaveState("failed");
+      setSaveError(e instanceof ApiClientError && e.status === 409 ? "다른 곳에서 먼저 저장됐어요. 새로고침 후 다시 시도하세요." : e instanceof Error ? e.message : String(e));
+      return null;
+    }
+  }, [save, markSaved, readOnly]);
+
+  // 자동 저장: 마지막 변경 1.5초 뒤
+  const saveNowRef = useRef(saveNow);
+  useEffect(() => {
+    saveNowRef.current = saveNow;
+  });
+  useEffect(() => {
+    if (!dirty || readOnly || saveState === "failed") return;
+    const t = setTimeout(() => void saveNowRef.current(), AUTOSAVE_MS);
+    return () => clearTimeout(t);
+  }, [dirty, snap, readOnly, saveState]);
+
   /** 모든 슬라이드를 숨은 스테이지에서 순서대로 렌더해 JPEG Blob 배열로 */
-  const renderAll = async (): Promise<Blob[]> => {
-    if (!snap) return [];
+  const renderAll = useCallback(async (): Promise<Blob[]> => {
+    const s = useEditorStore.getState().snapshot;
+    if (!s) return [];
     const blobs: Blob[] = [];
-    for (const s of snap.metadata.slides) {
-      setExportSlide(s.id);
+    for (const sl of s.metadata.slides) {
+      setExportSlide(sl.id);
       await new Promise((r) => setTimeout(r, 120)); // 이미지·필터 캐시 반영 대기
       await waitForImages(hiddenStageRef.current);
       const stage = hiddenStageRef.current;
@@ -104,74 +163,110 @@ export function EditorInner({ postId }: { postId: string }) {
     }
     setExportSlide(null);
     return blobs;
-  };
+  }, []);
 
-  const handleSave = async () => {
-    if (!snap || !post.data || save.isPending) return;
-    try {
-      const saved = await save.mutateAsync({
-        expected_updated_at: snap.metadata.updated_at,
-        metadata: {
-          headline: snap.metadata.headline,
-          topic: snap.metadata.topic,
-          caption: snap.metadata.caption,
-          hashtags: snap.metadata.hashtags,
-          alt_text: snap.metadata.alt_text,
-          content_type: snap.metadata.content_type,
-          slides: snap.metadata.slides,
-        },
-        editorState: snap.editorState,
-        sources: snap.sources,
-      });
-      markSaved(saved);
-      toast.message("저장됨 · 렌더 생성 중…");
-      const blobs = await renderAll();
-      const withRenders = await api.uploadRenders(postId, blobs);
-      markSaved(withRenders);
-      toast.success(`저장 완료 · 렌더 ${blobs.length}장`);
-    } catch (e) {
-      if (e instanceof ApiClientError && e.status === 409) {
-        toast.error("다른 곳에서 먼저 저장됐습니다. 새로고침 후 다시 시도하세요.");
-      } else toast.error(e instanceof Error ? e.message : String(e));
-      setExportSlide(null);
-    }
-  };
+  /** 저장 → 렌더 → 업로드. 게시 직전과 유휴 시점에 호출 */
+  const saveAndRender = useCallback(async () => {
+    const saved = useEditorStore.getState().dirty ? await saveNowRef.current() : post.data;
+    if (!saved) return null;
+    const snapAtRender = useEditorStore.getState().snapshot;
+    const blobs = await renderAll();
+    const withRenders = await api.uploadRenders(postId, blobs);
+    markSaved(withRenders, snapAtRender);
+    return withRenders;
+  }, [postId, renderAll, markSaved, post.data]);
 
-  const handleDownload = async () => {
-    if (!snap) return;
-    try {
-      const blobs = await renderAll();
-      blobs.forEach((b, i) => downloadBlob(b, `${postId}_slide_${String(i + 1).padStart(2, "0")}.jpg`));
-      toast.success(`${blobs.length}장 다운로드`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
-      setExportSlide(null);
-    }
-  };
-
-  // 단축키 (최신 handleSave 를 ref 로 참조)
-  const handleSaveRef = useRef(handleSave);
+  // 유휴 렌더: 마지막 변경 12초 뒤, 저장이 끝난 상태에서만
+  const renderedFor = useRef<string | null>(null);
   useEffect(() => {
-    handleSaveRef.current = handleSave;
-  });
+    if (!snap || dirty || readOnly || saveState !== "saved" || exportSlide) return;
+    const key = snap.metadata.updated_at;
+    if (renderedFor.current === key) return;
+    const t = setTimeout(() => {
+      renderedFor.current = key;
+      saveAndRender()
+        // 렌더 업로드도 updated_at 을 올리므로, 그 값을 "렌더 완료" 로 기억해 루프를 막는다
+        .then((b) => { if (b) renderedFor.current = b.metadata.updated_at; })
+        .catch((e) => console.warn("[render] idle render failed", e));
+    }, RENDER_IDLE_MS);
+    return () => clearTimeout(t);
+  }, [snap, dirty, readOnly, saveState, exportSlide, saveAndRender]);
+
+  // 이탈 경고
+  useEffect(() => {
+    if (!dirty) return;
+    const h = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [dirty]);
+
+  // 단축키
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t?.isContentEditable) return;
       const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
-      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
-      else if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); redo(); }
-      else if (e.key === "s") { e.preventDefault(); void handleSaveRef.current(); }
+      const st = useEditorStore.getState();
+      if (mod && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (mod && e.key === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
+      if (mod && e.key === "s") {
+        e.preventDefault();
+        void saveNowRef.current();
+        return;
+      }
+      if (readOnly) return;
+      const L = selectSelectedLayer(st);
+      const sid = st.selectedSlideId;
+      if (mod && (e.key === "d" || e.key === "D") && L && sid) {
+        e.preventDefault();
+        duplicateLayer(sid, L.id);
+        return;
+      }
+      if (L && sid && (e.key === "Delete" || e.key === "Backspace")) {
+        e.preventDefault();
+        removeLayer(sid, L.id);
+        return;
+      }
+      if (L && sid && !L.locked && e.key.startsWith("Arrow")) {
+        e.preventDefault();
+        const step = e.shiftKey ? 20 : 4;
+        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        updateLayer(sid, L.id, { x: Math.max(0, Math.min(1080, L.x + dx)), y: Math.max(0, Math.min(1350, L.y + dy)) });
+        return;
+      }
+      if (e.key === "Escape") {
+        setSelection(null);
+        return;
+      }
+      if (!L && st.snapshot && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        const slides = st.snapshot.metadata.slides;
+        const i = slides.findIndex((x) => x.id === sid);
+        const j = e.key === "ArrowLeft" ? Math.max(0, i - 1) : Math.min(slides.length - 1, i + 1);
+        if (slides[j]) select(slides[j].id);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [undo, redo]);
-
+  }, [undo, redo, readOnly, duplicateLayer, removeLayer, updateLayer, setSelection, select]);
 
   if (post.isError) {
-    return <div className="p-8 text-sm text-red-600">포스트를 불러올 수 없습니다: {String(post.error)}</div>;
+    return <div className="p-8 text-sm text-negative">포스트를 불러올 수 없습니다: {String(post.error)}</div>;
   }
   if (!post.data || !snap || loadedId !== postId) {
-    return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">불러오는 중…</div>;
+    return <div className="flex flex-1 items-center justify-center text-sm text-label-alt">불러오는 중…</div>;
   }
 
   const bundle = post.data;
@@ -179,108 +274,130 @@ export function EditorInner({ postId }: { postId: string }) {
   const selectedState = selected ? snap.editorState.slides[selected.id] : null;
   const exportingSlide = exportSlide ? m.slides.find((s) => s.id === exportSlide) : null;
   const exportingState = exportingSlide ? snap.editorState.slides[exportingSlide.id] : null;
-  const busy = save.isPending || exportSlide !== null;
+  const touched = isTouched({ render_count: bundle.renders.length, created_at: m.created_at, updated_at: m.updated_at });
+  const isPreview = mode === "preview";
+  const saveLabel =
+    saveState === "saving" ? "저장 중…" : saveState === "failed" ? "저장 안 됨" : dirty ? "변경됨" : saveState === "saved" ? `저장됨 · ${fmtRelative(savedAt ? new Date(savedAt).toISOString() : null)}` : readOnly ? "읽기 전용" : "Drive에서 불러옴";
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
-        <Button asChild variant="ghost" size="icon-sm">
-          <Link href="/library"><ArrowLeft className="size-4" /></Link>
-        </Button>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold" style={{ color: CHANNEL_META[m.channel].color }}>{m.channel}</span>
-            <span className="truncate text-sm font-semibold">{m.headline.split("\n")[0] || m.post_id}</span>
-            <StatusBadge status={m.status} />
-            {dirty && <span className="text-[11px] text-amber-600">● 저장되지 않음</span>}
-          </div>
-          <div className="font-mono text-[11px] text-muted-foreground">{m.post_id} · {m.slides.length}장 · 렌더 {bundle.renders.length}장</div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-alt">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-4 bg-surface px-4" style={{ boxShadow: "inset 0 -1px 0 var(--semantic-line-solid-neutral)" }}>
+        <div className="flex min-w-0 items-center gap-3">
+          <Link href={`/home?ch=${m.channel}`} className="flex items-center gap-1 rounded-lg py-1.5 pl-1.5 pr-2.5 text-sm text-label-neutral hover:bg-fill">
+            <ChevronLeft className="size-[18px] opacity-60" />홈
+          </Link>
+          <div className="h-5 w-px bg-line" />
+          <span className="size-2 shrink-0 rounded-full" style={{ background: CHANNEL_META[m.channel].color }} />
+          <input
+            value={m.headline.split("\n")[0]}
+            onChange={(e) => updateMetadata({ headline: [e.target.value, ...m.headline.split("\n").slice(1)].join("\n") })}
+            disabled={readOnly}
+            aria-label="헤드라인"
+            className="w-[300px] rounded-lg bg-transparent px-2 py-1.5 text-[15px] font-semibold tracking-[-0.01em] text-label outline-none hover:bg-fill-alt focus:bg-fill disabled:hover:bg-transparent"
+          />
+          <StageBadge status={m.status} touched={touched} />
+          <span className="whitespace-nowrap text-[13px] text-label-assistive">{saveLabel}</span>
         </div>
-        <div className="ml-auto flex items-center gap-1">
-          <IconButton tip="실행 취소 (⌘Z)" onClick={undo} disabled={!canUndo}><Undo2 className="size-4" /></IconButton>
-          <IconButton tip="다시 실행 (⇧⌘Z)" onClick={redo} disabled={!canRedo}><Redo2 className="size-4" /></IconButton>
-          <IconButton tip="안전 영역" onClick={() => setShowSafe((v) => !v)} active={showSafe}><Grid3x3 className="size-4" /></IconButton>
-          <IconButton tip="피드 미리보기" onClick={() => setPreview((v) => !v)} active={preview}><Eye className="size-4" /></IconButton>
-          <div className="mx-1 h-6 w-px bg-border" />
-          <Button variant="outline" size="sm" onClick={handleDownload} disabled={busy}>
-            <Download className="size-3.5" /> JPEG
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={busy}>
-            <Save className="size-3.5" /> {busy ? "저장 중…" : "저장 + 렌더"}
-          </Button>
-          <Button asChild variant="secondary" size="sm">
-            <Link href={`/publish/${encodeURIComponent(postId)}`}><Send className="size-3.5" /> 게시</Link>
-          </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 pr-1">
+            <GhostIcon title="되돌리기 (⌘Z)" onClick={undo} disabled={!canUndo}><Undo2 className="size-[17px] opacity-70" /></GhostIcon>
+            <GhostIcon title="다시하기 (⇧⌘Z)" onClick={redo} disabled={!canRedo}><Redo2 className="size-[17px] opacity-70" /></GhostIcon>
+          </div>
+          <button type="button" onClick={() => setMode(isPreview ? "edit" : "preview")} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-label-neutral hover:bg-fill">
+            <Eye className="size-[18px] opacity-60" />
+            {isPreview ? "편집" : "미리보기"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            disabled={readOnly && m.status === "publishing"}
+            className="h-10 min-w-[86px] rounded-[10px] bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-strong disabled:opacity-50"
+          >
+            {m.status === "published" ? "게시 정보" : "게시"}
+          </button>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div ref={canvasHost} className="relative flex flex-1 items-center justify-center overflow-hidden bg-neutral-100 p-4 dark:bg-neutral-900">
-            {preview ? (
-              <FeedPreview bundle={bundle} snapshot={snap} assetUrl={assetUrl} />
-            ) : selected && selectedState ? (
-              <div className="shadow-2xl" style={{ width: displayWidth }}>
-                <SlideCanvas
-                  ref={stageRef}
-                  slideState={selectedState}
-                  text={selected.text}
-                  imageUrl={assetUrl(selected.asset)}
-                  displayWidth={displayWidth}
-                  editable
-                  showSafeArea={showSafe}
-                  onTextChange={(patch) => updateSlideState(selected.id, (s) => Object.assign(s.text, patch))}
-                  onImageChange={(patch) => updateSlideState(selected.id, (s) => Object.assign(s.image, patch))}
-                />
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">슬라이드를 추가하세요</div>
-            )}
-            {/* 내보내기용 숨은 스테이지 (540px 표시 → pixelRatio 2 로 1080×1350) */}
-            <div className="pointer-events-none absolute -left-[9999px] top-0" aria-hidden>
-              {exportingSlide && exportingState && (
-                <SlideCanvas ref={hiddenStageRef} slideState={exportingState} text={exportingSlide.text} imageUrl={assetUrl(exportingSlide.asset)} displayWidth={540} />
-              )}
-            </div>
-          </div>
-          <SlideStrip bundle={bundle} />
+      {saveState === "failed" && (
+        <div className="flex shrink-0 items-center justify-center gap-2.5 bg-negative px-4 py-[7px] text-[13px] font-medium text-white">
+          <span>Drive 저장 실패</span>
+          <span className="opacity-60">·</span>
+          <span className="max-w-[60ch] truncate opacity-90">{saveError}</span>
+          <button type="button" onClick={() => void saveNow()} className="rounded-full px-2.5 py-[3px] text-[13px] font-semibold" style={{ background: "rgba(255,255,255,0.22)" }}>
+            다시 시도
+          </button>
+          <button type="button" onClick={() => router.refresh()} className="rounded-full px-2.5 py-[3px] text-[13px] font-semibold opacity-80 hover:opacity-100">
+            새로고침
+          </button>
         </div>
+      )}
+      {readOnly && (
+        <div className="flex shrink-0 items-center justify-center gap-2.5 px-4 py-[9px] text-[13px] font-semibold" style={{ background: "var(--semantic-background-status-positive)", color: "var(--semantic-accent-foreground-green)" }}>
+          <span>{m.status === "publishing" ? "게시 중이에요" : "게시된 포스트예요"}</span>
+          <span className="opacity-40">·</span>
+          <Link href={`/publish/${encodeURIComponent(postId)}`} className="text-brand hover:text-brand-strong">게시 기록 보기</Link>
+        </div>
+      )}
 
-        <aside className="w-80 shrink-0 overflow-y-auto border-l border-border">
-          <Tabs defaultValue="design">
-            <TabsList className="sticky top-0 z-10 w-full rounded-none border-b border-border bg-background">
-              <TabsTrigger value="design" className="flex-1 text-xs">디자인</TabsTrigger>
-              <TabsTrigger value="copy" className="flex-1 text-xs">카피</TabsTrigger>
-              <TabsTrigger value="sources" className="flex-1 text-xs">출처</TabsTrigger>
-            </TabsList>
-            <TabsContent value="design" className="mt-0">
-              {selected && selectedState ? (
-                <>
-                  <PresetPicker slide={selected} />
-                  <TextPanel slide={selected} state={selectedState} />
-                  <ImagePanel slide={selected} state={selectedState} bundle={bundle} />
-                </>
-              ) : (
-                <p className="p-4 text-xs text-muted-foreground">슬라이드를 선택하세요.</p>
-              )}
-            </TabsContent>
-            <TabsContent value="copy" className="mt-0"><CaptionPanel /></TabsContent>
-            <TabsContent value="sources" className="mt-0"><SourcesPanel /></TabsContent>
-          </Tabs>
-        </aside>
+      {isPreview ? (
+        <PreviewMode bundle={bundle} snapshot={snap} assetUrl={assetUrl} onBack={() => setMode("edit")} />
+      ) : (
+        <>
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <LeftPanel tab={leftTab} onTab={setLeftTab} slide={selected} state={selectedState} disabled={readOnly} />
+            <StageArea
+              slide={selected}
+              state={selectedState}
+              imageUrl={assetUrl(selected?.asset)}
+              readOnly={readOnly}
+              slideIndex={selected ? m.slides.findIndex((s) => s.id === selected.id) : 0}
+              slideCount={m.slides.length}
+              onPrev={() => {
+                const i = m.slides.findIndex((s) => s.id === selected?.id);
+                if (i > 0) select(m.slides[i - 1].id);
+              }}
+              onNext={() => {
+                const i = m.slides.findIndex((s) => s.id === selected?.id);
+                if (i < m.slides.length - 1) select(m.slides[i + 1].id);
+              }}
+              selection={selection}
+              selectedLayer={selectedLayer}
+            />
+            <RightPanel slide={selected} state={selectedState} bundle={bundle} disabled={readOnly} onDownload={async () => {
+              try {
+                const blobs = await renderAll();
+                const { downloadBlob } = await import("@/lib/render/export");
+                blobs.forEach((b, i) => downloadBlob(b, `${postId}_slide_${String(i + 1).padStart(2, "0")}.jpg`));
+                toast.success(`${blobs.length}장 내려받았어요`);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : String(e));
+                setExportSlide(null);
+              }
+            }} />
+          </div>
+          <SlideStrip bundle={bundle} disabled={readOnly} />
+        </>
+      )}
+
+      {/* 내보내기용 숨은 스테이지 (540px 표시 → pixelRatio 2 로 1080×1350) */}
+      <div className="pointer-events-none absolute -left-[9999px] top-0" aria-hidden>
+        {exportingSlide && exportingState && (
+          <SlideCanvas ref={hiddenStageRef} slideState={exportingState} text={exportingSlide.text} imageUrl={assetUrl(exportingSlide.asset)} displayWidth={540} />
+        )}
       </div>
-    </div>
-  );
-}
 
-function IconButton({ children, tip, onClick, disabled, active }: { children: React.ReactNode; tip: string; onClick: () => void; disabled?: boolean; active?: boolean }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon-sm" onClick={onClick} disabled={disabled} className={cn(active && "bg-accent")}>{children}</Button>
-      </TooltipTrigger>
-      <TooltipContent>{tip}</TooltipContent>
-    </Tooltip>
+      <PublishSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        snapshot={snap}
+        prepare={saveAndRender}
+        onDone={(next) => {
+          setSheetOpen(false);
+          if (next === "home") router.push(`/home?ch=${m.channel}`);
+        }}
+      />
+      <div className={cn("pointer-events-none fixed inset-0 z-30", exportSlide && "pointer-events-auto")} aria-hidden />
+    </div>
   );
 }
 

@@ -1,13 +1,13 @@
 import { Suspense, type ReactNode } from "react";
-import { Sidebar } from "@/components/shell/sidebar";
+import { TopBar } from "@/components/shell/top-bar";
 
 export default function DeskLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-dvh w-full overflow-hidden">
-      <Suspense fallback={<div className="w-60 shrink-0 border-r border-border bg-sidebar" />}>
-        <Sidebar />
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-surface-alt">
+      <Suspense fallback={<div className="h-14 shrink-0 bg-surface" />}>
+        <TopBar />
       </Suspense>
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Suspense>{children}</Suspense>
       </main>
     </div>

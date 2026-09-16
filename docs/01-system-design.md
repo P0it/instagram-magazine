@@ -158,7 +158,7 @@ visual_direction: "quiet editorial, dark photo, white sans-serif"
 실패/필수값 누락 → status: needs_repair 로 생성 + 경고
 ```
 
-- 트리거: 사이드바 "Inbox 동기화" 버튼(수동). 앱을 열 때 마지막 동기화가 30분 이상 지났으면 자동 1회.
+- 트리거: 상단 바 "Drive 새로고침" 버튼(수동). 앱을 열 때 마지막 동기화가 30분 이상 지났으면 자동 1회.
 - 멱등성: `ingest-log.json`의 `source_fingerprint`(파일 id + md5) 로 중복 스킵.
 
 ---
@@ -301,13 +301,15 @@ publish(post):
 src/
   proxy.ts                        ← 접근 키 검사
   app/
-    (desk)/layout.tsx             ← 채널 스위처 + 사이드바
-    (desk)/dashboard/  library/  editor/[postId]/  publish/[postId]/  queue/
+    (desk)/layout.tsx             ← 상단 바(로고·채널 탭·동기화·큐·설정)
+    (desk)/home/  publish/[postId]/  queue/  settings/   (dashboard·library 는 /home 리다이렉트)
+    (builder)/layout.tsx          ← 빌더는 자체 헤더 (상단 바 없음)
+    (builder)/editor/[postId]/
     (desk)/settings/{accounts,channels,style-packs,drive}/
     api/…                         ← §10
-  components/ shell/ channel-switcher/ dashboard/ library/
-              editor/{Canvas,SlideStrip,ImagePanel,TextPanel,PresetPicker,CaptionPanel,SourcesPanel,Toolbar}
-              preview/{FeedPreview,GridPreview}  publish/{PublishSheet,ApprovalChecklist}  ui/
+  components/ shell/{TopBar}  md/{Segmented,StageBadge,…Montage 프리미티브}  home/{HomeBoard}
+              editor/{Canvas,LeftPanel,StageArea,RightPanel,SlideStrip,PreviewMode}
+              preview/{FeedPreview,GridPreview}  publish/{PublishSheet,PublishPage,ApprovalChecklist}  ui/
   lib/ drive/ ingest/ metadata/ instagram/ publish/ render/ crypto/ access/
   presets/ layouts/*.json  styles/*.json
   stores/ editor-store.ts

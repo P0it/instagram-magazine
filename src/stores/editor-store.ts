@@ -5,7 +5,10 @@ import { produce } from "immer";
 import {
   EditorStateSchema,
   type EditorState,
+  formatDims,
+  type CustomPreset,
   type PostBundle,
+  type PostFormat,
   type PostMetadata,
   type PresetId,
   type SlideDef,
@@ -16,7 +19,7 @@ import {
   type StylePack,
 } from "@/types";
 import { ROLE_DEFAULT_PRESET, resolvePreset } from "@/presets";
-import { applyPresetToState, slideStateFromPreset } from "@/lib/render/layout";
+import { applyPresetToState, reflowSlideForHeight, slideStateFromPreset } from "@/lib/render/layout";
 
 export interface EditorSnapshot {
   metadata: PostMetadata;
@@ -52,6 +55,10 @@ interface EditorStore {
   updateSlideRole: (slideId: string, role: SlideRole) => void;
   setSlideAsset: (slideId: string, asset: string | null) => void;
   applyPreset: (slideId: string, presetId: PresetId, withImage?: boolean) => void;
+  /** 내 프리셋(기본 프리셋 + 오버라이드) 적용 */
+  applyCustomPreset: (slideId: string, preset: CustomPreset, withImage?: boolean) => void;
+  /** 포스트 규격 전환 — 모든 슬라이드의 세로 좌표를 비례 이동 */
+  setFormat: (format: PostFormat) => void;
   updateSlideState: (slideId: string, fn: (s: SlideEditorState) => void) => void;
   addLayer: (slideId: string, layer: Omit<SlideLayer, "id">) => string;
   updateLayer: (slideId: string, layerId: string, patch: Partial<SlideLayer>) => void;
@@ -73,8 +80,10 @@ function commit(state: EditorStore, next: EditorSnapshot): Partial<EditorStore> 
 }
 
 function ensureSlideState(snap: EditorSnapshot, slide: SlideDef, stylePack: StylePack | null): SlideEditorState {
-  return snap.editorState.slides[slide.id] ?? slideStateFromPreset(resolvePreset(slide.style_preset, slide.overrides, stylePack), slide.text);
+  return snap.editorState.slides[slide.id] ?? slideStateFromPreset(resolvePreset(slide.style_preset, slide.overrides, stylePack), slide.text, snap.editorState.canvas.height);
 }
+
+const canvasH = (snap: EditorSnapshot | null): number => snap?.editorState.canvas.height ?? 1350;
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
   postId: null,
@@ -89,6 +98,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   load: (bundle, stylePack) => {
     const editorState = EditorStateSchema.parse(bundle.editorState);
+    // 캔버스 크기는 metadata.format 이 기준
+    editorState.canvas = { ...editorState.canvas, height: formatDims(bundle.metadata.format).height };
     const snap: EditorSnapshot = { metadata: bundle.metadata, editorState, sources: bundle.sources };
     // 누락된 슬라이드 상태는 프리셋으로 채운다
     const filled = produce(snap, (d) => {
@@ -179,6 +190,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
             d.editorState.slides[slideId] ?? ensureSlideState(s.snapshot!, slide, s.stylePack),
             resolvePreset(presetId, undefined, s.stylePack),
             slide.text,
+            true,
+            canvasH(s.snapshot),
           );
         }),
       ),
@@ -215,7 +228,50 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
             resolvePreset(presetId, undefined, s.stylePack),
             slide.text,
             withImage,
+            canvasH(s.snapshot),
           );
+        }),
+      ),
+    );
+  },
+
+  applyCustomPreset: (slideId, preset, withImage = true) => {
+    const s = get();
+    if (!s.snapshot) return;
+    set(
+      commit(
+        s,
+        produce(s.snapshot, (d) => {
+          const slide = d.metadata.slides.find((x) => x.id === slideId);
+          if (!slide) return;
+          slide.style_preset = preset.base;
+          slide.overrides = preset.overrides;
+          d.editorState.slides[slideId] = applyPresetToState(
+            d.editorState.slides[slideId] ?? ensureSlideState(s.snapshot!, slide, s.stylePack),
+            resolvePreset(preset.base, preset.overrides, s.stylePack),
+            slide.text,
+            withImage,
+            canvasH(s.snapshot),
+          );
+        }),
+      ),
+    );
+  },
+
+  setFormat: (format) => {
+    const s = get();
+    if (!s.snapshot || s.snapshot.metadata.format === format) return;
+    const from = canvasH(s.snapshot);
+    const to = formatDims(format).height;
+    set(
+      commit(
+        s,
+        produce(s.snapshot, (d) => {
+          d.metadata.format = format;
+          d.editorState.canvas = { width: 1080, height: to };
+          for (const id of Object.keys(d.editorState.slides)) {
+            d.editorState.slides[id] = reflowSlideForHeight(d.editorState.slides[id], from, to);
+          }
         }),
       ),
     );
@@ -312,7 +368,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         s,
         produce(s.snapshot, (d) => {
           d.metadata.slides.push(slide);
-          d.editorState.slides[id] = slideStateFromPreset(resolvePreset(presetId, undefined, s.stylePack), "");
+          d.editorState.slides[id] = slideStateFromPreset(resolvePreset(presetId, undefined, s.stylePack), "", canvasH(s.snapshot));
           d.metadata.content_type = d.metadata.slides.length > 1 ? "carousel" : "single";
         }),
       ),

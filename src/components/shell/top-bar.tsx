@@ -54,7 +54,7 @@ export function TopBar() {
             const on = c === channel && !inSettings && !inQueue;
             return (
               <button
-                key={c}
+                key={a.key}
                 type="button"
                 onClick={() => setChannel(c)}
                 className="flex items-center gap-[7px] rounded-lg px-3 py-[7px] text-sm transition-colors hover:bg-fill-alt"

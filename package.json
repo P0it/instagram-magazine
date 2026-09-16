@@ -14,6 +14,8 @@
     "analyze-refs": "tsx scripts/analyze-references.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.126.0",
+    "@imgly/background-removal": "^1.7.0",
     "@tanstack/react-query": "^5.102.8",
     "@vercel/config": "^0.7.0",
     "class-variance-authority": "^0.7.1",

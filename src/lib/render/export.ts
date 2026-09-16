@@ -1,42 +1,44 @@
 "use client";
 
 import type Konva from "konva";
-import { CANVAS_HEIGHT, CANVAS_WIDTH } from "@/types";
+import { CANVAS_HEIGHT, CANVAS_WIDTH, FONT_FAMILIES, FONT_META, type FontFamily } from "@/types";
 
-export const FONT_FAMILIES = {
-  sans: "var(--font-sans-kr), 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif",
-  serif: "var(--font-serif-kr), 'Noto Serif KR', 'Apple Myungjo', serif",
-} as const;
+/** CSS 에서 쓰는 font-family 값 (패널 미리보기용) */
+export function cssFontFamily(kind: FontFamily): string {
+  const m = FONT_META[kind];
+  return `var(${m.cssVar}), "${m.family}", ${m.fallback}`;
+}
 
-/** Konva 는 CSS 변수를 못 읽으므로 실제 폰트명으로 해석 */
-export function konvaFontFamily(kind: "sans" | "serif"): string {
-  if (typeof document === "undefined") return kind === "sans" ? "Noto Sans KR" : "Noto Serif KR";
-  const v = getComputedStyle(document.documentElement).getPropertyValue(kind === "sans" ? "--font-sans-kr" : "--font-serif-kr").trim();
+/** Konva 는 CSS 변수를 못 읽으므로 next/font 가 만든 실제 폰트명으로 해석 */
+export function konvaFontFamily(kind: FontFamily): string {
+  const m = FONT_META[kind] ?? FONT_META.sans;
+  if (typeof document === "undefined") return m.family;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(m.cssVar).trim();
   const primary = v.split(",")[0]?.replace(/['"]/g, "").trim();
-  return primary || (kind === "sans" ? "Noto Sans KR" : "Noto Serif KR");
+  return primary || m.family;
 }
 
 export async function ensureFontsReady(): Promise<void> {
   if (typeof document === "undefined" || !("fonts" in document)) return;
   await document.fonts.ready;
-  const families = [konvaFontFamily("sans"), konvaFontFamily("serif")];
+  const families = FONT_FAMILIES.map((f) => konvaFontFamily(f));
   await Promise.all(
-    families.flatMap((f) => [400, 500, 600, 700].map((w) => document.fonts.load(`${w} 48px "${f}"`).catch(() => []))),
+    families.flatMap((f) => [400, 700].map((w) => document.fonts.load(`${w} 48px "${f}"`).catch(() => []))),
   );
 }
 
 /**
- * 결정적 내보내기: 스테이지는 1080×1350 논리 좌표를 scale 로 표시하므로
- * pixelRatio = 1080 / 표시 너비 로 정확히 1080×1350 JPEG.
+ * 결정적 내보내기: 스테이지는 1080×H 논리 좌표를 scale 로 표시하므로
+ * pixelRatio = 1080 / 표시 너비 로 정확히 포스트 규격(기본 1080×1350) JPEG.
  */
-export async function exportStageToBlob(stage: Konva.Stage, quality = 0.92): Promise<Blob> {
+export async function exportStageToBlob(stage: Konva.Stage, quality = 0.92, expectedHeight = CANVAS_HEIGHT): Promise<Blob> {
   await ensureFontsReady();
   const displayedWidth = stage.width();
   const pixelRatio = CANVAS_WIDTH / displayedWidth;
   const dataUrl = stage.toDataURL({ pixelRatio, mimeType: "image/jpeg", quality });
   const blob = await (await fetch(dataUrl)).blob();
   const dims = await blobDimensions(blob);
-  if (dims.width !== CANVAS_WIDTH || dims.height !== CANVAS_HEIGHT) {
+  if (dims.width !== CANVAS_WIDTH || dims.height !== expectedHeight) {
     throw new Error(`export size mismatch: ${dims.width}x${dims.height}`);
   }
   return blob;

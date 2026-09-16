@@ -54,10 +54,18 @@ export function InsightsBoard({ channel }: { channel: ChannelKey }) {
       </div>
 
       {insights.isLoading ? (
-        <div className="grid gap-4 md:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-[112px] animate-pulse rounded-2xl bg-fill" />
-          ))}
+        <div className="flex flex-col gap-5" aria-busy>
+          <div className="grid gap-4 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex h-[112px] flex-col justify-between rounded-2xl bg-surface p-4">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            ))}
+          </div>
+          <Skeleton className="h-[220px] rounded-2xl" />
+          <CardGridSkeleton count={4} />
         </div>
       ) : !mine || (mine.series.length === 0 && mine.followers.value === 0) ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface px-5 py-[100px] text-center">
@@ -209,7 +217,7 @@ function AreaChart({ series, k, color, height, bare }: { series: AccountDay[]; k
   );
 }
 
-function TopCard({ m, rank, metric, color }: { m: MediaRow; rank: number; metric: TopMetric; color: string }) {
+function TopCard({ m, rank, metric }: { m: MediaRow; rank: number; metric: TopMetric }) {
   const href = m.post_id ? `/editor/${encodeURIComponent(m.post_id)}` : "#";
   return (
     <Link href={href} className="flex flex-col gap-2 transition-transform duration-200 hover:-translate-y-[3px]">
@@ -219,6 +227,8 @@ function TopCard({ m, rank, metric, color }: { m: MediaRow; rank: number; metric
           <img src={driveFileUrl(m.cover_thumb_file_id)} alt="" className="size-full object-cover" loading="lazy" />
         )}
         <span className="absolute left-2.5 top-2.5 grid size-6 place-items-center rounded-full bg-white text-[12px] font-bold text-black">{rank}</span>
+        ) : (
+          <ImagePlaceholder label={m.headline.split("\n")[0]} />
         <div className="absolute inset-x-0 bottom-0 px-3 pb-2.5 pt-8 text-white" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))" }}>
           <div className="text-[20px] font-bold leading-none tabular-nums">{fmtNum(m[metric])}</div>
           <div className="text-[11px] opacity-80">{TOP_METRIC_LABEL[metric]}</div>
@@ -247,7 +257,7 @@ function ChannelCompare({ accounts, current }: { accounts: AccountSummary[]; cur
         const on = ch === current;
         return (
           <div key={ch} className={cn("contents", on ? "font-semibold" : "text-label-neutral")}>
-            <span className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ background: c.color }} />{ch}</span>
+            <span className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ background: c.color }} />{c.name}</span>
             <span className="flex items-center gap-2">
               <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-fill">
                 <span className="block h-full rounded-full" style={{ width: `${((a?.reach.value ?? 0) / maxReach) * 100}%`, background: c.color, opacity: on ? 1 : 0.55 }} />

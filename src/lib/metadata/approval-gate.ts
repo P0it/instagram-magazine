@@ -3,7 +3,10 @@ import type { ImageDims } from "./image-dims";
 
 export const CAPTION_MAX = 2200;
 export const HASHTAG_MAX = 30;
+import { formatDims } from "@/types";
+
 export const RENDER_W = 1080;
+/** 기본(4:5) 렌더 높이. 게이트는 metadata.format 기준으로 검사한다 */
 export const RENDER_H = 1350;
 
 export interface GateInput {
@@ -40,12 +43,13 @@ export function evaluateApprovalGate(input: GateInput): ApprovalGateResult {
     detail: `렌더 ${renderDims.length} / 슬라이드 ${metadata.slides.length}`,
   });
 
+  const want = formatDims(metadata.format);
   const badDims = renderDims
     .map((d, i) => ({ d, i }))
-    .filter(({ d }) => !d || d.width !== RENDER_W || d.height !== RENDER_H);
+    .filter(({ d }) => !d || d.width !== want.width || d.height !== want.height);
   checks.push({
     id: "render_dimensions",
-    label: `모든 렌더 ${RENDER_W}×${RENDER_H}`,
+    label: `모든 렌더 ${want.width}×${want.height} (${metadata.format})`,
     ok: renderDims.length > 0 && badDims.length === 0,
     detail:
       renderDims.length === 0

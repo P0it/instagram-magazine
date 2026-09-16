@@ -10,6 +10,7 @@ import { fmtTime } from "@/lib/client/format";
 import { STATUS_LABEL, USER_TRANSITIONS, folderForStatus, isStaleLock } from "@/lib/metadata/transitions";
 import { isTouched } from "@/lib/metadata/stage";
 import { StageBadge } from "@/components/md/primitives";
+import { SectionsSkeleton } from "@/components/md/skeleton";
 import { ApprovalChecklist } from "./approval-checklist";
 import { GridPreview } from "@/components/preview/grid-preview";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,7 +25,7 @@ export function PublishPage({ postId }: { postId: string }) {
   const [repairOpen, setRepairOpen] = useState(false);
 
   if (post.isError) return <div className="p-8 text-sm text-negative">포스트를 불러올 수 없습니다.</div>;
-  if (!post.data) return <div className="flex flex-1 items-center justify-center text-sm text-label-alt">불러오는 중…</div>;
+  if (!post.data) return <SectionsSkeleton sections={2} maxWidth={1100} />;
 
   const b = post.data;
   const m = b.metadata;

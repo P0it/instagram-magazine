@@ -12,6 +12,7 @@ export const qk = {
   approval: (id: string) => ["approval", id] as const,
   accounts: ["accounts"] as const,
   channels: ["channels"] as const,
+  customPresets: ["custom-presets"] as const,
   stylePacks: ["style-packs"] as const,
   insights: (range: InsightsRange) => ["insights", range] as const,
 };

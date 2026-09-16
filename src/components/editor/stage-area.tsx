@@ -5,7 +5,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Trash2, X } fr
 import type { SlideDef, SlideEditorState, SlideLayer } from "@/types";
 import { useEditorStore, type Selection } from "@/stores/editor-store";
 import { stickerColors, stickerDef, iconLabel } from "@/lib/render/stickers";
-import { CANVAS_HEIGHT, CANVAS_WIDTH } from "@/types";
+import { CANVAS_WIDTH, FORMAT_INFO } from "@/types";
 import { ChipButton, GhostIcon } from "@/components/md/primitives";
 import { SlideCanvas } from "./canvas";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,7 @@ export function StageArea({
   onNext,
   selection,
   selectedLayer,
+  resolveAsset,
 }: {
   slide: SlideDef | null;
   state: SlideEditorState | null;
@@ -35,6 +36,7 @@ export function StageArea({
   onNext: () => void;
   selection: Selection;
   selectedLayer: SlideLayer | null;
+  resolveAsset: (name: string | null | undefined) => string | null;
 }) {
   const setSelection = useEditorStore((s) => s.setSelection);
   const updateSlideState = useEditorStore((s) => s.updateSlideState);
@@ -43,6 +45,8 @@ export function StageArea({
   const duplicateLayer = useEditorStore((s) => s.duplicateLayer);
   const moveLayer = useEditorStore((s) => s.moveLayer);
   const applyPreset = useEditorStore((s) => s.applyPreset);
+  const format = useEditorStore((s) => s.snapshot?.metadata.format ?? "4:5");
+  const canvasHeight = useEditorStore((s) => s.snapshot?.editorState.canvas.height ?? 1350);
 
   const host = useRef<HTMLDivElement>(null);
   const [fitWidth, setFitWidth] = useState(480);
@@ -62,11 +66,11 @@ export function StageArea({
     const ro = new ResizeObserver(([e]) => {
       const w = e.contentRect.width - 16;
       const h = e.contentRect.height - 20;
-      setFitWidth(Math.max(160, Math.floor(Math.min(w, (h * CANVAS_WIDTH) / CANVAS_HEIGHT))));
+      setFitWidth(Math.max(160, Math.floor(Math.min(w, (h * CANVAS_WIDTH) / canvasHeight))));
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [canvasHeight]);
 
   const displayWidth = zoom === "fit" ? fitWidth : Math.round(fitWidth * (parseInt(zoom, 10) / 100));
   const editable = !readOnly && !!slide;
@@ -79,7 +83,7 @@ export function StageArea({
   const layerColors = L && def ? stickerColors(def, L) : null;
 
   const selName =
-    selection?.kind === "text" ? "텍스트" : selection?.kind === "image" ? "배경 이미지" : L ? (L.kind === "icon" ? `아이콘 · ${iconLabel(L.key)}` : `스티커 · ${def?.label ?? ""}`) : "";
+    selection?.kind === "text" ? "텍스트" : selection?.kind === "image" ? "배경 이미지" : L ? (L.kind === "cutout" ? "누끼 PNG" : L.kind === "icon" ? `아이콘 · ${iconLabel(L.key)}` : `스티커 · ${def?.label ?? ""}`) : "";
 
   const pushRecent = (c: string) => setRecent((r) => [c, ...r.filter((x) => x.toUpperCase() !== c.toUpperCase())].slice(0, 8));
   const applyColor = (c: string) => {
@@ -141,7 +145,7 @@ export function StageArea({
             {L && (
               <>
                 {L.kind === "sticker" && <ColorChip title="배경색" active={palette === "bg"} onClick={() => setPalette((p) => (p === "bg" ? null : "bg"))} color={layerColors?.bg ?? "none"} />}
-                <ColorChip title={L.kind === "icon" ? "아이콘 색" : "글자색"} active={palette === "ink"} onClick={() => setPalette((p) => (p === "ink" ? null : "ink"))} color={L.kind === "icon" ? L.color : (layerColors?.ink ?? "#fff")} glyph="T" />
+                {L.kind !== "cutout" && <ColorChip title={L.kind === "icon" ? "아이콘 색" : "글자색"} active={palette === "ink"} onClick={() => setPalette((p) => (p === "ink" ? null : "ink"))} color={L.kind === "icon" ? L.color : (layerColors?.ink ?? "#fff")} glyph="T" />}
                 <GhostIcon title="복제 (⌘D)" className="size-7" onClick={() => duplicateLayer(slide.id, L.id)}><Copy className="size-[15px] opacity-75" /></GhostIcon>
                 <GhostIcon title="앞으로" className="size-7" onClick={() => moveLayer(slide.id, L.id, 1)}><ChevronUp className="size-[15px] opacity-75" /></GhostIcon>
                 <GhostIcon title="뒤로" className="size-7" onClick={() => moveLayer(slide.id, L.id, -1)}><ChevronDown className="size-[15px] opacity-75" /></GhostIcon>
@@ -201,10 +205,12 @@ export function StageArea({
               selection={selection}
               onSelect={setSelection}
               showSafeArea={showSafe}
+              canvasHeight={canvasHeight}
               onGuides={setGuides}
               onTextChange={(patch) => setText(patch)}
               onImageChange={(patch) => setImg(patch)}
               onLayerChange={(id, patch) => updateLayer(slide.id, id, patch)}
+              resolveAsset={resolveAsset}
             />
             {guides.v && <div className="pointer-events-none absolute inset-y-0 left-1/2 z-[5] w-px" style={{ background: "var(--semantic-accent-background-pink)" }} />}
             {guides.h && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-[5] h-px" style={{ background: "var(--semantic-accent-background-pink)" }} />}
@@ -234,7 +240,7 @@ export function StageArea({
 
       {/* 하단 컨트롤 */}
       <div className="flex h-8 max-w-full shrink-0 items-center gap-2.5 overflow-hidden">
-        <span className="shrink-0 whitespace-nowrap text-xs text-label-alt">4:5 · 1080 × 1350</span>
+        <span className="shrink-0 whitespace-nowrap text-xs text-label-alt">{format} · {FORMAT_INFO[format].label}</span>
         <div className="h-3.5 w-px shrink-0 bg-line" />
         <span className="min-w-0 flex-1 truncate text-xs text-label-assistive">캔버스 전체가 업로드돼요 · 좌우 끝 클릭으로 슬라이드 이동</span>
         <ChipButton title="배경 이미지 보정 (밝기 · 대비 · 채도)" on={selection?.kind === "image"} onClick={() => setSelection({ kind: "image" })} className={cn(selection?.kind === "image" && "text-brand")}>배경 보정</ChipButton>

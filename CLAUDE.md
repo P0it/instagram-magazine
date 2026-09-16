@@ -10,7 +10,8 @@
 - **모든 Drive JSON은 `src/types/*.ts`의 Zod 스키마로만 읽고 쓴다.** `any` 금지.
 - **Drive/Instagram 접근 코드는 `server-only`.** 토큰·시크릿이 클라이언트로 내려가는 경로를 만들지 않는다. 브라우저에는 `username/status/expires_at`만.
 - **자동 게시 금지.** 게시는 사용자의 `/api/posts/[id]/publish` 호출로만 시작. 크론은 사용자가 명시적으로 `scheduled`로 둔 것만 실행.
-- 캔버스는 1080×1350 논리 좌표 고정, 내보내기는 pixelRatio로 정확히 1080×1350 JPEG.
+- 캔버스는 폭 1080 고정, 높이는 **포스트 규격**(`metadata.format`: 4:5 1350 · 3:4 1440 · 1:1 1080 · 1.91:1 566, 기본 4:5)을 따른다. 내보내기는 pixelRatio로 그 규격 픽셀 그대로 JPEG. 규격은 슬라이드가 아니라 포스트 단위(캐러셀은 같은 비율).
+- AI 호출은 서버(`src/lib/ai`)에서만. 스크린샷 분석은 `@anthropic-ai/sdk`(ANTHROPIC_API_KEY) → 없으면 로컬 `claude -p`(구독) 순. 배경 제거는 브라우저 안(`@imgly/background-removal`), 외부 키 없음.
 - 레이아웃 프리셋은 `src/presets/layouts/*.json` 데이터.
 - Next.js 16 관례: 요청 API(`cookies/headers/params`)는 `await`, 접근 제한은 `proxy.ts`, 캐싱은 `use cache` 명시, Turbopack. 15 이하 패턴 금지.
 

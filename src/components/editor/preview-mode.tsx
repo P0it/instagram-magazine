@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Bookmark, ChevronLeft, ChevronRight, Heart, MoreVertical, Send } from "lucide-react";
 import type { PostBundle } from "@/types";
 import type { EditorSnapshot } from "@/stores/editor-store";
-import { usePosts, useSystemStatus } from "@/lib/client/queries";
+import { usePosts } from "@/lib/client/queries";
 import { driveFileUrl } from "@/lib/client/api";
 import { CHANNEL_META, channelGround } from "@/lib/client/channel";
 import { Segmented } from "@/components/md/segmented";
@@ -18,7 +18,6 @@ export function PreviewMode({ bundle, snapshot, assetUrl, onBack }: { bundle: Po
   const [mode, setMode] = useState<"feed" | "grid">("feed");
   const [dark, setDark] = useState(false);
   const [i, setI] = useState(0);
-  const status = useSystemStatus();
   const m = snapshot.metadata;
   const meta = CHANNEL_META[m.channel];
   const account = status.data?.accounts.find((a) => a.key === status.data?.channels.find((c) => c.key === m.channel)?.instagram_account_key);
@@ -26,6 +25,7 @@ export function PreviewMode({ bundle, snapshot, assetUrl, onBack }: { bundle: Po
   const slides = m.slides;
   const slide = slides[Math.min(i, slides.length - 1)];
   const st = slide ? snapshot.editorState.slides[slide.id] : null;
+  const H = snapshot.editorState.canvas.height;
   const ink = dark ? "rgba(255,255,255,0.92)" : "var(--semantic-label-normal)";
   const inkSoft = dark ? "rgba(255,255,255,0.5)" : "var(--semantic-label-alternative)";
   void bundle;
@@ -54,8 +54,8 @@ export function PreviewMode({ bundle, snapshot, assetUrl, onBack }: { bundle: Po
               </div>
               <MoreVertical className="size-[18px] opacity-50" style={{ color: ink }} />
             </div>
-            <div className="relative bg-black" style={{ width: W, height: W * 1.25 }}>
-              {slide && st && <SlideCanvas slideState={st} text={slide.text} imageUrl={assetUrl(slide.asset)} displayWidth={W} />}
+            <div className="relative bg-black" style={{ width: W, height: Math.round((W * H) / 1080) }}>
+              {slide && st && <SlideCanvas slideState={st} text={slide.text} imageUrl={assetUrl(slide.asset)} displayWidth={W} canvasHeight={H} resolveAsset={assetUrl} />}
               {slides.length > 1 && (
                 <>
                   <button type="button" onClick={() => setI((v) => Math.max(0, v - 1))} className={cn("absolute inset-y-0 left-0 z-[4] flex w-[13%] items-center justify-start pl-2.5 opacity-0 transition-opacity hover:opacity-100", i === 0 && "hover:opacity-35")} style={{ background: "linear-gradient(90deg, rgba(23,23,25,0.5), rgba(23,23,25,0))" }}>
@@ -112,13 +112,15 @@ function ProfileGrid({ channel, highlight, currentThumb }: { channel: PostBundle
       <div className="relative aspect-square overflow-hidden bg-black">
         {currentThumb && (
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <SlideCanvas slideState={currentThumb.st} text={currentThumb.text} imageUrl={currentThumb.img} displayWidth={112} />
+            <SlideCanvas slideState={currentThumb.st} text={currentThumb.text} imageUrl={currentThumb.img} displayWidth={currentThumb.h >= 1080 ? 112 : Math.round((112 * 1080) / currentThumb.h)} canvasHeight={currentThumb.h} />
           </div>
         )}
         <div className="pointer-events-none absolute inset-0" style={{ boxShadow: "inset 0 0 0 2px var(--semantic-primary-normal)" }} />
       </div>
       {others.map((p, i) => (
         <div key={p.post_id} className="relative aspect-square overflow-hidden" style={{ background: channelGround(meta.color, i + 2) }}>
+          ) : (
+            <ImagePlaceholder compact />
           {p.cover_thumb_file_id && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={driveFileUrl(p.cover_thumb_file_id)} alt="" className={cn("size-full object-cover", p.status !== "published" && "opacity-70")} />

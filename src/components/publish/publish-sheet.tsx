@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Check, CircleCheck, ExternalLink } from "lucide-react";
-import type { PostBundle, PostStatus } from "@/types";
+import { formatDims, type PostBundle, type PostStatus } from "@/types";
 import type { EditorSnapshot } from "@/stores/editor-store";
 import { api } from "@/lib/client/api";
 import { useAccounts, useInvalidatePosts, useSystemStatus } from "@/lib/client/queries";
@@ -11,6 +11,7 @@ import { CHANNEL_META } from "@/lib/client/channel";
 import { fmtTime } from "@/lib/client/format";
 import { Segmented } from "@/components/md/segmented";
 import { fieldClass } from "@/components/md/primitives";
+import { AvatarPlaceholder } from "@/components/md/placeholder";
 import { cn } from "@/lib/utils";
 
 type Stage = "idle" | "uploading" | "approving" | "posting" | "done" | "scheduled" | "error";
@@ -35,7 +36,6 @@ export function PublishSheet({ open, ...rest }: SheetProps & { open: boolean }) 
 
 function SheetBody({ onClose, snapshot, prepare, onDone }: SheetProps) {
   const accounts = useAccounts();
-  const status = useSystemStatus();
   const invalidate = useInvalidatePosts();
   const m = snapshot.metadata;
   const meta = CHANNEL_META[m.channel];
@@ -52,7 +52,7 @@ function SheetBody({ onClose, snapshot, prepare, onDone }: SheetProps) {
 
   // 렌더 전 클라이언트 사전 점검 (렌더 관련 항목은 게시 시점에 서버가 다시 본다)
   const issues = useMemo(() => {
-    const dims = m.slides.map(() => ({ width: 1080, height: 1350, format: "jpeg" as const }));
+    const dims = m.slides.map(() => ({ ...formatDims(m.format), format: "jpeg" as const }));
     return evaluateApprovalGate({ metadata: m, sources: snapshot.sources, renderDims: dims }).checks.filter((c) => !c.ok && !c.id.startsWith("render_"));
   }, [m, snapshot.sources]);
 
@@ -162,7 +162,7 @@ function SheetBody({ onClose, snapshot, prepare, onDone }: SheetProps) {
 
             <div className="flex flex-col gap-1.5">
               <span className={cn("text-sm", issues.length ? "font-semibold text-negative" : "text-label-neutral")}>
-                {issues.length ? `게시 전에 확인할 것 ${issues.length}건` : `${m.content_type === "carousel" ? `캐러셀 ${m.slides.length}장` : "단일 이미지"} · 4:5 · 캡션 ${m.caption.length.toLocaleString()}자 · 해시태그 ${m.hashtags.length}개`}
+                {issues.length ? `게시 전에 확인할 것 ${issues.length}건` : `${m.content_type === "carousel" ? `캐러셀 ${m.slides.length}장` : "단일 이미지"} · ${m.format} · 캡션 ${m.caption.length.toLocaleString()}자 · 해시태그 ${m.hashtags.length}개`}
               </span>
               {issues.map((c) => (
                 <span key={c.id} className="text-[13px] text-label-alt">· {c.label}{c.detail ? ` — ${c.detail}` : ""}</span>

@@ -23,6 +23,10 @@ export interface CanvasProps {
   onLayerChange?: (id: string, patch: Partial<SlideLayer>) => void;
   onGuides?: (g: { v: boolean; h: boolean }) => void;
   showSafeArea?: boolean;
+  /** 포스트 규격 높이 (폭은 1080 고정). 기본 4:5 */
+  canvasHeight?: number;
+  /** 누끼 레이어의 assets 파일명 → same-origin URL */
+  resolveAsset?: (name: string | null | undefined) => string | null;
 }
 
 const SNAP = 14;
@@ -32,10 +36,11 @@ const SNAP = 14;
  * 이미지는 same-origin 프록시(/api/drive/file/…) 와 data: URL 만 → canvas taint 없음.
  */
 export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCanvas(
-  { slideState, text, imageUrl, displayWidth, editable = false, selection = null, onSelect, onTextChange, onImageChange, onLayerChange, onGuides, showSafeArea = false },
+  { slideState, text, imageUrl, displayWidth, editable = false, selection = null, onSelect, onTextChange, onImageChange, onLayerChange, onGuides, showSafeArea = false, canvasHeight = CANVAS_HEIGHT, resolveAsset },
   ref,
 ) {
   const scale = displayWidth / CANVAS_WIDTH;
+  const H = canvasHeight;
   const [img] = useImage(imageUrl ?? "", "anonymous");
   const imageRef = useRef<Konva.Image>(null);
   const textRef = useRef<Konva.Text>(null);
@@ -80,16 +85,16 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
     if (!img) return null;
     const iw = img.naturalWidth || img.width;
     const ih = img.naturalHeight || img.height;
-    const s = Math.max(CANVAS_WIDTH / iw, CANVAS_HEIGHT / ih) * im.zoom;
+    const s = Math.max(CANVAS_WIDTH / iw, H / ih) * im.zoom;
     const w = iw * s;
     const h = ih * s;
     // pan 은 -1..1 정규화: 남는 공간 안에서 이동
     const slackX = Math.max(0, w - CANVAS_WIDTH);
-    const slackY = Math.max(0, h - CANVAS_HEIGHT);
+    const slackY = Math.max(0, h - H);
     const x = -slackX / 2 - (im.pan.x * slackX) / 2;
     const y = -slackY / 2 - (im.pan.y * slackY) / 2;
     return { x, y, w, h, slackX, slackY };
-  }, [img, im.zoom, im.pan.x, im.pan.y]);
+  }, [img, im.zoom, im.pan.x, im.pan.y, H]);
 
   const filters = useMemo(() => {
     const list: Konva.Filter[] = [];
@@ -106,36 +111,36 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
     const rgba = (o: number) => `rgba(${c.r},${c.g},${c.b},${o})`;
     switch (im.gradient.direction) {
       case "bottom":
-        return { start: { x: 0, y: CANVAS_HEIGHT * 0.35 }, end: { x: 0, y: CANVAS_HEIGHT }, stops: [0, rgba(0), 1, rgba(a)] };
+        return { start: { x: 0, y: H * 0.35 }, end: { x: 0, y: H }, stops: [0, rgba(0), 1, rgba(a)] };
       case "top":
-        return { start: { x: 0, y: 0 }, end: { x: 0, y: CANVAS_HEIGHT * 0.65 }, stops: [0, rgba(a), 1, rgba(0)] };
+        return { start: { x: 0, y: 0 }, end: { x: 0, y: H * 0.65 }, stops: [0, rgba(a), 1, rgba(0)] };
       case "full":
-        return { start: { x: 0, y: 0 }, end: { x: 0, y: CANVAS_HEIGHT }, stops: [0, rgba(a * 0.6), 0.5, rgba(a * 0.25), 1, rgba(a)] };
+        return { start: { x: 0, y: 0 }, end: { x: 0, y: H }, stops: [0, rgba(a * 0.6), 0.5, rgba(a * 0.25), 1, rgba(a)] };
       default:
         return null;
     }
-  }, [im.gradient.color, im.gradient.direction, im.gradient.opacity]);
+  }, [im.gradient.color, im.gradient.direction, im.gradient.opacity, H]);
 
   const fontFamily = fontsReady ? konvaFontFamily(tx.fontFamily) : "sans-serif";
   const isTextSel = selection?.kind === "text";
   const trIsText = isTextSel;
-  const keepRatio = selectedLayer ? (selectedLayer.kind === "icon" || stickerDef(selectedLayer.key).aspect !== null) && selectedLayer.height === undefined : false;
+  const keepRatio = selectedLayer ? selectedLayer.kind === "cutout" || ((selectedLayer.kind === "icon" || stickerDef(selectedLayer.key).aspect !== null) && selectedLayer.height === undefined) : false;
 
   /** 드래그 중 중앙선 스냅 (레이어 중심 기준) */
   const snapCenter = (pos: { x: number; y: number }) => {
     const lx = pos.x / scale;
     const ly = pos.y / scale;
     const snapV = Math.abs(lx - CANVAS_WIDTH / 2) < SNAP;
-    const snapH = Math.abs(ly - CANVAS_HEIGHT / 2) < SNAP;
+    const snapH = Math.abs(ly - H / 2) < SNAP;
     onGuides?.({ v: snapV, h: snapH });
-    return { x: (snapV ? CANVAS_WIDTH / 2 : lx) * scale, y: (snapH ? CANVAS_HEIGHT / 2 : ly) * scale };
+    return { x: (snapV ? CANVAS_WIDTH / 2 : lx) * scale, y: (snapH ? H / 2 : ly) * scale };
   };
 
   return (
     <Stage
       ref={ref}
       width={displayWidth}
-      height={Math.round(displayWidth * (CANVAS_HEIGHT / CANVAS_WIDTH))}
+      height={Math.round(displayWidth * (H / CANVAS_WIDTH))}
       scaleX={scale}
       scaleY={scale}
       onMouseDown={(e) => {
@@ -145,9 +150,9 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
       style={{ background: im.background, cursor: editable ? "default" : undefined }}
     >
       <Layer listening={editable}>
-        <Rect name="bg" x={0} y={0} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} fill={im.background} />
+        <Rect name="bg" x={0} y={0} width={CANVAS_WIDTH} height={H} fill={im.background} />
         {img && cover && (
-          <Group clipX={0} clipY={0} clipWidth={CANVAS_WIDTH} clipHeight={CANVAS_HEIGHT}>
+          <Group clipX={0} clipY={0} clipWidth={CANVAS_WIDTH} clipHeight={H}>
             <KImage
               ref={imageRef}
               name="photo"
@@ -181,7 +186,7 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
           </Group>
         )}
         {im.overlay.opacity > 0 && (
-          <Rect name="bg" x={0} y={0} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} fill={im.overlay.color} opacity={im.overlay.opacity} />
+          <Rect name="bg" x={0} y={0} width={CANVAS_WIDTH} height={H} fill={im.overlay.color} opacity={im.overlay.opacity} />
         )}
         {gradientStops && (
           <Rect
@@ -189,17 +194,17 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
             x={0}
             y={0}
             width={CANVAS_WIDTH}
-            height={CANVAS_HEIGHT}
+            height={H}
             fillLinearGradientStartPoint={gradientStops.start}
             fillLinearGradientEndPoint={gradientStops.end}
             fillLinearGradientColorStops={gradientStops.stops}
           />
         )}
         {tx.frame && (
-          <Rect x={40} y={40} width={CANVAS_WIDTH - 80} height={CANVAS_HEIGHT - 80} stroke={tx.color} strokeWidth={2} opacity={0.5} listening={false} />
+          <Rect x={40} y={40} width={CANVAS_WIDTH - 80} height={H - 80} stroke={tx.color} strokeWidth={2} opacity={0.5} listening={false} />
         )}
         {showSafeArea && (
-          <Rect x={65} y={81} width={CANVAS_WIDTH - 130} height={CANVAS_HEIGHT - 162} stroke="rgba(255,255,255,0.45)" dash={[14, 12]} strokeWidth={2} listening={false} />
+          <Rect x={65} y={Math.round(H * 0.06)} width={CANVAS_WIDTH - 130} height={H - Math.round(H * 0.12)} stroke="rgba(255,255,255,0.45)" dash={[14, 12]} strokeWidth={2} listening={false} />
         )}
         <KText
           ref={textRef}
@@ -254,6 +259,7 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
               onChange={(patch) => onLayerChange?.(l.id, patch)}
               dragBound={snapCenter}
               onDragEnd={() => onGuides?.({ v: false, h: false })}
+              src={l.kind === "cutout" ? (resolveAsset?.(l.asset) ?? null) : null}
             />
           ),
         )}
@@ -288,6 +294,7 @@ function LayerNode({
   onChange,
   dragBound,
   onDragEnd,
+  src,
 }: {
   layer: SlideLayer;
   editable: boolean;
@@ -297,6 +304,7 @@ function LayerNode({
   onChange: (patch: Partial<SlideLayer>) => void;
   dragBound: (pos: { x: number; y: number }) => { x: number; y: number };
   onDragEnd: () => void;
+  src: string | null;
 }) {
   const def = l.kind === "sticker" ? stickerDef(l.key) : null;
   const w = l.width;
@@ -336,7 +344,7 @@ function LayerNode({
         node.scaleY(1);
         const patch: Partial<SlideLayer> = { width: nw, rotation: Math.round(node.rotation()) };
         // 고정 비율(아이콘·정사각 스티커)이 아니면 사용자가 정한 높이를 기억한다
-        const fixed = l.kind === "icon" || (def?.aspect !== null && l.height === undefined);
+        const fixed = l.kind === "icon" || l.kind === "cutout" || (def?.aspect !== null && l.height === undefined);
         if (!fixed || Math.abs(nh / nw - h / w) > 0.02) patch.height = nh;
         // 중심 좌표는 offset 으로 유지되므로 그대로 저장
         patch.x = Math.round(node.x());
@@ -344,7 +352,9 @@ function LayerNode({
         onChange(patch);
       }}
     >
-      {l.kind === "icon" ? (
+      {l.kind === "cutout" ? (
+        <CutoutImage src={src} width={w} height={h} />
+      ) : l.kind === "icon" ? (
         <IconImage iconKey={l.key} color={l.color} width={w} height={h} />
       ) : def ? (
         <>
@@ -387,6 +397,13 @@ function LayerNode({
       ) : null}
     </Group>
   );
+}
+
+/** 누끼 PNG — same-origin 프록시 URL 이라 내보내기 taint 없음 */
+function CutoutImage({ src, width, height }: { src: string | null; width: number; height: number }) {
+  const [img] = useImage(src ?? "", "anonymous");
+  if (!img) return <Rect width={width} height={height} fill="rgba(255,255,255,0.12)" dash={[12, 10]} stroke="rgba(255,255,255,0.5)" strokeWidth={3} />;
+  return <KImage image={img} width={width} height={height} shadowColor="rgba(0,0,0,0.35)" shadowBlur={20} shadowOffsetY={10} />;
 }
 
 function IconImage({ iconKey, color, width, height }: { iconKey: string; color: string; width: number; height: number }) {

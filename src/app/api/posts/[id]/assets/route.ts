@@ -9,8 +9,9 @@ type Ctx = { params: Promise<{ id: string }> };
 const MAX_BYTES = 15 * 1024 * 1024;
 
 /**
- * POST /api/posts/[id]/assets — multipart { file, slide_id? }
- * 업로드 후 slide_id 가 있으면 해당 슬라이드의 asset 을 교체한다.
+ * POST /api/posts/[id]/assets — multipart { file, slide_id?, kind? }
+ * kind=cutout 이면 cutout_NN.png 로 저장(누끼 라이브러리), 아니면 source_NN 으로 저장하고
+ * slide_id 가 있으면 해당 슬라이드의 asset 을 교체한다.
  */
 export async function POST(req: Request, ctx: Ctx) {
   return handle(async () => {
@@ -19,7 +20,8 @@ export async function POST(req: Request, ctx: Ctx) {
     const file = form.get("file");
     if (!(file instanceof File)) return error(400, "file field missing", "no_file");
     if (file.size > MAX_BYTES) return error(413, "file exceeds 15MB", "too_large");
-    const slideId = form.get("slide_id")?.toString() || undefined;
+    const kind = form.get("kind")?.toString() === "cutout" ? "cutout" : "source";
+    const slideId = kind === "source" ? form.get("slide_id")?.toString() || undefined : undefined;
 
     const bytes = new Uint8Array(await file.arrayBuffer());
     const dims = readImageDims(bytes);
@@ -31,9 +33,10 @@ export async function POST(req: Request, ctx: Ctx) {
     const post = await loadPost(drive, id);
     const assetsFolder = await ensureSubfolder(drive, post, "assets");
     const existing = await drive.listChildren(assetsFolder.id);
-    const nums = existing.map((f) => Number(/source_(\d+)/.exec(f.name)?.[1] ?? 0));
+    const re = kind === "cutout" ? /cutout_(\d+)/ : /source_(\d+)/;
+    const nums = existing.map((f) => Number(re.exec(f.name)?.[1] ?? 0));
     const next = (nums.length ? Math.max(...nums) : 0) + 1;
-    const name = `source_${String(next).padStart(2, "0")}.${ext}`;
+    const name = `${kind}_${String(next).padStart(2, "0")}.${ext}`;
     await drive.uploadBytes(assetsFolder.id, name, bytes, mime);
 
     const now = new Date().toISOString();
@@ -41,7 +44,7 @@ export async function POST(req: Request, ctx: Ctx) {
     const metadata = await writeMetadata(drive, post.folderId, {
       ...post.metadata,
       slides,
-      asset_mode: post.metadata.asset_mode === "text_only" ? "upload" : post.metadata.asset_mode,
+      asset_mode: kind === "source" && post.metadata.asset_mode === "text_only" ? "upload" : post.metadata.asset_mode,
       updated_at: now,
     });
     const reloaded = await loadPost(drive, id);

@@ -80,11 +80,7 @@ export function HomeBoard() {
       {view === "insights" ? (
         <InsightsBoard channel={channel} />
       ) : posts.isLoading ? (
-        <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="aspect-[4/5] animate-pulse rounded-xl bg-fill" />
-          ))}
-        </div>
+        tab === "published" ? <ProfileGridSkeleton /> : <CardGridSkeleton />
       ) : list.length === 0 ? (
         <div className="flex flex-col items-center gap-3.5 rounded-2xl bg-surface px-5 py-[120px]">
           <div className="grid h-[110px] w-[88px] place-items-center rounded-xl bg-fill">
@@ -117,8 +113,6 @@ export function HomeBoard() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={driveFileUrl(p.cover_thumb_file_id)} alt="" className="size-full object-cover" loading="lazy" />
                 )}
-                <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.4), rgba(0,0,0,0) 60%)" }} />
-                <p className="absolute inset-x-3 bottom-3 m-0 text-sm font-semibold leading-tight text-white">{p.headline.split("\n")[0]}</p>
               </Link>
             ))}
           </div>
@@ -145,7 +139,7 @@ function cardMeta(p: IndexEntry, stage: Stage, now: number): string {
   return `${fmtRelative(p.updated_at, now)} 저장`;
 }
 
-function HomeCard({ post, index, stage, now, color }: { post: IndexEntry; index: number; stage: Stage; now: number; color: string }) {
+function HomeCard({ post, stage, now }: { post: IndexEntry; stage: Stage; now: number }) {
   const attention = needsAttention(post);
   const cover = post.headline.split("\n")[0];
   return (

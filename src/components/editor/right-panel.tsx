@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import { Download, Link as LinkIcon, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
-import type { PostBundle, SlideDef, SlideEditorState, SlideLayer } from "@/types";
+import { FONT_FAMILIES, FONT_META, FORMAT_INFO, POST_FORMATS, type FontFamily, type PostBundle, type SlideDef, type SlideEditorState, type SlideLayer } from "@/types";
+import { cssFontFamily } from "@/lib/render/export";
 import { useEditorStore, selectSelectedLayer } from "@/stores/editor-store";
 import { api, driveFileUrl } from "@/lib/client/api";
 import { useInvalidatePosts, useSystemStatus } from "@/lib/client/queries";
@@ -14,7 +15,21 @@ import { Segmented } from "@/components/md/segmented";
 import { Collapsible, PaletteGrid, PanelLabel, RangeRow, fieldClass } from "@/components/md/primitives";
 import { cn } from "@/lib/utils";
 
-const FONT_LABEL = { sans: "산세리프 · Noto Sans KR", serif: "세리프 · Noto Serif KR" } as const;
+const FONT_LABEL = (f: FontFamily) => `${FONT_META[f].label} · ${FONT_META[f].family}`;
+
+/** 폰트 선택 리스트 — 미리보기 텍스트를 실제 폰트로 */
+function FontList({ value, onChange, size = 15 }: { value: FontFamily; onChange: (f: FontFamily) => void; size?: number }) {
+  return (
+    <div className="flex max-h-[208px] flex-col gap-1 overflow-auto">
+      {FONT_FAMILIES.map((f) => (
+        <button key={f} type="button" onClick={() => onChange(f)} className={cn("flex items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-left hover:bg-fill", value === f ? "bg-fill" : "bg-fill-alt")}>
+          <span className={cn("leading-tight", value === f && "text-brand")} style={{ fontFamily: cssFontFamily(f), fontSize: size }}>가나다 Magazine</span>
+          <span className="shrink-0 text-[11px] text-label-alt">{FONT_META[f].label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function RightPanel({ slide, state, bundle, disabled, onDownload }: { slide: SlideDef | null; state: SlideEditorState | null; bundle: PostBundle; disabled: boolean; onDownload: () => void }) {
   const selection = useEditorStore((s) => s.selection);
@@ -64,15 +79,8 @@ function TextPanel({ slide, state }: { slide: SlideDef; state: SlideEditorState 
         <textarea value={slide.text} onChange={(e) => updateSlideText(slide.id, e.target.value)} rows={3} className={cn(fieldClass, "resize-y leading-normal")} />
         {lines > 3 && <span className="text-xs text-negative">3줄을 넘으면 세이프 영역을 벗어나요.</span>}
       </div>
-      <Collapsible title="폰트 · 이 레이어만" summary={FONT_LABEL[t.fontFamily].split(" · ")[0]}>
-        <div className="flex flex-col gap-1">
-          {(["sans", "serif"] as const).map((f) => (
-            <button key={f} type="button" onClick={() => set({ fontFamily: f })} className={cn("flex items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-left hover:bg-fill", t.fontFamily === f ? "bg-fill" : "bg-fill-alt")}>
-              <span className={cn("text-[15px] leading-tight", t.fontFamily === f && "text-brand")} style={{ fontFamily: f === "sans" ? "var(--font-sans-kr), sans-serif" : "var(--font-serif-kr), serif" }}>가나다 Magazine</span>
-              <span className="shrink-0 text-[11px] text-label-alt">{FONT_LABEL[f]}</span>
-            </button>
-          ))}
-        </div>
+      <Collapsible title="폰트 · 이 레이어만" summary={FONT_LABEL(t.fontFamily)}>
+        <FontList value={t.fontFamily} onChange={(f) => set({ fontFamily: f })} />
       </Collapsible>
       <RangeRow label="크기" value={t.fontSize} display={`${t.fontSize}px`} min={24} max={160} step={1} onChange={(v) => set({ fontSize: v })} />
       <RangeRow label="행간" value={t.lineHeight} display={t.lineHeight.toFixed(2)} min={0.9} max={2} step={0.05} onChange={(v) => set({ lineHeight: v })} />
@@ -196,7 +204,7 @@ function LayerPanel({ slide, state, layer: L }: { slide: SlideDef; state: SlideE
   const channel = useEditorStore((s) => s.snapshot?.metadata.channel ?? "LIFE");
   const set = (patch: Partial<SlideLayer>) => updateLayer(slide.id, L.id, patch);
   const def = L.kind === "sticker" ? stickerDef(L.key) : null;
-  const name = L.kind === "icon" ? `아이콘 · ${iconLabel(L.key)}` : `스티커 · ${def?.label ?? ""}`;
+  const name = L.kind === "cutout" ? "누끼 PNG" : L.kind === "icon" ? `아이콘 · ${iconLabel(L.key)}` : `스티커 · ${def?.label ?? ""}`;
   const idx = state.layers.findIndex((l) => l.id === L.id);
   const hasText = !!def && def.text !== "";
   const colorLabel = L.kind === "icon" ? "아이콘 색" : def?.useColor ? "배경색" : "글자색";
@@ -208,6 +216,7 @@ function LayerPanel({ slide, state, layer: L }: { slide: SlideDef; state: SlideE
         <span className="text-[11px] text-label-alt">순서 {idx + 1} / {state.layers.length}</span>
       </div>
       <RangeRow label="크기" value={L.width} display={`${Math.round((L.width / 1080) * 100)}%`} min={60} max={1080} step={2} onChange={(v) => set({ width: v, height: L.height !== undefined ? Math.round((L.height * v) / L.width) : undefined })} />
+      {L.kind === "cutout" && <span className="text-xs leading-normal text-label-assistive">브라우저에서 배경을 지운 투명 PNG예요. 크기·회전은 선택 프레임으로도 조정할 수 있어요.</span>}
       <RangeRow label="회전" value={L.rotation} display={`${L.rotation}°`} min={-180} max={180} step={1} onChange={(v) => set({ rotation: v })} />
       <RangeRow label="불투명도" value={L.opacity} display={`${Math.round(L.opacity * 100)}%`} min={0.1} max={1} step={0.01} onChange={(v) => set({ opacity: v })} />
       {hasText && (
@@ -216,15 +225,8 @@ function LayerPanel({ slide, state, layer: L }: { slide: SlideDef; state: SlideE
             <PanelLabel>글자</PanelLabel>
             <input value={L.text} onChange={(e) => set({ text: e.target.value })} placeholder="스티커에 쓸 문구" className={fieldClass} />
           </div>
-          <Collapsible title="폰트 · 이 레이어만" summary={FONT_LABEL[L.fontFamily].split(" · ")[0]}>
-            <div className="flex flex-col gap-1">
-              {(["sans", "serif"] as const).map((f) => (
-                <button key={f} type="button" onClick={() => set({ fontFamily: f })} className={cn("flex items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-left hover:bg-fill", L.fontFamily === f ? "bg-fill" : "bg-fill-alt")}>
-                  <span className={cn("text-sm leading-tight", L.fontFamily === f && "text-brand")} style={{ fontFamily: f === "sans" ? "var(--font-sans-kr), sans-serif" : "var(--font-serif-kr), serif" }}>가나다 Magazine</span>
-                  <span className="shrink-0 text-[11px] text-label-alt">{FONT_LABEL[f]}</span>
-                </button>
-              ))}
-            </div>
+          <Collapsible title="폰트 · 이 레이어만" summary={FONT_LABEL(L.fontFamily)}>
+            <FontList value={L.fontFamily} onChange={(f) => set({ fontFamily: f })} size={14} />
           </Collapsible>
         </>
       )}
@@ -256,6 +258,7 @@ function PostPanel({ onDownload }: { onDownload: () => void }) {
   const updateMetadata = useEditorStore((s) => s.updateMetadata);
   const setFactCheck = useEditorStore((s) => s.setFactCheck);
   const status = useSystemStatus();
+  const setFormat = useEditorStore((s) => s.setFormat);
   if (!snap) return null;
   const m = snap.metadata;
   const src = snap.sources;
@@ -265,12 +268,13 @@ function PostPanel({ onDownload }: { onDownload: () => void }) {
   return (
     <div className="flex flex-col gap-[18px] px-4 pb-8 pt-4">
       <div className="flex flex-col gap-2">
-        <PanelLabel>피드 규격</PanelLabel>
+        <PanelLabel>피드 규격 · 포스트 전체</PanelLabel>
+        <Segmented value={m.format} onChange={(f) => setFormat(f)} items={POST_FORMATS.map((f) => ({ value: f, label: f }))} />
         <div className="flex items-center justify-between rounded-xl bg-fill-alt px-3 py-2.5 text-[13px]">
-          <span className="font-semibold">4:5 · 1080 × 1350</span>
-          <span className="text-label-alt">피드 기본 · 세로 최대</span>
+          <span className="font-semibold">{FORMAT_INFO[m.format].label}</span>
+          <span className="text-label-alt">{FORMAT_INFO[m.format].hint.split(" · ")[0]}</span>
         </div>
-        <span className="text-[11px] leading-normal text-label-assistive">프로필 그리드에서는 1:1로 잘려 보여요. 규격은 고정이에요.</span>
+        <span className="text-[11px] leading-normal text-label-assistive">{FORMAT_INFO[m.format].hint}. 캐러셀은 모든 장이 같은 비율이어야 해서 포스트 단위로 바뀌어요. 프로필 그리드는 3:4로 잘려 보여요.</span>
       </div>
       <div className="flex flex-col gap-2">
         <PanelLabel>헤드라인 (카드 표시용)</PanelLabel>

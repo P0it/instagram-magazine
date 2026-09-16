@@ -80,6 +80,11 @@ export const readIndexFile = (drive: DriveClient) =>
   readSystemJson(drive, "index.json", IndexFileSchema, { generated_at: new Date(0).toISOString(), posts: [] });
 export const writeIndexFile = (drive: DriveClient, data: IndexFile) => writeSystemJson(drive, "index.json", data);
 
+export const readCustomPresets = (drive: DriveClient) =>
+  readSystemJson(drive, "custom-presets.json", CustomPresetsFileSchema, { presets: [] });
+export const writeCustomPresets = (drive: DriveClient, data: CustomPresetsFile, v?: string | null) =>
+  writeSystemJson(drive, "custom-presets.json", data, v);
+
 export const readIngestLog = (drive: DriveClient) =>
   readSystemJson(drive, "ingest-log.json", IngestLogFileSchema, { last_sync_at: null, entries: [] });
 export const writeIngestLog = (drive: DriveClient, data: IngestLogFile, v?: string | null) =>

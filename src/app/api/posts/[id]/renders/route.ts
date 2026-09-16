@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PostBundle } from "@/types";
+import { formatDims, type PostBundle } from "@/types";
 import { getDrive } from "@/lib/drive";
 import { ensureSubfolder, loadPost, renderFileName, toBundle, writeMetadata } from "@/lib/metadata/post-repo";
 import { readImageDims } from "@/lib/metadata/image-dims";
@@ -21,6 +21,7 @@ export async function PUT(req: Request, ctx: Ctx) {
     const drive = await getDrive();
     const post = await loadPost(drive, id);
     const rendersFolder = await ensureSubfolder(drive, post, "renders");
+    const want = formatDims(post.metadata.format);
 
     const incoming: { index: number; bytes: Uint8Array; mime: string }[] = [];
     for (const [key, value] of form.entries()) {
@@ -29,9 +30,9 @@ export async function PUT(req: Request, ctx: Ctx) {
       const index = IndexSchema.parse(m[1]);
       const bytes = new Uint8Array(await value.arrayBuffer());
       const dims = readImageDims(bytes);
-      if (!dims || dims.width !== 1080 || dims.height !== 1350) {
+      if (!dims || dims.width !== want.width || dims.height !== want.height) {
         const got = dims ? `${dims.width}x${dims.height}` : "unreadable";
-        return error(400, `slide ${index + 1}: render must be 1080x1350 (got ${got})`, "bad_render");
+        return error(400, `slide ${index + 1}: render must be ${want.width}x${want.height} (got ${got})`, "bad_render");
       }
       incoming.push({ index, bytes, mime: value.type || "image/jpeg" });
     }

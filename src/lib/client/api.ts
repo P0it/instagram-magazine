@@ -3,6 +3,9 @@
 import type { z } from "zod";
 import {
   AccountsResponseSchema,
+  AnalyzeResponseSchema,
+  CustomPresetsFileSchema,
+  type CustomPreset,
   ApiErrorSchema,
   ApprovalGateResultSchema,
   ChannelsFileSchema,
@@ -84,9 +87,10 @@ export const api = {
     blobs.forEach((b, i) => form.append(`slide_${i}`, b, `slide_${String(i + 1).padStart(2, "0")}.jpg`));
     return request(`/api/posts/${encodeURIComponent(id)}/renders`, PostBundleSchema, { method: "PUT", body: form });
   },
-  uploadAsset: (id: string, file: File, slideId?: string) => {
+  uploadAsset: (id: string, file: File, slideId?: string, kind: "source" | "cutout" = "source") => {
     const form = new FormData();
     form.append("file", file);
+    form.append("kind", kind);
     if (slideId) form.append("slide_id", slideId);
     return request(`/api/posts/${encodeURIComponent(id)}/assets`, PostBundleSchema.extend({ uploaded: zod.string() }), { method: "POST", body: form });
   },

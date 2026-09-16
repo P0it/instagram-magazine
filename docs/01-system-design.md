@@ -21,7 +21,7 @@ ChatGPT 예약 작업이 Google Drive에 떨어뜨린 초안(텍스트 + 이미�
 | 스타일 | **Tailwind CSS v4 + shadcn/ui** | 절제된 에디토리얼 UI |
 | 서버 상태 | **TanStack Query v5** | Drive 목록·포스트 캐시, 낙관적 갱신 |
 | 에디터 상태 | **Zustand + Immer** (undo/redo) | 캔버스 편집은 클라이언트 로컬 상태 |
-| 캔버스 | **react-konva** | 1080×1350 논리 좌표, `toDataURL({pixelRatio})`로 결정적 내보내기 |
+| 캔버스 | **react-konva** | 폭 1080 × 포스트 규격 높이(4:5 1350 기본 · 3:4 1440 · 1:1 1080 · 1.91:1 566) 논리 좌표, `toDataURL({pixelRatio})`로 결정적 내보내기 |
 | 스키마 | **Zod** | 모든 Drive JSON은 Zod로 파싱·기본값 보정 |
 | 저장소 | **Google Drive만** (`googleapis` Drive v3, 서비스 계정) | 콘텐츠 + 앱 상태(계정·잡·인덱스) 전부 Drive의 `_system/` 폴더 |
 | 접근 제한 | **`proxy.ts` + 접근 키 쿠키** (환경변수 1개) | 로그인 화면 없음. `/?key=…` 한 번 열면 쿠키 저장, 이후 자유 |
@@ -112,7 +112,7 @@ ChatGPT 예약 작업이 Google Drive에 떨어뜨린 초안(텍스트 + 이미�
   visual-brief.json      ← PRD §8
   editor-state.json      ← 에디터 전체 상태(좌표·톤·크롭). 재편집용
   /assets  source_01.jpg …
-  /renders slide_01.jpg …   ← 최종 1080×1350
+  /renders slide_01.jpg …   ← 최종 1080×(규격 높이), 기본 1080×1350
   /_inbox_original/      ← ChatGPT 원본 보존
 ```
 
@@ -236,7 +236,7 @@ failed → approved               재시도 준비
 
 1. 폰트는 `next/font`로 self-host. 렌더 전 `document.fonts.ready` + `document.fonts.load()` 확인.
 2. 이미지는 `/api/drive/file/[id]` same-origin. Konva 필터(Brighten/Contrast/HSL/Blur) + 오버레이 Rect + 그라디언트 Rect.
-3. 스테이지 1080×1350 고정, 화면은 `scale`만. 내보내기 `stage.toDataURL({ pixelRatio: 1080/displayedWidth, mimeType:'image/jpeg', quality:0.92 })`.
+3. 스테이지는 폭 1080 × 포스트 규격 높이(metadata.format) 고정, 화면은 `scale`만. 내보내기 `stage.toDataURL({ pixelRatio: 1080/displayedWidth, mimeType:'image/jpeg', quality:0.92 })`.
 4. 저장 시 렌더 → `PUT /api/posts/[id]/renders` → Drive `/renders/slide_NN.jpg` 덮어쓰기 + editor-state/metadata 갱신.
 
 ---

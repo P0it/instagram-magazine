@@ -13,7 +13,10 @@ test("home 3-stage board → builder → preset switch → sticker → export 10
   await expect(page.getByRole("tab", { name: /^편집 중 \d+/ })).toBeVisible();
   await expect(page.getByRole("tab", { name: /^게시됨 \d+/ })).toBeVisible();
 
-  await page.getByRole("link", { name: /월세 내고 있다면/ }).first().click();
+  // 서버가 오래 떠 있으면 이전 실행의 자동 저장으로 "편집 중" 으로 옮겨가 있을 수 있다
+  const card = page.getByRole("link", { name: /월세 내고 있다면/ }).first();
+  if (!(await card.waitFor({ timeout: 8000 }).then(() => true, () => false))) await page.getByRole("tab", { name: /편집 중/ }).click();
+  await card.click();
   await expect(page).toHaveURL(new RegExp(`/editor/${POST}`));
 
   // 캔버스 렌더
@@ -116,3 +119,29 @@ test("home 성과 tab shows insight tiles, top posts and channel comparison from
 
   expect(errors).toEqual([]);
 });
+  const downloads: Promise<import("@playwright/test").Download>[] = [];
+  page.on("download", (d) => downloads.push(Promise.resolve(d)));
+  await page.getByRole("button", { name: /JPEG 내려받기/ }).click();
+  await page.waitForTimeout(5000);
+  expect(downloads.length).toBe(4);
+  const fs = await import("node:fs");
+  const buf = fs.readFileSync((await (await downloads[0]).path())!);
+  expect(readJpegDims(buf)).toEqual({ width: 1080, height: 1080 });
+
+  // 폰트 7종
+  await page.getByRole("tab", { name: "레이어" }).click();
+  await page.getByRole("button", { name: /^텍스트 · / }).click();
+  await page.getByRole("button", { name: /폰트 · 이 레이어만/ }).click();
+  await expect(page.getByText("나눔명조")).toBeVisible();
+  await expect(page.getByText("개구 손글씨")).toBeVisible();
+
+  // 요소 탭: 누끼 · 프리셋 탭: 스크린샷 분석 진입점
+  await page.getByRole("tab", { name: "요소" }).click();
+  await expect(page.getByRole("button", { name: /배경 지워서 라이브러리에 담기/ })).toBeEnabled();
+  await page.getByRole("tab", { name: "프리셋" }).click();
+  await expect(page.getByRole("button", { name: "레이아웃 읽어 등록" })).toBeEnabled();
+
+  // 되돌리기: 4:5 로
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "4:5", exact: true }).click();
+  await expect(page.getByText(/저장됨 · 방금/)).toBeVisible({ timeout: 10_000 });

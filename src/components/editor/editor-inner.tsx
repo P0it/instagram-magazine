@@ -14,6 +14,7 @@ import { CHANNEL_DEFAULT_STYLE_PACK } from "@/presets";
 import { CHANNEL_META } from "@/lib/client/channel";
 import { fmtRelative } from "@/lib/client/format";
 import { isTouched } from "@/lib/metadata/stage";
+import { BuilderSkeleton } from "@/components/md/skeleton";
 import { GhostIcon, StageBadge } from "@/components/md/primitives";
 import { SlideCanvas } from "./canvas";
 import { SlideStrip } from "./slide-strip";
@@ -119,6 +120,7 @@ export function EditorInner({ postId }: { postId: string }) {
           caption: s.snapshot.metadata.caption,
           hashtags: s.snapshot.metadata.hashtags,
           alt_text: s.snapshot.metadata.alt_text,
+          format: s.snapshot.metadata.format,
           content_type: s.snapshot.metadata.content_type,
           slides: s.snapshot.metadata.slides,
         },
@@ -159,7 +161,7 @@ export function EditorInner({ postId }: { postId: string }) {
       await waitForImages(hiddenStageRef.current);
       const stage = hiddenStageRef.current;
       if (!stage) throw new Error("export stage missing");
-      blobs.push(await exportStageToBlob(stage));
+      blobs.push(await exportStageToBlob(stage, 0.92, s.editorState.canvas.height));
     }
     setExportSlide(null);
     return blobs;
@@ -244,7 +246,7 @@ export function EditorInner({ postId }: { postId: string }) {
         const step = e.shiftKey ? 20 : 4;
         const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
         const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
-        updateLayer(sid, L.id, { x: Math.max(0, Math.min(1080, L.x + dx)), y: Math.max(0, Math.min(1350, L.y + dy)) });
+        updateLayer(sid, L.id, { x: Math.max(0, Math.min(1080, L.x + dx)), y: Math.max(0, Math.min(st.snapshot?.editorState.canvas.height ?? 1350, L.y + dy)) });
         return;
       }
       if (e.key === "Escape") {
@@ -266,7 +268,7 @@ export function EditorInner({ postId }: { postId: string }) {
     return <div className="p-8 text-sm text-negative">포스트를 불러올 수 없습니다: {String(post.error)}</div>;
   }
   if (!post.data || !snap || loadedId !== postId) {
-    return <div className="flex flex-1 items-center justify-center text-sm text-label-alt">불러오는 중…</div>;
+    return <BuilderSkeleton />;
   }
 
   const bundle = post.data;
@@ -344,7 +346,7 @@ export function EditorInner({ postId }: { postId: string }) {
       ) : (
         <>
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            <LeftPanel tab={leftTab} onTab={setLeftTab} slide={selected} state={selectedState} disabled={readOnly} />
+            <LeftPanel tab={leftTab} onTab={setLeftTab} slide={selected} state={selectedState} bundle={bundle} disabled={readOnly} />
             <StageArea
               slide={selected}
               state={selectedState}
@@ -361,6 +363,7 @@ export function EditorInner({ postId }: { postId: string }) {
                 if (i < m.slides.length - 1) select(m.slides[i + 1].id);
               }}
               selection={selection}
+              resolveAsset={assetUrl}
               selectedLayer={selectedLayer}
             />
             <RightPanel slide={selected} state={selectedState} bundle={bundle} disabled={readOnly} onDownload={async () => {
@@ -379,10 +382,10 @@ export function EditorInner({ postId }: { postId: string }) {
         </>
       )}
 
-      {/* 내보내기용 숨은 스테이지 (540px 표시 → pixelRatio 2 로 1080×1350) */}
+      {/* 내보내기용 숨은 스테이지 (540px 표시 → pixelRatio 2 로 1080×H) */}
       <div className="pointer-events-none absolute -left-[9999px] top-0" aria-hidden>
         {exportingSlide && exportingState && (
-          <SlideCanvas ref={hiddenStageRef} slideState={exportingState} text={exportingSlide.text} imageUrl={assetUrl(exportingSlide.asset)} displayWidth={540} />
+          <SlideCanvas ref={hiddenStageRef} slideState={exportingState} text={exportingSlide.text} imageUrl={assetUrl(exportingSlide.asset)} displayWidth={540} canvasHeight={snap.editorState.canvas.height} resolveAsset={assetUrl} />
         )}
       </div>
 

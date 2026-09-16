@@ -22,6 +22,8 @@ export function SlideStrip({ bundle, disabled }: { bundle: PostBundle; disabled:
   const duplicateSlide = useEditorStore((s) => s.duplicateSlide);
   if (!snap) return null;
   const slides = snap.metadata.slides;
+  const H = snap.editorState.canvas.height;
+  const thumbH = Math.round((THUMB_W * H) / 1080);
   const idx = slides.findIndex((s) => s.id === selectedId);
   const assetUrl = (name: string | null | undefined) => {
     if (!name) return null;
@@ -48,8 +50,8 @@ export function SlideStrip({ bundle, disabled }: { bundle: PostBundle; disabled:
                 title={`${i + 1}. ${ROLE_LABEL[s.role]}`}
                 className="flex w-full flex-col gap-[5px] text-left"
               >
-                <div className="relative overflow-hidden rounded-lg bg-fill hairline-neutral" style={{ width: THUMB_W, height: THUMB_H }}>
-                  {st && <SlideCanvas slideState={st} text={s.text} imageUrl={assetUrl(s.asset)} displayWidth={THUMB_W} />}
+                <div className="relative grid place-items-center overflow-hidden rounded-lg bg-fill hairline-neutral" style={{ width: THUMB_W, height: THUMB_H }}>
+                  {st && <SlideCanvas slideState={st} text={s.text} imageUrl={assetUrl(s.asset)} displayWidth={thumbH > THUMB_H ? Math.round((THUMB_H * 1080) / H) : THUMB_W} canvasHeight={H} resolveAsset={assetUrl} />}
                   <span className="absolute left-1 top-1 grid h-4 min-w-4 place-items-center rounded-[5px] px-1 text-[10px] font-semibold text-white backdrop-blur-[32px]" style={{ background: "rgba(23,23,25,0.58)" }}>{i + 1}</span>
                   {active && <div className="pointer-events-none absolute inset-0 rounded-lg" style={{ boxShadow: "inset 0 0 0 2px var(--semantic-primary-normal)" }} />}
                 </div>

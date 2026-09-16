@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { Eye, EyeOff, Trash2, Type } from "lucide-react";
+import { useRef, useState } from "react";
+import { Eye, EyeOff, Scissors, Trash2, Type, Upload } from "lucide-react";
+import { toast } from "sonner";
 import { LAYOUT_PRESETS } from "@/presets";
 import { SlideRoleSchema, type PresetId, type SlideDef, type SlideEditorState, type SlideRole, type StickerKey } from "@/types";
 import { useEditorStore } from "@/stores/editor-store";
+import { api, driveFileUrl } from "@/lib/client/api";
+import { qk, useCustomPresets, useInvalidatePosts } from "@/lib/client/queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { removeBackgroundToPng } from "@/lib/render/cutout";
 import { ICONS, STICKERS, iconLabel, stickerDef } from "@/lib/render/stickers";
 import { ICON_COMPONENTS } from "@/lib/render/icon-svg";
 import { CHANNEL_META } from "@/lib/client/channel";
 import { Segmented } from "@/components/md/segmented";
-import { PanelLabel } from "@/components/md/primitives";
+import { PanelLabel, fieldClass } from "@/components/md/primitives";
 import { cn } from "@/lib/utils";
 
 export type LeftTab = "presets" | "elements" | "layers";
@@ -22,7 +27,7 @@ const HINT: Record<LeftTab, string> = {
   layers: "이 슬라이드의 레이어 순서와 표시를 관리해요.",
 };
 
-export function LeftPanel({ tab, onTab, slide, state, disabled }: { tab: LeftTab; onTab: (t: LeftTab) => void; slide: SlideDef | null; state: SlideEditorState | null; disabled: boolean }) {
+export function LeftPanel({ tab, onTab, slide, state, bundle, disabled }: { tab: LeftTab; onTab: (t: LeftTab) => void; slide: SlideDef | null; state: SlideEditorState | null; bundle: PostBundle; disabled: boolean }) {
   return (
     <aside className={cn("flex w-[260px] shrink-0 flex-col bg-surface", disabled && "pointer-events-none opacity-45")} style={{ boxShadow: "inset -1px 0 0 var(--semantic-line-solid-neutral)" }}>
       <div className="flex shrink-0 flex-col gap-2.5 px-4 pb-2.5 pt-3.5">
@@ -35,7 +40,7 @@ export function LeftPanel({ tab, onTab, slide, state, disabled }: { tab: LeftTab
         ) : tab === "presets" ? (
           <PresetsTab slide={slide} />
         ) : tab === "elements" ? (
-          <ElementsTab slide={slide} />
+          <ElementsTab slide={slide} bundle={bundle} />
         ) : (
           <LayersTab slide={slide} state={state} />
         )}
@@ -47,8 +52,55 @@ export function LeftPanel({ tab, onTab, slide, state, disabled }: { tab: LeftTab
 // ---------------- 프리셋 ----------------
 function PresetsTab({ slide }: { slide: SlideDef }) {
   const applyPreset = useEditorStore((s) => s.applyPreset);
+  const applyCustomPreset = useEditorStore((s) => s.applyCustomPreset);
   const updateSlideRole = useEditorStore((s) => s.updateSlideRole);
   const [withImage, setWithImage] = useState(true);
+  const custom = useCustomPresets();
+  const qc = useQueryClient();
+  const shotRef = useRef<HTMLInputElement>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [draft, setDraft] = useState<{ analysis: LayoutAnalysis; base: PresetId; overrides: CustomPreset["overrides"]; provider: "sdk" | "cli"; name: string } | null>(null);
+  const presets = custom.data?.presets ?? [];
+  const activeCustom = presets.find((p) => p.base === slide.style_preset && slide.overrides && JSON.stringify(p.overrides) === JSON.stringify(slide.overrides));
+
+  const analyze = async (file: File) => {
+    if (analyzing) return;
+    setAnalyzing(true);
+    try {
+      const r = await api.analyzeScreenshot(file);
+      setDraft({ ...r, name: `내 프리셋 ${presets.length + 1}` });
+    } catch (e) {
+      toast.error(`분석 실패: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const saveDraft = async () => {
+    if (!draft) return;
+    const id = `custom-${Date.now().toString(36)}`;
+    const preset: Omit<CustomPreset, "created_at"> = { id, name: draft.name.trim() || "내 프리셋", base: draft.base, overrides: draft.overrides, source: "screenshot", note: draft.analysis.note };
+    try {
+      const file = await api.saveCustomPreset(preset);
+      qc.setQueryData(qk.customPresets, file);
+      const saved = file.presets.find((p) => p.id === id);
+      if (saved) applyCustomPreset(slide.id, saved, withImage);
+      setDraft(null);
+      toast.success("스크린샷에서 레이아웃을 읽어 프리셋으로 등록했어요.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const remove = async (id: string) => {
+    try {
+      qc.setQueryData(qk.customPresets, await api.deleteCustomPreset(id));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   return (
     <>
       <button
@@ -61,7 +113,7 @@ function PresetsTab({ slide }: { slide: SlideDef }) {
       </button>
       <div className="grid grid-cols-2 gap-2.5">
         {LAYOUT_PRESETS.map((p) => {
-          const on = slide.style_preset === p.id;
+          const on = slide.style_preset === p.id && !slide.overrides;
           const dark = p.toneDefaults.background !== "#f5f2ea";
           return (
             <button key={p.id} type="button" title={p.description} onClick={() => applyPreset(slide.id, p.id as PresetId, withImage)} className="flex flex-col gap-1.5 text-left">
@@ -71,6 +123,27 @@ function PresetsTab({ slide }: { slide: SlideDef }) {
               </div>
               <span className={cn("text-[11px] leading-[1.3]", on ? "font-semibold text-brand" : "text-label-alt")}>{p.name}</span>
             </button>
+          );
+        })}
+        {presets.map((p) => {
+          const on = activeCustom?.id === p.id;
+          const dark = (p.overrides.toneDefaults?.background ?? "#0a0a0a") !== "#f5f2ea";
+          return (
+            <div key={p.id} className="group relative">
+              <button type="button" title={p.note || p.name} onClick={() => applyCustomPreset(slide.id, p, withImage)} className="flex w-full flex-col gap-1.5 text-left">
+                <div className="relative aspect-[4/5] w-full overflow-hidden rounded-lg hairline-neutral" style={{ background: dark ? "linear-gradient(160deg, #C9CBCF, #8E9298)" : "#F7F7F8" }}>
+                  <PresetBlocks placement={p.overrides.textPlacement ?? "bottom-left"} align={p.overrides.align ?? "left"} dark={dark} />
+                  {on && <div className="pointer-events-none absolute inset-0 rounded-lg" style={{ boxShadow: "inset 0 0 0 2px var(--semantic-primary-normal)" }} />}
+                </div>
+                <span className={cn("flex items-center gap-1 text-[11px] leading-[1.3]", on ? "font-semibold text-brand" : "text-label-alt")}>
+                  <span className="size-[5px] shrink-0 rounded-full bg-brand" />
+                  <span className="truncate">{p.name}</span>
+                </span>
+              </button>
+              <button type="button" title="프리셋 삭제" onClick={() => remove(p.id)} className="absolute right-1 top-1 hidden size-6 place-items-center rounded-md bg-surface shadow-e-sm group-hover:grid">
+                <Trash2 className="size-3 opacity-60" />
+              </button>
+            </div>
           );
         })}
       </div>
@@ -92,8 +165,38 @@ function PresetsTab({ slide }: { slide: SlideDef }) {
       </div>
       <div className="mt-[18px] flex flex-col gap-2 rounded-xl px-2.5 pb-2.5 pt-3" style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
         <PanelLabel>스크린샷으로 프리셋 만들기</PanelLabel>
-        <div className="grid h-[72px] place-items-center rounded-[10px] border border-dashed border-line text-[11px] text-label-assistive">준비 중</div>
-        <span className="text-[11px] leading-normal text-label-assistive">마음에 든 피드 스크린샷에서 텍스트 위치·크기·정렬을 읽어 내 프리셋으로 저장하는 기능은 다음 단계에서 붙어요.</span>
+        {draft ? (
+          <div className="flex flex-col gap-2 rounded-[10px] bg-fill-alt p-2.5">
+            <span className="text-[11px] font-semibold text-label-neutral">읽은 레이아웃 · {draft.provider === "cli" ? "로컬 Claude Code" : "Claude API"}</span>
+            <span className="text-[11px] leading-normal text-label-alt">
+              {draft.analysis.textPlacement} · {draft.analysis.align} · {Math.round(draft.analysis.fontSize)}px · {draft.analysis.lines}줄 · {draft.analysis.background === "dark" ? "어두운 배경" : "밝은 배경"}
+            </span>
+            {draft.analysis.note && <span className="text-[11px] leading-normal text-label-assistive">{draft.analysis.note}</span>}
+            <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className={cn(fieldClass, "py-2 text-xs")} placeholder="프리셋 이름" aria-label="프리셋 이름" />
+            <div className="grid grid-cols-2 gap-1.5">
+              <button type="button" onClick={() => setDraft(null)} className="h-[34px] rounded-lg text-[13px] font-semibold text-label-neutral hairline hover:bg-fill">취소</button>
+              <button type="button" onClick={saveDraft} className="h-[34px] rounded-lg bg-brand text-[13px] font-semibold text-white hover:bg-brand-strong">등록하고 적용</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => !analyzing && shotRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) void analyze(f); }}
+              className={cn("grid h-[72px] w-full place-items-center rounded-[10px] border border-dashed text-[11px] text-label-assistive transition-colors", dragOver ? "border-brand bg-brand/5" : "border-line hover:bg-fill-alt")}
+            >
+              {analyzing ? <span className="flex items-center gap-1.5 text-label-neutral"><span className="size-3 animate-spin rounded-full border-2 border-brand/30 border-t-brand" />레이아웃 읽는 중…</span> : "마음에 든 피드 스크린샷 드롭"}
+            </button>
+            <input ref={shotRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void analyze(f); e.target.value = ""; }} />
+            <button type="button" disabled={analyzing} onClick={() => shotRef.current?.click()} className="h-[34px] rounded-lg text-[13px] font-semibold text-label-neutral hairline hover:bg-fill-alt disabled:opacity-50">
+              {analyzing ? "읽는 중…" : "레이아웃 읽어 등록"}
+            </button>
+            <span className="text-[11px] leading-normal text-label-assistive">텍스트 위치·크기·정렬을 읽어 내 프리셋으로 저장하고 바로 적용해요. API 키가 없으면 이 PC 의 Claude Code(구독)로 읽어요.</span>
+          </>
+        )}
       </div>
     </>
   );
@@ -113,33 +216,22 @@ function PresetBlocks({ placement, align, dark }: { placement: string; align: st
 }
 
 // ---------------- 요소 ----------------
-function ElementsTab({ slide }: { slide: SlideDef }) {
+const BASE_LAYER: Omit<SlideLayer, "id" | "kind" | "key"> = {
+  asset: null, x: 540, y: 540, width: 300, rotation: 0, opacity: 1, flip: false, text: "", color: "#FFFFFF", bg: null, ink: null, fontFamily: "sans", hidden: false, locked: false,
+};
+
+function ElementsTab({ slide, bundle }: { slide: SlideDef; bundle: PostBundle }) {
   const addLayer = useEditorStore((s) => s.addLayer);
+  const markSaved = useEditorStore((s) => s.markSaved);
   const channel = useEditorStore((s) => s.snapshot?.metadata.channel);
   const chColor = channel ? CHANNEL_META[channel].color : "#0066FF";
 
   const addSticker = (key: StickerKey) => {
     const d = stickerDef(key);
-    addLayer(slide.id, {
-      kind: "sticker",
-      key,
-      x: 540,
-      y: 540,
-      width: d.width,
-      rotation: 0,
-      opacity: 1,
-      flip: false,
-      text: d.text,
-      color: d.useColor ? chColor : d.ink,
-      bg: null,
-      ink: null,
-      fontFamily: "sans",
-      hidden: false,
-      locked: false,
-    });
+    addLayer(slide.id, { ...BASE_LAYER, kind: "sticker", key, width: d.width, text: d.text, color: d.useColor ? chColor : d.ink });
   };
   const addIcon = (key: string) => {
-    addLayer(slide.id, { kind: "icon", key, x: 540, y: 540, width: 150, rotation: 0, opacity: 1, flip: false, text: "", color: "#FFFFFF", bg: null, ink: null, fontFamily: "sans", hidden: false, locked: false });
+    addLayer(slide.id, { ...BASE_LAYER, kind: "icon", key, width: 150 });
   };
 
   return (
@@ -173,8 +265,28 @@ function ElementsTab({ slide }: { slide: SlideDef }) {
       <div className="flex flex-col gap-2">
         <PanelLabel>밈 누끼</PanelLabel>
         <div className="flex flex-col gap-2 rounded-xl bg-fill-alt p-2.5">
-          <div className="grid h-[92px] place-items-center rounded-[10px] border border-dashed border-line text-[11px] text-label-assistive">준비 중</div>
-          <span className="text-[11px] leading-normal text-label-assistive">배경을 지워 스티커로 만드는 기능은 배경 제거 서비스 연결 뒤에 열려요.</span>
+          <button
+            type="button"
+            onClick={() => !cutting && fileRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) void cutUpload(f); }}
+            className={cn("grid h-[92px] w-full place-items-center rounded-[10px] border border-dashed text-[11px] text-label-assistive transition-colors", dragOver ? "border-brand bg-brand/5" : "border-line hover:bg-fill")}
+          >
+            {cutting ? (
+              <span className="flex flex-col items-center gap-1.5 px-2 text-label-neutral">
+                <span className="font-semibold">{cutting.step} {Math.round(cutting.pct * 100)}%</span>
+                <span className="h-1 w-32 overflow-hidden rounded-full bg-fill-strong"><span className="block h-full bg-brand transition-[width]" style={{ width: `${Math.round(cutting.pct * 100)}%` }} /></span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5"><Upload className="size-3.5" />이미지를 여기에 드롭</span>
+            )}
+          </button>
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void cutUpload(f); e.target.value = ""; }} />
+          <button type="button" disabled={!!cutting} onClick={() => fileRef.current?.click()} className="flex h-[34px] items-center justify-center gap-1.5 rounded-lg bg-brand text-[13px] font-semibold text-white hover:bg-brand-strong disabled:opacity-50">
+            <Scissors className="size-3.5" />{cutting ? "배경 지우는 중…" : "배경 지워서 라이브러리에 담기"}
+          </button>
+          <span className="text-[11px] leading-normal text-label-assistive">브라우저 안에서 배경을 지워요(외부 서비스·키 없음). 처음 한 번은 모델(약 40MB)을 내려받아요.</span>
         </div>
       </div>
     </div>
@@ -214,9 +326,32 @@ function LayersTab({ slide, state }: { slide: SlideDef; state: SlideEditorState 
 
   return (
     <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-xs font-semibold text-label-alt">누끼 라이브러리</span>
+          <span className="text-[11px] text-label-assistive">{cutouts.length}개</span>
+        </div>
+        {cutouts.length === 0 ? (
+          <span className="text-[11px] text-label-assistive">아직 없어요. 위에 이미지를 올리면 여기 쌓여요.</span>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {cutouts.map((a) => {
+              const url = driveFileUrl(a.fileId);
+              return (
+                <button key={a.fileId} type="button" title={a.name} onClick={() => addCutout(a.name, url)} className="flex flex-col gap-1 text-left">
+                  <div className="relative aspect-square overflow-hidden rounded-[10px] hairline-neutral" style={{ backgroundImage: "linear-gradient(45deg, #E8E9EB 25%, transparent 25%), linear-gradient(-45deg, #E8E9EB 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #E8E9EB 75%), linear-gradient(-45deg, transparent 75%, #E8E9EB 75%)", backgroundSize: "12px 12px", backgroundPosition: "0 0, 0 6px, 6px -6px, -6px 0" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="size-full object-contain" />
+                  </div>
+                  <span className="truncate text-[11px] font-semibold">{a.name.replace(/\.png$/, "")}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <span className="text-[11px] leading-normal text-label-assistive">라이브러리 항목을 누르면 현재 슬라이드에 다시 얹혀요. 캔버스에서 끌어 옮기고 크기·회전은 선택 프레임으로 조정해요.</span>
       {layers.map((l) => {
         const on = selection?.kind === "layer" && selection.id === l.id;
-        const name = l.kind === "icon" ? `아이콘 · ${iconLabel(l.key)}` : `${stickerDef(l.key).label}${l.text ? ` · ${l.text}` : ""}`;
+        const name = l.kind === "cutout" ? `누끼 · ${(l.asset ?? "").replace(/\.png$/, "")}` : l.kind === "icon" ? `아이콘 · ${iconLabel(l.key)}` : `${stickerDef(l.key).label}${l.text ? ` · ${l.text}` : ""}`;
         return (
           <div key={l.id} role="button" tabIndex={0} onClick={() => setSelection({ kind: "layer", id: l.id })} onKeyDown={(e) => e.key === "Enter" && setSelection({ kind: "layer", id: l.id })} className={cn("flex cursor-pointer items-center gap-1.5 rounded-[10px] px-2 py-[7px] hover:bg-fill-alt", on && "bg-fill")}>
             <button type="button" title="표시" onClick={(e) => { e.stopPropagation(); updateLayer(slide.id, l.id, { hidden: !l.hidden }); }} className="grid size-6 place-items-center rounded-md">

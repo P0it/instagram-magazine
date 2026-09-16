@@ -63,6 +63,8 @@ export const IndexEntrySchema = z.object({
   fact_check_required: z.boolean().default(false),
   scheduled_at: z.string().nullable().default(null),
   published_at: z.string().nullable().default(null),
+  ig_media_id: z.string().nullable().default(null),
+  account_key: z.string().nullable().default(null),
   last_error: z.string().nullable().default(null),
   created_at: z.string(),
   updated_at: z.string(),

@@ -4,6 +4,7 @@ import {
   CHANNEL_KEYS,
   ChannelsFileSchema,
   EditorStateSchema,
+  InsightsFileSchema,
   PostMetadataSchema,
   SourcesFileSchema,
   VisualBriefSchema,
@@ -134,6 +135,43 @@ const SEED_POSTS: SeedPost[] = [
     topic: "", headline: "",
     slides: [{ role: "cover", text: "(헤드라인 없음 — inbox 파일에 front-matter 누락)" }],
     caption: "", hashtags: [],
+  },
+  {
+    channel: "MIND", date: "2026-09-02", slug: "small-wins", status: "published",
+    topic: "작은 성취", headline: "오늘 한 일 세 가지를\n적어두는 이유",
+    slides: [
+      { role: "cover", text: "오늘 한 일 세 가지를\n적어두는 이유", withImage: true },
+      { role: "quote", text: "\"큰 목표는 작은 완료의\n합으로만 도착한다.\"" },
+      { role: "closing", text: "자기 전 3줄" },
+    ],
+    caption: "작은 완료를 기록하면 다음 날의 시작이 가벼워집니다.",
+    hashtags: ["작은성취", "루틴"],
+    withRenders: true, publishedAt: "2026-09-02T09:00:00.000Z",
+  },
+  {
+    channel: "AI", date: "2026-09-04", slug: "batch-api-costs", status: "published",
+    topic: "배치 API", headline: "급하지 않은 작업은\n배치로 반값에",
+    slides: [
+      { role: "cover", text: "급하지 않은 작업은\n배치로 반값에", withImage: true },
+      { role: "info", text: "배치 API\n24시간 내 처리 · 입력/출력 50% 할인\n\n대량 분류 · 요약 · 임베딩에 적합" },
+      { role: "closing", text: "다음 편: 프롬프트 캐싱" },
+    ],
+    caption: "배치 API로 대량 작업 비용을 절반으로.",
+    hashtags: ["AI", "배치API"],
+    withRenders: true, publishedAt: "2026-09-04T09:00:00.000Z",
+  },
+  {
+    channel: "TREND", date: "2026-09-06", slug: "hannam-popup-week", status: "published",
+    topic: "한남 팝업", headline: "이번 주 한남동\n팝업 4곳 정리",
+    slides: [
+      { role: "cover", text: "이번 주 한남동\n팝업 4곳 정리", withImage: true },
+      { role: "photo", text: "1. 향수 브랜드 팝업 — 시향 예약제", withImage: true },
+      { role: "info", text: "2. 러닝화 런칭\n3. 도자기 편집숍\n4. 빈티지 마켓 (주말만)" },
+      { role: "closing", text: "저장하고 주말에 확인" },
+    ],
+    caption: "이번 주 한남동 팝업 4곳. 저장해두세요.",
+    hashtags: ["한남팝업", "핫플", "주말"],
+    withRenders: true, publishedAt: "2026-09-06T09:00:00.000Z",
   },
   {
     channel: "TREND", date: "2026-09-11", slug: "seongsu-weekend-spots", status: "draft",
@@ -384,5 +422,65 @@ export async function seedMockTree(tree: MockTree): Promise<void> {
       await drive.uploadBytes(inbox.id, `${s.prefix}_${i}.png`, makeGradientPng(540, 675, bottom, top), "image/png");
     }
   }
-  void now;
+  await seedInsights(drive, system.id, now);
+}
+
+/** 결정적 의사난수 (시드별 재현) */
+function prng(seed: number): () => number {
+  let x = seed >>> 0 || 1;
+  return () => {
+    x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0;
+    return x / 0xffffffff;
+  };
+}
+
+const INSIGHT_BASE: Record<ChannelKey, { followers: number; reach: number; growth: number }> = {
+  LIFE: { followers: 4200, reach: 1800, growth: 6 },
+  MIND: { followers: 9800, reach: 3200, growth: 11 },
+  AI: { followers: 2600, reach: 1400, growth: 4 },
+  TREND: { followers: 1500, reach: 2600, growth: 14 },
+};
+
+/** Mock 전용: 4계정 × 120일 스냅샷 + published 포스트의 게시물 지표 */
+async function seedInsights(drive: MockDriveClient, systemId: string, nowIso: string): Promise<void> {
+  const folder = await drive.ensureFolder(systemId, ["insights"]);
+  const nowMs = Date.parse(nowIso);
+  const todayStart = Math.floor(nowMs / 86_400_000) * 86_400_000;
+  for (const ch of CHANNEL_KEYS) {
+    const key = ch.toLowerCase();
+    const base = INSIGHT_BASE[ch];
+    const rand = prng(ch.length * 7919 + base.followers);
+    const days = [];
+    let followers = base.followers - base.growth * 120;
+    for (let i = 119; i >= 0; i--) {
+      const t = todayStart - i * 86_400_000;
+      const weekend = [0, 6].includes(new Date(t).getUTCDay()) ? 1.25 : 1;
+      followers += Math.round(base.growth * (0.4 + rand() * 1.2));
+      const reach = Math.round(base.reach * weekend * (0.6 + rand() * 0.9));
+      days.push({
+        date: new Date(t).toISOString().slice(0, 10),
+        followers,
+        reach,
+        views: Math.round(reach * (1.6 + rand() * 0.8)),
+        profile_views: Math.round(reach * (0.04 + rand() * 0.05)),
+      });
+    }
+    const media = SEED_POSTS.filter((p) => p.channel === ch && p.status === "published").map((p) => {
+      const reach = Math.round(base.reach * (2 + rand() * 3));
+      const saves = Math.round(reach * (ch === "TREND" ? 0.09 : 0.035) * (0.7 + rand() * 0.6));
+      const likes = Math.round(reach * 0.06 * (0.7 + rand() * 0.6));
+      const comments = Math.round(likes * 0.08 * rand());
+      const shares = Math.round(saves * 0.4 * rand());
+      return {
+        ig_media_id: "1802" + p.date.replace(/-/g, ""),
+        post_id: `${p.date}_${p.slug}`,
+        views: Math.round(reach * 1.9),
+        reach, likes, comments, saves, shares,
+        total_interactions: likes + comments + saves + shares,
+        collected_at: nowIso,
+      };
+    });
+    const file = InsightsFileSchema.parse({ account_key: key, ig_user_id: `1784${ch.length}`, last_collected_at: nowIso, days, media });
+    await drive.writeText(folder.id, `${key}.json`, JSON.stringify(file, null, 2), "application/json");
+  }
 }

@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, type PostsQuery } from "./api";
-import type { PostSaveRequest, PostStatus, PublishRequest } from "@/types";
+import type { InsightsRange, PostSaveRequest, PostStatus, PublishRequest } from "@/types";
 
 export const qk = {
   status: ["system-status"] as const,
@@ -13,6 +13,7 @@ export const qk = {
   accounts: ["accounts"] as const,
   channels: ["channels"] as const,
   stylePacks: ["style-packs"] as const,
+  insights: (range: InsightsRange) => ["insights", range] as const,
 };
 
 export function useSystemStatus() {
@@ -41,6 +42,26 @@ export function useChannels() {
 
 export function useStylePacks() {
   return useQuery({ queryKey: qk.stylePacks, queryFn: api.stylePacks });
+}
+
+export function useInsights(range: InsightsRange) {
+  return useQuery({ queryKey: qk.insights(range), queryFn: () => api.insights(range), staleTime: 5 * 60_000 });
+}
+
+export function useCollectInsights() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.collectInsights,
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: ["insights"] });
+      const ok = r.accounts.filter((a) => a.ok).length;
+      const failed = r.accounts.filter((a) => !a.ok);
+      if (r.accounts.length === 0) toast.info("연결된 Instagram 계정이 없어요. 설정에서 계정을 연결하세요.");
+      else if (failed.length) toast.error(`수집 ${ok}/${r.accounts.length} · 실패: ${failed.map((f) => f.account_key).join(", ")}`);
+      else toast.success(`인사이트 수집 완료 · 계정 ${ok}`);
+    },
+    onError: (e) => toast.error(`수집 실패: ${e instanceof Error ? e.message : String(e)}`),
+  });
 }
 
 export function useInvalidatePosts() {

@@ -40,6 +40,8 @@ export function buildIndexEntry(post: LoadedPost): IndexEntry {
     fact_check_required: m.fact_check_required,
     scheduled_at: m.publish?.run_at ?? m.scheduled_at ?? null,
     published_at: m.publish?.published_at ?? null,
+    ig_media_id: m.publish?.ig_media_id ?? null,
+    account_key: m.publish?.account_key ?? null,
     last_error: m.publish?.last_error ?? null,
     created_at: m.created_at,
     updated_at: m.updated_at,

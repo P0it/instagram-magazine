@@ -8,3 +8,4 @@ export * from "./style-pack";
 export * from "./system";
 export * from "./ingest";
 export * from "./api";
+export * from "./insights";

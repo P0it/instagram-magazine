@@ -10,16 +10,19 @@ import { driveFileUrl } from "@/lib/client/api";
 import { fmtDay, fmtRelative } from "@/lib/client/format";
 import { STAGES, STAGE_LABEL, needsAttention, stageOfEntry, type Stage } from "@/lib/metadata/stage";
 import { Segmented } from "@/components/md/segmented";
+import { InsightsBoard } from "@/components/home/insights-board";
 import { cn } from "@/lib/utils";
 
 type Sort = "newest" | "oldest";
+type View = "work" | "insights";
 
-/** 목업 S-01 홈 보드: 초안 → 편집 중 → 게시됨 3단계 */
+/** 목업 S-01 홈 보드: 작업(초안 → 편집 중 → 게시됨 3단계) · 성과(인사이트) */
 export function HomeBoard() {
   const [channel] = useChannel();
   const posts = usePosts({ channel });
   const status = useSystemStatus();
   const sync = useSync();
+  const [view, setView] = useState<View>("work");
   const [tab, setTab] = useState<Stage>("inbox");
   const [sort, setSort] = useState<Sort>("newest");
   const meta = CHANNEL_META[channel];
@@ -46,28 +49,37 @@ export function HomeBoard() {
             <span className="size-[9px] rounded-full" style={{ background: meta.color }} />
             <h1 className="text-2xl font-bold leading-8 tracking-[-0.023em]">{meta.title}</h1>
           </div>
-          <div className="w-[340px] max-w-full">
-            <Segmented
-              size="medium"
-              value={tab}
-              onChange={setTab}
-              items={STAGES.map((s) => ({ value: s, label: `${STAGE_LABEL[s]} ${grouped[s].length}` }))}
-            />
-          </div>
+          {view === "work" && (
+            <div className="w-[340px] max-w-full">
+              <Segmented
+                size="medium"
+                value={tab}
+                onChange={setTab}
+                items={STAGES.map((s) => ({ value: s, label: `${STAGE_LABEL[s]} ${grouped[s].length}` }))}
+              />
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as Sort)}
-            className="h-11 w-[140px] rounded-xl border-0 bg-surface px-3 text-sm outline-none hairline"
-          >
-            <option value="newest">최신순</option>
-            <option value="oldest">오래된 순</option>
-          </select>
+          <div className="w-[160px]">
+            <Segmented size="medium" value={view} onChange={setView} items={[{ value: "work", label: "작업" }, { value: "insights", label: "성과" }]} />
+          </div>
+          {view === "work" && (
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as Sort)}
+              className="h-11 w-[140px] rounded-xl border-0 bg-surface px-3 text-sm outline-none hairline"
+            >
+              <option value="newest">최신순</option>
+              <option value="oldest">오래된 순</option>
+            </select>
+          )}
         </div>
       </div>
 
-      {posts.isLoading ? (
+      {view === "insights" ? (
+        <InsightsBoard channel={channel} />
+      ) : posts.isLoading ? (
         <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="aspect-[4/5] animate-pulse rounded-xl bg-fill" />

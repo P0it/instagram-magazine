@@ -14,6 +14,7 @@ export const IG_OAUTH_TOKEN = "https://api.instagram.com/oauth/access_token";
 export const IG_SCOPES = [
   "instagram_business_basic",
   "instagram_business_content_publish",
+  "instagram_business_manage_insights",
 ];
 
 type Fetch = typeof fetch;
@@ -244,4 +245,95 @@ export async function getPublishingLimit(
   } catch {
     return null;
   }
+}
+
+// ---------- Insights ----------
+
+const InsightValueSchema = z.object({
+  name: z.string(),
+  period: z.string().optional(),
+  values: z.array(z.object({ value: z.number().optional(), end_time: z.string().optional() })).optional(),
+  total_value: z.object({ value: z.number().optional() }).optional(),
+});
+const InsightListSchema = z.object({ data: z.array(InsightValueSchema).default([]) });
+
+function pickMetric(list: z.infer<typeof InsightListSchema>, name: string): number {
+  const row = list.data.find((d) => d.name === name);
+  if (!row) return 0;
+  if (row.total_value?.value !== undefined) return row.total_value.value;
+  const vals = row.values ?? [];
+  return vals[vals.length - 1]?.value ?? 0;
+}
+
+const ProfileCountsSchema = z.object({
+  followers_count: z.number().optional(),
+  media_count: z.number().optional(),
+});
+
+/** GET /{ig-user-id}?fields=followers_count,media_count */
+export async function getProfileCounts(igUserId: string, token: string, f: Fetch = fetch): Promise<{ followers: number; media: number }> {
+  const res = await f(graphUrl(igUserId, { fields: "followers_count,media_count", access_token: token }));
+  const d = await parseJson(res, ProfileCountsSchema);
+  return { followers: d.followers_count ?? 0, media: d.media_count ?? 0 };
+}
+
+export interface AccountDayMetrics {
+  reach: number;
+  views: number;
+  profile_views: number;
+}
+
+/**
+ * GET /{ig-user-id}/insights?metric=reach,views,profile_views&period=day&metric_type=total_value
+ * since/until 은 unix seconds. 하루 범위로 호출해 그날의 합계를 얻는다.
+ */
+export async function getAccountDayMetrics(
+  igUserId: string,
+  token: string,
+  sinceSec: number,
+  untilSec: number,
+  f: Fetch = fetch,
+): Promise<AccountDayMetrics> {
+  const res = await f(
+    graphUrl(`${igUserId}/insights`, {
+      metric: "reach,views,profile_views",
+      period: "day",
+      metric_type: "total_value",
+      since: String(sinceSec),
+      until: String(untilSec),
+      access_token: token,
+    }),
+  );
+  const list = await parseJson(res, InsightListSchema);
+  return { reach: pickMetric(list, "reach"), views: pickMetric(list, "views"), profile_views: pickMetric(list, "profile_views") };
+}
+
+export interface MediaMetrics {
+  views: number;
+  reach: number;
+  likes: number;
+  comments: number;
+  saves: number;
+  shares: number;
+  total_interactions: number;
+}
+
+/** GET /{ig-media-id}/insights?metric=views,reach,likes,comments,saved,shares,total_interactions */
+export async function getMediaMetrics(igMediaId: string, token: string, f: Fetch = fetch): Promise<MediaMetrics> {
+  const res = await f(
+    graphUrl(`${igMediaId}/insights`, {
+      metric: "views,reach,likes,comments,saved,shares,total_interactions",
+      access_token: token,
+    }),
+  );
+  const list = await parseJson(res, InsightListSchema);
+  return {
+    views: pickMetric(list, "views"),
+    reach: pickMetric(list, "reach"),
+    likes: pickMetric(list, "likes"),
+    comments: pickMetric(list, "comments"),
+    saves: pickMetric(list, "saved"),
+    shares: pickMetric(list, "shares"),
+    total_interactions: pickMetric(list, "total_interactions"),
+  };
 }

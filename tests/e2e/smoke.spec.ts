@@ -93,3 +93,26 @@ function readJpegDims(buf: Buffer): { width: number; height: number } | null {
   }
   return null;
 }
+
+test("home 성과 tab shows insight tiles, top posts and channel comparison from mock snapshots", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/home?ch=TREND");
+  await page.getByRole("tab", { name: "성과" }).click();
+  await expect(page.getByText("프로필 방문")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /일별 도달/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "TOP 게시물" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /한남동/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /채널 비교/ })).toBeVisible();
+
+  // 기간 전환
+  await page.getByRole("tab", { name: "7일" }).click();
+  await expect(page.getByRole("heading", { name: /일별 도달 · 7일/ })).toBeVisible();
+
+  // 계정 없는 mock 에서 수집은 안내 토스트
+  await page.getByRole("button", { name: "지금 수집" }).click();
+  await expect(page.getByText(/연결된 Instagram 계정이 없어요/)).toBeVisible();
+
+  expect(errors).toEqual([]);
+});

@@ -6,13 +6,16 @@ import {
   ApiErrorSchema,
   ApprovalGateResultSchema,
   ChannelsFileSchema,
+  CollectResultSchema,
   IndexEntrySchema,
+  InsightsResponseSchema,
   PostBundleSchema,
   PublishResultSchema,
   StylePackSchema,
   SyncResponseSchema,
   SystemStatusSchema,
   type ChannelsFile,
+  type InsightsRange,
   type PostSaveRequest,
   type PostStatus,
   type PublishRequest,
@@ -96,6 +99,9 @@ export const api = {
   retry: (id: string) => request(`/api/posts/${encodeURIComponent(id)}/retry`, PublishResultSchema, jsonInit("POST")),
 
   sync: () => request("/api/ingest/sync", SyncResponseSchema, jsonInit("POST")),
+
+  insights: (range: InsightsRange) => request(`/api/insights?range=${range}`, InsightsResponseSchema),
+  collectInsights: () => request("/api/insights/collect", CollectResultSchema, jsonInit("POST")),
 
   accounts: () => request("/api/instagram/accounts", AccountsResponseSchema),
   disconnectAccount: (key: string) => request("/api/instagram/accounts", AccountsResponseSchema, jsonInit("DELETE", { key })),

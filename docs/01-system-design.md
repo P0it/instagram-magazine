@@ -264,6 +264,26 @@ publish(post):
 
 ---
 
+## 8b. 인사이트 (M6, 서버 전용 · DB 없음)
+
+앱은 업로더가 아니라 4개 인스타 계정의 **피드·성과 관리 페이지**다. 인사이트는 Graph API를 매번 라이브로 부르지 않고 **Drive 스냅샷**으로 쌓는다.
+
+```text
+/_system/insights/<account_key>.json
+{ account_key, ig_user_id, last_collected_at, last_error,
+  days:  [{ date(UTC), followers, reach, views, profile_views }]   ← 하루 1행, 최대 400일
+  media: [{ ig_media_id, post_id, views, reach, likes, comments, saves, shares, total_interactions, collected_at }] }
+```
+
+- 스코프: `instagram_business_manage_insights` 추가. 계정은 비즈니스/크리에이터(전환 무료).
+- 수집(`lib/insights/collect.ts`): 계정당 `GET /{ig-user-id}?fields=followers_count` + `GET /{ig-user-id}/insights?metric=reach,views,profile_views&period=day&metric_type=total_value` (어제 하루) + 최근 60일 published 게시물의 `GET /{ig-media-id}/insights`. 계정 단위로 실패 격리, `last_error` 기록.
+- 조회(`lib/insights/summarize.ts`, 순수 함수): 기간(7/28/90) 합계 + 직전 동일 기간 대비, 팔로워는 최신값 vs 직전 기간 말, 게시물당 평균 도달·저장률(saves/reach). index.json과 `post_id`로 조인해 헤드라인·썸네일·채널을 붙인다 → 채널/템플릿별 비교가 가능한 것이 인스타 기본 인사이트와의 차이.
+- 화면: 홈 상단 `작업 | 성과` 토글. 성과 = 팔로워·도달·조회·프로필 방문 타일(스파크라인) · 일별 도달 차트 · TOP 게시물(조회/저장/도달/반응) · 4채널 비교.
+- 전략 루프: ChatGPT 일일 태스크가 이 JSON을 읽고 다음 초안의 주제·포맷 비중을 조정한다. 대시보드는 사람이 확인하는 창.
+- Mock Drive는 4계정 × 120일 결정적 스냅샷을 시드한다.
+
+---
+
 ## 9. 접근 제한 (로그인 없음)
 
 - Vercel 환경변수 `APP_ACCESS_KEY` 하나.
@@ -292,6 +312,9 @@ publish(post):
 | POST | `/api/ingest/sync` | inbox 정규화 + index.json 재생성 |
 | GET/POST/DELETE | `/api/instagram/accounts`, `/oauth/start`, `/oauth/callback` | 계정 연결/해제 |
 | GET | `/api/cron/publish` | (1.1) `scheduled` 중 run_at ≤ now 실행. Bearer CRON_SECRET |
+| GET | `/api/insights?range=7\|28\|90` | (M6) `_system/insights/*.json` 스냅샷 → 계정 요약·시계열·게시물 지표 |
+| POST | `/api/insights/collect` | (M6) 사용자가 "지금 수집" — 모든 연결 계정 인사이트 수집 |
+| GET | `/api/cron/insights` | (M6) 하루 1회 외부 핑거. Bearer CRON_SECRET |
 
 ---
 
@@ -357,3 +380,4 @@ META_REDIRECT_URI=
 | **M3 Instagram** | Meta OAuth → `accounts.json`(암호화), 서명 URL 라우트, 즉시 게시(단일+캐러셀), published 전이 | 실제 계정에 캐러셀 게시 후 폴더가 /published로 이동 |
 | **M4 폴리시** | 실패/재시도 UX, 토큰 만료 경고·재연결, status_mismatch 복구, 승인 체크리스트, 예약 게시(`/api/cron/publish` + 외부 핑거) | 예약 포스트가 정시(±5분)에 게시 |
 | **M5 스타일팩** | style-pack.json 임포터, 채널 기본값 적용, 로컬 Claude Code 레퍼런스 분석 스크립트 | 스타일팩 선택 시 프리셋 기본값이 바뀜 |
+| **M6 인사이트** | `instagram_business_manage_insights`, `_system/insights/*.json` 스냅샷, `/api/cron/insights` 일 1회 수집, 홈 "성과" 탭(타일·추이·TOP 게시물·채널 비교) | 실계정 연결 후 "지금 수집" → 다음 날 팔로워·도달 증감이 표시 |

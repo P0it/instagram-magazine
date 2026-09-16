@@ -91,7 +91,7 @@ export function AccountsSettings() {
         <ol className="m-0 list-decimal space-y-1 pl-5 text-xs text-label-alt">
           <li>Instagram 프로페셔널 계정(비즈니스/크리에이터)이어야 해요.</li>
           <li>Meta 앱에 &quot;Instagram API with Instagram Login&quot; 제품 추가, 리디렉션 URI 등록.</li>
-          <li>연결 시 instagram_business_basic, instagram_business_content_publish 권한을 요청해요.</li>
+          <li>연결 시 instagram_business_basic, instagram_business_content_publish, instagram_business_manage_insights 권한을 요청해요.</li>
         </ol>
       </div>
     </SettingsSection>

@@ -112,6 +112,7 @@ Vercel Hobby 크론은 하루 1회 제한이라 외부 핑거를 쓴다.
 
 1. `CRON_SECRET` 환경변수 설정.
 2. [cron-job.org](https://cron-job.org) 등에서 5분 간격으로 `GET https://<app>.vercel.app/api/cron/publish`, 헤더 `Authorization: Bearer <CRON_SECRET>`.
+3. 인사이트: 같은 헤더로 하루 1회(UTC 01:00 권장) `GET https://<app>.vercel.app/api/cron/insights`. 결과는 Drive `_system/insights/<account_key>.json` 에 쌓이고 홈 "성과" 탭에 표시된다. 계정은 비즈니스/크리에이터여야 하며 `instagram_business_manage_insights` 권한이 필요하다.
 3. 게시 시트에서 **예약** 을 선택한 포스트(`status: scheduled`, `publish.run_at`)만 `run_at ≤ now` 일 때 실행된다. 그 외 어떤 포스트도 자동으로 게시되지 않는다.
 
 ## 스타일팩 (M5)

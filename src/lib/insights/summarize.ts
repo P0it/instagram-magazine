@@ -1,4 +1,4 @@
-import type { AccountDay, AccountSummary, ChannelConfig, IndexEntry, InsightsFile, InsightsRange, InsightsResponse, MediaRow, MetricDelta, PublicAccount } from "@/types";
+import type { AccountDay, AccountSummary, IndexEntry, InsightsFile, InsightsRange, InsightsResponse, MediaRow, MetricDelta, PublicAccount } from "@/types";
 
 /** 순수 집계. Drive 접근 없음 → 단위 테스트 대상. */
 
@@ -26,7 +26,6 @@ export function pctChange(d: MetricDelta): number | null {
 export interface SummarizeInput {
   files: InsightsFile[];
   index: IndexEntry[];
-  channels: ChannelConfig[];
   accounts: PublicAccount[];
   range: InsightsRange;
   now: number;
@@ -39,14 +38,13 @@ export function summarizeInsights(input: SummarizeInput): InsightsResponse {
   const prevFrom = dateOf(input.now - (2 * n - 1) * 86_400_000);
   const prevTo = dateOf(input.now - n * 86_400_000);
 
-  const channelOf = new Map<string, ChannelConfig>();
-  for (const c of input.channels) if (c.instagram_account_key) channelOf.set(c.instagram_account_key, c);
   const accountOf = new Map(input.accounts.map((a) => [a.key, a]));
   const postOf = new Map(input.index.map((p) => [p.post_id, p]));
 
   const media: MediaRow[] = [];
   const accounts: AccountSummary[] = input.files.map((file) => {
-    const channel = channelOf.get(file.account_key) ?? null;
+    // 계정 = 채널. 연결이 끊긴 계정의 스냅샷은 channel=null 로 남는다.
+    const account = accountOf.get(file.account_key) ?? null;
     const series = file.days.filter((d) => inRange(d.date, from, today));
     const prev = file.days.filter((d) => inRange(d.date, prevFrom, prevTo));
     const latestFollowers = file.days.length ? file.days[file.days.length - 1].followers : 0;
@@ -57,7 +55,7 @@ export function summarizeInsights(input: SummarizeInput): InsightsResponse {
       const post = m.post_id ? postOf.get(m.post_id) : undefined;
       rows.push({
         ...m,
-        channel: post?.channel ?? channel?.key ?? "LIFE",
+        channel: post?.channel ?? file.account_key,
         account_key: file.account_key,
         headline: post?.headline ?? "",
         cover_thumb_file_id: post?.cover_thumb_file_id ?? null,
@@ -71,8 +69,8 @@ export function summarizeInsights(input: SummarizeInput): InsightsResponse {
 
     return {
       account_key: file.account_key,
-      channel: channel?.key ?? null,
-      username: accountOf.get(file.account_key)?.username ?? null,
+      channel: account?.key ?? null,
+      username: account?.username ?? null,
       last_collected_at: file.last_collected_at,
       last_error: file.last_error,
       followers: delta(latestFollowers, prevFollowers),

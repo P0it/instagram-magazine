@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ChannelKeySchema } from "./channel";
+import { AccountKeySchema } from "./account";
 
 // ---------- _system/insights/<account_key>.json ----------
 
@@ -54,7 +54,7 @@ export type MetricDelta = z.infer<typeof MetricDeltaSchema>;
 
 export const AccountSummarySchema = z.object({
   account_key: z.string(),
-  channel: ChannelKeySchema.nullable(),
+  channel: AccountKeySchema.nullable(),
   username: z.string().nullable(),
   last_collected_at: z.string().nullable(),
   last_error: z.string().nullable(),
@@ -72,7 +72,7 @@ export const AccountSummarySchema = z.object({
 export type AccountSummary = z.infer<typeof AccountSummarySchema>;
 
 export const MediaRowSchema = MediaInsightSchema.extend({
-  channel: ChannelKeySchema,
+  channel: AccountKeySchema,
   account_key: z.string(),
   headline: z.string().default(""),
   cover_thumb_file_id: z.string().nullable().default(null),

@@ -2,11 +2,11 @@ import "server-only";
 import type { z } from "zod";
 import {
   AccountsFileSchema,
-  ChannelsFileSchema,
+  CustomPresetsFileSchema,
   IndexFileSchema,
   IngestLogFileSchema,
   type AccountsFile,
-  type ChannelsFile,
+  type CustomPresetsFile,
   type IndexFile,
   type IngestLogFile,
 } from "@/types";
@@ -65,11 +65,6 @@ export async function writeSystemJson<T>(
   }
   await drive.writeText(folder, name, JSON.stringify(data, null, 2), "application/json");
 }
-
-export const readChannels = (drive: DriveClient) =>
-  readSystemJson(drive, "channels.json", ChannelsFileSchema, { channels: [] });
-export const writeChannels = (drive: DriveClient, data: ChannelsFile, v?: string | null) =>
-  writeSystemJson(drive, "channels.json", data, v);
 
 export const readAccounts = (drive: DriveClient) =>
   readSystemJson(drive, "accounts.json", AccountsFileSchema, { accounts: [] });

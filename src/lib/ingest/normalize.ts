@@ -4,8 +4,7 @@ import {
   PostMetadataSchema,
   SourcesFileSchema,
   VisualBriefSchema,
-  type ChannelConfig,
-  type ChannelKey,
+  type Account,
   type EditorState,
   type InboxGroup,
   type PostMetadata,
@@ -13,7 +12,7 @@ import {
 } from "@/types";
 import type { DriveClient } from "@/lib/drive/types";
 import { statusFolderId } from "@/lib/drive/paths";
-import { defaultPresetForRole, getStylePack, resolvePreset, CHANNEL_DEFAULT_STYLE_PACK } from "@/presets";
+import { defaultPresetForRole, getStylePack, resolvePreset } from "@/presets";
 import { slideStateFromPreset } from "@/lib/render/layout";
 import { parseInboxMarkdown } from "./parse-md";
 import { slugify } from "./group";
@@ -31,19 +30,19 @@ function extOf(name: string): string {
 }
 
 /**
- * inbox 그룹 하나 → /<CH>/draft/<post-folder>/ canonical 구조.
+ * inbox 그룹 하나 → /<account>/draft/<post-folder>/ canonical 구조.
  * 실패/필수값 누락이면 status: needs_repair 로 생성하고 problems 를 warnings 에 남긴다.
  */
 export async function normalizeGroup(
   drive: DriveClient,
-  channel: ChannelKey,
-  channelConfig: ChannelConfig | undefined,
+  account: Account,
   group: InboxGroup,
   inboxFolderId: string,
   now = new Date(),
 ): Promise<NormalizeResult> {
   const problems: string[] = [];
   const nowIso = now.toISOString();
+  const channel = account.key;
 
   // 1. 텍스트 파싱
   let parsed = parseInboxMarkdown("");
@@ -91,13 +90,13 @@ export async function normalizeGroup(
   }
 
   // 4. 슬라이드 + 프리셋
-  const stylePack = getStylePack(channelConfig?.default_style_pack ?? CHANNEL_DEFAULT_STYLE_PACK[channel]);
+  const stylePack = getStylePack(account.default_style_pack);
   const slides: SlideDef[] = [];
   const editorSlides: EditorState["slides"] = {};
   let imgCursor = 0;
   parsed.slides.forEach((s, i) => {
     const id = `s${i + 1}`;
-    const presetId = defaultPresetForRole(s.role, stylePack, channelConfig?.default_presets_by_role);
+    const presetId = defaultPresetForRole(s.role, stylePack, account.default_presets_by_role);
     // cover/photo/screenshot 역할에 이미지를 순서대로 배정
     const wantsImage = s.role === "cover" || s.role === "photo" || s.role === "screenshot";
     const asset = wantsImage && imgCursor < assetNames.length ? assetNames[imgCursor++] : null;
@@ -127,10 +126,10 @@ export async function normalizeGroup(
     headline: fm.headline ?? "",
     slides,
     caption: parsed.caption,
-    hashtags: [...new Set([...(fm.hashtags ?? []), ...(channelConfig?.default_hashtags ?? [])])],
+    hashtags: [...new Set([...(fm.hashtags ?? []), ...account.default_hashtags])],
     alt_text: fm.alt_text,
     asset_mode: fm.asset_mode ?? (assetNames.length ? "generated" : "text_only"),
-    fact_check_required: channelConfig?.editorial_rules.fact_check_required ?? channel === "LIFE",
+    fact_check_required: account.editorial_rules.fact_check_required,
     warnings: problems,
     created_at: nowIso,
     updated_at: nowIso,

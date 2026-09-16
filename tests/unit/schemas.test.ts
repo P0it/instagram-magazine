@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { PostMetadataSchema, EditorStateSchema, SourcesFileSchema, StylePackSchema, ChannelConfigSchema } from "@/types";
+import { PostMetadataSchema, EditorStateSchema, SourcesFileSchema, StylePackSchema, AccountSchema, AccountSettingsPatchSchema, AccountKeySchema } from "@/types";
 import { LAYOUT_PRESETS, BUILTIN_STYLE_PACKS, getPreset, resolvePreset, defaultPresetForRole } from "@/presets";
 
 describe("PostMetadata schema", () => {
   it("fills defaults", () => {
-    const m = PostMetadataSchema.parse({ post_id: "2026-09-11_x", channel: "LIFE", created_at: "a", updated_at: "b" });
+    const m = PostMetadataSchema.parse({ post_id: "2026-09-11_x", channel: "life.magazine", created_at: "a", updated_at: "b" });
     expect(m.status).toBe("draft");
     expect(m.slides).toEqual([]);
     expect(m.content_type).toBe("carousel");
     expect(m.fact_check_required).toBe(false);
   });
   it("rejects unknown status", () => {
-    expect(() => PostMetadataSchema.parse({ post_id: "x", channel: "LIFE", status: "nope", created_at: "a", updated_at: "b" })).toThrow();
+    expect(() => PostMetadataSchema.parse({ post_id: "x", channel: "life.magazine", status: "nope", created_at: "a", updated_at: "b" })).toThrow();
   });
   it("slide defaults", () => {
-    const m = PostMetadataSchema.parse({ post_id: "x", channel: "AI", slides: [{ id: "s1" }], created_at: "a", updated_at: "b" });
+    const m = PostMetadataSchema.parse({ post_id: "x", channel: "ai.magazine", slides: [{ id: "s1" }], created_at: "a", updated_at: "b" });
     expect(m.slides[0].role).toBe("info");
     expect(m.slides[0].style_preset).toBe("info-dark");
     expect(m.slides[0].asset).toBeNull();
@@ -45,14 +45,26 @@ describe("EditorState schema", () => {
   });
 });
 
-describe("Sources / Channel / StylePack", () => {
+describe("Sources / Account / StylePack", () => {
   it("sources default pending", () => {
     expect(SourcesFileSchema.parse({}).fact_check_status).toBe("pending");
   });
-  it("channel config defaults", () => {
-    const c = ChannelConfigSchema.parse({ key: "LIFE", name: "Life" });
-    expect(c.editorial_rules.fact_check_required).toBe(false);
-    expect(c.default_presets_by_role).toEqual({});
+  it("account key follows Instagram username rules; post.channel is an account key", () => {
+    expect(AccountKeySchema.safeParse("life.magazine").success).toBe(true);
+    expect(AccountKeySchema.safeParse("LIFE").success).toBe(false);
+    expect(AccountKeySchema.safeParse("has space").success).toBe(false);
+    expect(() => PostMetadataSchema.parse({ post_id: "x", channel: "LIFE", created_at: "a", updated_at: "b" })).toThrow();
+  });
+  it("account defaults (settings fields) and patch strips identity/token fields", () => {
+    const a = AccountSchema.parse({
+      key: "life.magazine", ig_user_id: "1", username: "life.magazine", access_token_enc: "enc", token_expires_at: "t", last_refreshed_at: "t",
+      drive_folder_id: "f", inbox_folder_id: "i", name: "라이프",
+    });
+    expect(a.editorial_rules.fact_check_required).toBe(false);
+    expect(a.default_presets_by_role).toEqual({});
+    expect(a.default_style_pack).toBeNull();
+    const patch = AccountSettingsPatchSchema.parse({ name: "New", key: "hacked", access_token_enc: "x", inbox_folder_id: "y" });
+    expect(patch).toEqual({ name: "New" });
   });
   it("style pack id must be kebab", () => {
     expect(() => StylePackSchema.parse({ id: "Bad Id", name: "x" })).toThrow();

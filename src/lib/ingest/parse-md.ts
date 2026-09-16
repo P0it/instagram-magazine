@@ -109,7 +109,7 @@ function coerceFrontMatter(data: unknown): unknown {
   if (Array.isArray(d.hashtags)) {
     d.hashtags = d.hashtags.map((h) => String(h).replace(/^#/, "").trim()).filter(Boolean);
   }
-  if (typeof d.channel === "string") d.channel = d.channel.toUpperCase();
+  if (typeof d.channel === "string") d.channel = d.channel.trim().replace(/^@/, "").toLowerCase();
   if (typeof d.content_type === "string") d.content_type = d.content_type.toLowerCase();
   if (typeof d.headline === "string") d.headline = d.headline.replace(/\\n/g, "\n");
   return d;

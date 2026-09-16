@@ -7,7 +7,6 @@ import {
   type ToneDefaults,
   StylePackSchema,
   type StylePack,
-  type ChannelKey,
 } from "@/types";
 
 import largeEditorial from "./layouts/large-editorial.json";
@@ -56,13 +55,6 @@ export const BUILTIN_STYLE_PACKS: readonly StylePack[] = StylePackSchema.array()
   trendStyle,
 ]);
 
-export const CHANNEL_DEFAULT_STYLE_PACK: Record<ChannelKey, string> = {
-  LIFE: "life-quiet-editorial",
-  MIND: "mind-soft-paper",
-  AI: "ai-mono-grid",
-  TREND: "trend-hotspot",
-};
-
 export const ROLE_DEFAULT_PRESET: Record<SlideRole, PresetId> = {
   cover: "large-editorial",
   photo: "cover-bottom",
@@ -77,13 +69,13 @@ export function getStylePack(id: string | null | undefined): StylePack | undefin
   return BUILTIN_STYLE_PACKS.find((s) => s.id === id);
 }
 
-/** 채널 + 역할 → 기본 프리셋. 스타일팩이 정한 게 있으면 그걸 우선. */
+/** 계정 오버라이드 > 스타일팩 > 역할 기본. */
 export function defaultPresetForRole(
   role: SlideRole,
   stylePack?: StylePack | null,
-  channelOverrides?: Partial<Record<SlideRole, PresetId>>,
+  accountOverrides?: Partial<Record<SlideRole, PresetId>>,
 ): PresetId {
-  return channelOverrides?.[role] ?? stylePack?.presets_by_role[role] ?? ROLE_DEFAULT_PRESET[role];
+  return accountOverrides?.[role] ?? stylePack?.presets_by_role[role] ?? ROLE_DEFAULT_PRESET[role];
 }
 
 /** 프리셋 + 스타일팩 + 슬라이드 오버라이드를 합친 최종 레이아웃 */

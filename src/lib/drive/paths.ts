@@ -1,5 +1,5 @@
 import "server-only";
-import { CHANNEL_KEYS, type ChannelKey } from "@/types";
+import { AccountsFileSchema, type AccountKey } from "@/types";
 import type { DriveClient, DriveFile } from "./types";
 import type { FolderStatus } from "@/lib/metadata/transitions";
 
@@ -31,23 +31,35 @@ async function ensureCached(drive: DriveClient, path: string[]): Promise<string>
 
 export const systemFolderId = (drive: DriveClient) => ensureCached(drive, ["_system"]);
 export const stylePacksFolderId = (drive: DriveClient) => ensureCached(drive, ["_system", "style-packs"]);
-export const inboxFolderId = (drive: DriveClient, ch: ChannelKey) => ensureCached(drive, ["inbox", ch]);
-export const channelFolderId = (drive: DriveClient, ch: ChannelKey) => ensureCached(drive, [ch]);
-export const statusFolderId = (drive: DriveClient, ch: ChannelKey, status: FolderStatus) =>
+export const inboxFolderId = (drive: DriveClient, ch: AccountKey) => ensureCached(drive, ["inbox", ch]);
+export const channelFolderId = (drive: DriveClient, ch: AccountKey) => ensureCached(drive, [ch]);
+export const statusFolderId = (drive: DriveClient, ch: AccountKey, status: FolderStatus) =>
   ensureCached(drive, [ch, status]);
 
 export const FOLDER_STATUSES: readonly FolderStatus[] = ["draft", "approved", "published"];
 
 export interface LocatedPostFolder {
-  channel: ChannelKey;
+  channel: AccountKey;
   folderStatus: FolderStatus;
   folder: DriveFile;
 }
 
-/** 모든 채널/상태 폴더를 순회해 포스트 폴더 목록 */
+/** accounts.json 의 계정 키(=채널 폴더명). 계정이 없으면 빈 배열. */
+async function accountKeys(drive: DriveClient): Promise<AccountKey[]> {
+  // system-files.ts 가 이 모듈을 import 하므로 순환을 피해 직접 읽는다.
+  const f = await drive.findChild(await systemFolderId(drive), "accounts.json");
+  if (!f) return [];
+  try {
+    return AccountsFileSchema.parse(JSON.parse(await drive.readText(f.id))).accounts.map((a) => a.key);
+  } catch {
+    return [];
+  }
+}
+
+/** 모든 계정/상태 폴더를 순회해 포스트 폴더 목록 */
 export async function listAllPostFolders(drive: DriveClient): Promise<LocatedPostFolder[]> {
   const out: LocatedPostFolder[] = [];
-  for (const ch of CHANNEL_KEYS) {
+  for (const ch of await accountKeys(drive)) {
     for (const st of FOLDER_STATUSES) {
       const id = await statusFolderId(drive, ch, st);
       const children = await drive.listChildren(id);
@@ -61,7 +73,7 @@ export async function listAllPostFolders(drive: DriveClient): Promise<LocatedPos
 
 /** post_id(=폴더명) 로 포스트 폴더 찾기 */
 export async function locatePostFolder(drive: DriveClient, postId: string): Promise<LocatedPostFolder | null> {
-  for (const ch of CHANNEL_KEYS) {
+  for (const ch of await accountKeys(drive)) {
     for (const st of FOLDER_STATUSES) {
       const id = await statusFolderId(drive, ch, st);
       const f = await drive.findChild(id, postId);

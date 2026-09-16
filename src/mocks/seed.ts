@@ -1,26 +1,27 @@
 import { MockDriveClient, type MockTree } from "./drive/MockDriveClient";
 import { makeGradientPng, type Rgb } from "./png";
 import {
-  CHANNEL_KEYS,
-  ChannelsFileSchema,
+  AccountsFileSchema,
   EditorStateSchema,
   InsightsFileSchema,
   PostMetadataSchema,
   SourcesFileSchema,
   VisualBriefSchema,
-  type ChannelKey,
+  type Account,
   type EditorState,
   type PostMetadata,
   type PostStatus,
   type SlideDef,
   type SlideRole,
 } from "@/types";
-import { CHANNEL_DEFAULT_STYLE_PACK, ROLE_DEFAULT_PRESET, getPreset, getStylePack, resolvePreset } from "@/presets";
+import { ROLE_DEFAULT_PRESET, getPreset, getStylePack, resolvePreset } from "@/presets";
+import { encryptString } from "@/lib/crypto/aes";
+import { encryptionKey } from "@/lib/env";
 import { slideStateFromPreset } from "@/lib/render/layout";
 import { folderForStatus } from "@/lib/metadata/transitions";
 
 interface SeedPost {
-  channel: ChannelKey;
+  channel: SeedKey;
   date: string;
   slug: string;
   status: PostStatus;
@@ -36,16 +37,40 @@ interface SeedPost {
   scheduledAt?: string;
 }
 
-const PALETTES: Record<ChannelKey, [Rgb, Rgb]> = {
-  LIFE: [{ r: 40, g: 44, b: 52 }, { r: 12, g: 12, b: 14 }],
-  MIND: [{ r: 214, g: 200, b: 170 }, { r: 120, g: 105, b: 80 }],
-  AI: [{ r: 20, g: 40, b: 70 }, { r: 5, g: 5, b: 8 }],
-  TREND: [{ r: 80, g: 20, b: 70 }, { r: 12, g: 8, b: 14 }],
-};
+/**
+ * Mock 시드 계정(=채널) 2개. 실제로는 OAuth 연결 시 동적으로 늘어난다 — "기본 채널" 같은 건 없다.
+ * key 는 Instagram username 이며 Drive 폴더명으로 그대로 쓰인다.
+ */
+type SeedKey = "life.magazine" | "trend.magazine";
+interface SeedAccount {
+  key: SeedKey;
+  name: string;
+  color: string;
+  stylePack: string;
+  hashtags: string[];
+  factCheck: boolean;
+  palette: [Rgb, Rgb];
+  insights: { followers: number; reach: number; growth: number };
+}
+const SEED_ACCOUNTS: SeedAccount[] = [
+  {
+    key: "life.magazine", name: "라이프", color: "#FF5E00", stylePack: "life-quiet-editorial",
+    hashtags: ["생활정보", "청년"], factCheck: true,
+    palette: [{ r: 40, g: 44, b: 52 }, { r: 12, g: 12, b: 14 }],
+    insights: { followers: 4200, reach: 1800, growth: 6 },
+  },
+  {
+    key: "trend.magazine", name: "트렌드", color: "#F553DA", stylePack: "trend-hotspot",
+    hashtags: ["핫플", "트렌드"], factCheck: false,
+    palette: [{ r: 80, g: 20, b: 70 }, { r: 12, g: 8, b: 14 }],
+    insights: { followers: 1500, reach: 2600, growth: 14 },
+  },
+];
+const seedAccount = (key: SeedKey): SeedAccount => SEED_ACCOUNTS.find((a) => a.key === key)!;
 
 const SEED_POSTS: SeedPost[] = [
   {
-    channel: "LIFE", date: "2026-09-11", slug: "youth-housing-support", status: "draft",
+    channel: "life.magazine", date: "2026-09-11", slug: "youth-housing-support", status: "draft",
     topic: "청년 월세 지원", headline: "월세 내고 있다면\n이번 주 이건 확인",
     slides: [
       { role: "cover", text: "월세 내고 있다면\n이번 주 이건 확인", withImage: true },
@@ -58,7 +83,7 @@ const SEED_POSTS: SeedPost[] = [
     factCheck: "pending",
   },
   {
-    channel: "LIFE", date: "2026-09-10", slug: "transit-pass-changes", status: "approved",
+    channel: "life.magazine", date: "2026-09-10", slug: "transit-pass-changes", status: "approved",
     topic: "교통비 환급 카드", headline: "교통비 20% 돌려받는\n카드, 아직 안 만들었다면",
     slides: [
       { role: "cover", text: "교통비 20% 돌려받는\n카드, 아직 안 만들었다면", withImage: true },
@@ -70,7 +95,7 @@ const SEED_POSTS: SeedPost[] = [
     factCheck: "approved", withRenders: true,
   },
   {
-    channel: "LIFE", date: "2026-09-08", slug: "energy-voucher", status: "published",
+    channel: "life.magazine", date: "2026-09-08", slug: "energy-voucher", status: "published",
     topic: "에너지 바우처", headline: "여름 전기요금,\n바우처로 줄이는 법",
     slides: [
       { role: "cover", text: "여름 전기요금,\n바우처로 줄이는 법", withImage: true },
@@ -82,7 +107,7 @@ const SEED_POSTS: SeedPost[] = [
     factCheck: "approved", withRenders: true, publishedAt: "2026-09-08T09:12:00.000Z",
   },
   {
-    channel: "LIFE", date: "2026-09-09", slug: "tax-refund-failed", status: "failed",
+    channel: "life.magazine", date: "2026-09-09", slug: "tax-refund-failed", status: "failed",
     topic: "연말정산 미리보기", headline: "10월에 열리는\n연말정산 미리보기",
     slides: [
       { role: "cover", text: "10월에 열리는\n연말정산 미리보기", withImage: true },
@@ -95,73 +120,13 @@ const SEED_POSTS: SeedPost[] = [
     failedError: "IG API error (code 9004): Media download failed. Image URL unreachable.",
   },
   {
-    channel: "MIND", date: "2026-09-11", slug: "morning-pages", status: "draft",
-    topic: "모닝 페이지", headline: "아침 10분,\n생각을 종이에 내려놓기",
-    slides: [
-      { role: "cover", text: "아침 10분,\n생각을 종이에 내려놓기", withImage: true },
-      { role: "quote", text: "\"쓰기 전까지는\n내가 무슨 생각을 하는지 모른다.\"" },
-      { role: "info", text: "규칙은 하나\n멈추지 않고 세 페이지\n\n잘 쓰려 하지 않기\n다시 읽지 않기" },
-      { role: "closing", text: "내일 아침에 한 번" },
-    ],
-    caption: "모닝 페이지는 평가 없이 쓰는 연습입니다.",
-    hashtags: ["모닝페이지", "글쓰기", "마음챙김"],
-  },
-  {
-    channel: "MIND", date: "2026-09-07", slug: "rest-is-not-reward", status: "scheduled",
-    topic: "휴식", headline: "휴식은 보상이 아니라\n조건이다",
-    slides: [
-      { role: "cover", text: "휴식은 보상이 아니라\n조건이다", withImage: true },
-      { role: "quote", text: "\"쉬는 것을 미룰수록\n쉬는 법을 잊는다.\"" },
-      { role: "closing", text: "오늘 15분은 비워두기" },
-    ],
-    caption: "휴식을 성과의 보상으로 두지 마세요.",
-    hashtags: ["휴식", "번아웃"],
-    withRenders: true, scheduledAt: "2026-09-12T09:00:00.000Z",
-  },
-  {
-    channel: "AI", date: "2026-09-11", slug: "prompt-caching-basics", status: "draft",
-    topic: "프롬프트 캐싱", headline: "같은 프롬프트를\n매번 다시 내지 마세요",
-    slides: [
-      { role: "cover", text: "같은 프롬프트를\n매번 다시 내지 마세요", withImage: true },
-      { role: "info", text: "프롬프트 캐싱\n\n1. 긴 시스템 프롬프트는 앞에\n2. 변하는 부분은 뒤에\n3. 캐시 히트율을 로그로 확인" },
-      { role: "screenshot", text: "캐시 히트 시 입력 비용이 크게 줄어듭니다", withImage: true },
-      { role: "closing", text: "다음 편: 배치 API" },
-    ],
-    caption: "프롬프트 캐싱 기본 정리.",
-    hashtags: ["AI", "프롬프트", "LLM"],
-  },
-  {
-    channel: "AI", date: "2026-09-05", slug: "broken-inbox-import", status: "needs_repair",
+    channel: "trend.magazine", date: "2026-09-05", slug: "broken-inbox-import", status: "needs_repair",
     topic: "", headline: "",
     slides: [{ role: "cover", text: "(헤드라인 없음 — inbox 파일에 front-matter 누락)" }],
     caption: "", hashtags: [],
   },
   {
-    channel: "MIND", date: "2026-09-02", slug: "small-wins", status: "published",
-    topic: "작은 성취", headline: "오늘 한 일 세 가지를\n적어두는 이유",
-    slides: [
-      { role: "cover", text: "오늘 한 일 세 가지를\n적어두는 이유", withImage: true },
-      { role: "quote", text: "\"큰 목표는 작은 완료의\n합으로만 도착한다.\"" },
-      { role: "closing", text: "자기 전 3줄" },
-    ],
-    caption: "작은 완료를 기록하면 다음 날의 시작이 가벼워집니다.",
-    hashtags: ["작은성취", "루틴"],
-    withRenders: true, publishedAt: "2026-09-02T09:00:00.000Z",
-  },
-  {
-    channel: "AI", date: "2026-09-04", slug: "batch-api-costs", status: "published",
-    topic: "배치 API", headline: "급하지 않은 작업은\n배치로 반값에",
-    slides: [
-      { role: "cover", text: "급하지 않은 작업은\n배치로 반값에", withImage: true },
-      { role: "info", text: "배치 API\n24시간 내 처리 · 입력/출력 50% 할인\n\n대량 분류 · 요약 · 임베딩에 적합" },
-      { role: "closing", text: "다음 편: 프롬프트 캐싱" },
-    ],
-    caption: "배치 API로 대량 작업 비용을 절반으로.",
-    hashtags: ["AI", "배치API"],
-    withRenders: true, publishedAt: "2026-09-04T09:00:00.000Z",
-  },
-  {
-    channel: "TREND", date: "2026-09-06", slug: "hannam-popup-week", status: "published",
+    channel: "trend.magazine", date: "2026-09-06", slug: "hannam-popup-week", status: "published",
     topic: "한남 팝업", headline: "이번 주 한남동\n팝업 4곳 정리",
     slides: [
       { role: "cover", text: "이번 주 한남동\n팝업 4곳 정리", withImage: true },
@@ -174,7 +139,7 @@ const SEED_POSTS: SeedPost[] = [
     withRenders: true, publishedAt: "2026-09-06T09:00:00.000Z",
   },
   {
-    channel: "TREND", date: "2026-09-11", slug: "seongsu-weekend-spots", status: "draft",
+    channel: "trend.magazine", date: "2026-09-11", slug: "seongsu-weekend-spots", status: "scheduled",
     topic: "성수 핫플", headline: "이번 주말 성수\n줄 서는 곳 3",
     slides: [
       { role: "cover", text: "이번 주말 성수\n줄 서는 곳 3", withImage: true },
@@ -185,16 +150,17 @@ const SEED_POSTS: SeedPost[] = [
     ],
     caption: "이번 주말 성수에서 줄 서는 곳 3곳. 저장해두고 가세요.",
     hashtags: ["성수핫플", "주말나들이", "팝업"],
+    withRenders: true, scheduledAt: "2026-09-13T09:00:00.000Z",
   },
 ];
 
-const INBOX_SAMPLES: { channel: ChannelKey; prefix: string; md: string; images: number }[] = [
+const INBOX_SAMPLES: { channel: SeedKey; prefix: string; md: string; images: number }[] = [
   {
-    channel: "LIFE",
+    channel: "life.magazine",
     prefix: "2026-09-12_free-health-checkup",
     images: 2,
     md: `---
-channel: LIFE
+channel: life.magazine
 content_type: carousel
 topic: 국가건강검진
 headline: "올해 건강검진\\n아직이라면 12월 전에"
@@ -219,29 +185,7 @@ visual_direction: "quiet editorial, dark photo, white sans-serif"
 `,
   },
   {
-    channel: "MIND",
-    prefix: "2026-09-12_saying-no",
-    images: 1,
-    md: `---
-channel: MIND
-topic: 거절
-headline: "거절은 관계를 끊는 게 아니라\\n경계를 그리는 일"
-hashtags: 거절, 경계, 마음
----
-## slide 1 (cover)
-거절은 관계를 끊는 게 아니라
-경계를 그리는 일
-## slide 2 (quote)
-"아니요"라고 말한 뒤
-설명을 덧붙이지 않아도 된다
-## slide 3 (closing)
-오늘 하나만 거절해보기
-## caption
-거절에 이유를 붙일 필요는 없습니다.
-`,
-  },
-  {
-    channel: "AI",
+    channel: "trend.magazine",
     prefix: "no-frontmatter-note",
     images: 0,
     md: `이 파일은 front-matter 가 없습니다.
@@ -270,24 +214,24 @@ function buildMetadata(p: SeedPost, slides: SlideDef[]): PostMetadata {
     caption: p.caption,
     hashtags: p.hashtags,
     asset_mode: slides.some((s) => s.asset) ? "generated" : "text_only",
-    fact_check_required: p.channel === "LIFE",
+    fact_check_required: seedAccount(p.channel).factCheck,
     scheduled_at: p.scheduledAt ?? null,
     created_at: created,
     updated_at: updated,
   });
   if (p.status === "published") {
     base.publish = {
-      account_key: p.channel.toLowerCase(), mode: "immediate", attempt: 1, max_attempts: 3,
+      account_key: p.channel, mode: "immediate", attempt: 1, max_attempts: 3,
       ig_creation_id: "1789" + p.slug.length, ig_media_id: "1802" + p.date.replace(/-/g, ""), published_at: p.publishedAt,
     };
   } else if (p.status === "failed") {
     base.publish = {
-      account_key: p.channel.toLowerCase(), mode: "immediate", attempt: 1, max_attempts: 3,
+      account_key: p.channel, mode: "immediate", attempt: 1, max_attempts: 3,
       last_error: p.failedError,
     };
   } else if (p.status === "scheduled") {
     base.publish = {
-      account_key: p.channel.toLowerCase(), mode: "scheduled", run_at: p.scheduledAt, attempt: 0, max_attempts: 3,
+      account_key: p.channel, mode: "scheduled", run_at: p.scheduledAt, attempt: 0, max_attempts: 3,
     };
   }
   return base;
@@ -311,35 +255,39 @@ export async function seedMockTree(tree: MockTree): Promise<void> {
   const system = await drive.ensureFolder(root, ["_system"]);
   await drive.ensureFolder(system.id, ["style-packs"]);
 
-  const channelFolders: Record<ChannelKey, string> = { LIFE: "", MIND: "", AI: "", TREND: "" };
-  for (const ch of CHANNEL_KEYS) {
-    const f = await drive.ensureFolder(root, [ch]);
-    channelFolders[ch] = f.id;
+  const channelFolders: Record<SeedKey, string> = { "life.magazine": "", "trend.magazine": "" };
+  const accounts: Account[] = [];
+  for (const a of SEED_ACCOUNTS) {
+    const f = await drive.ensureFolder(root, [a.key]);
+    channelFolders[a.key] = f.id;
     for (const sub of ["draft", "approved", "published"]) await drive.ensureFolder(f.id, [sub]);
-    await drive.ensureFolder(root, ["inbox", ch]);
+    const inbox = await drive.ensureFolder(root, ["inbox", a.key]);
+    accounts.push({
+      key: a.key,
+      ig_user_id: `mock-${a.key}`,
+      username: a.key,
+      access_token_enc: encryptString(`mock-token-${a.key}`, encryptionKey()),
+      token_expires_at: new Date(Date.parse(now) + 45 * 86_400_000).toISOString(),
+      last_refreshed_at: now,
+      status: "connected",
+      name: a.name,
+      color: a.color,
+      drive_folder_id: f.id,
+      inbox_folder_id: inbox.id,
+      default_style_pack: a.stylePack,
+      default_presets_by_role: {},
+      caption_template: "{{caption}}\n\n{{hashtags}}",
+      default_hashtags: a.hashtags,
+      editorial_rules: { fact_check_required: a.factCheck },
+    });
   }
 
-  const channelsFile = ChannelsFileSchema.parse({
-    channels: CHANNEL_KEYS.map((key) => ({
-      key,
-      name: { LIFE: "라이프 · 생활정보", MIND: "마인드 · 마음", AI: "AI · 도구", TREND: "트렌드 · 핫플" }[key],
-      color: { LIFE: "#2563eb", MIND: "#b45309", AI: "#0891b2", TREND: "#F553DA" }[key],
-      drive_folder_id: channelFolders[key],
-      default_style_pack: CHANNEL_DEFAULT_STYLE_PACK[key],
-      default_presets_by_role: {},
-      instagram_account_key: key.toLowerCase(),
-      caption_template: "{{caption}}\n\n{{hashtags}}",
-      default_hashtags: { LIFE: ["생활정보", "청년"], MIND: ["마음챙김"], AI: ["AI"], TREND: ["핫플", "트렌드"] }[key],
-      editorial_rules: { fact_check_required: key === "LIFE" },
-    })),
-  });
-  await drive.writeText(system.id, "channels.json", JSON.stringify(channelsFile, null, 2));
-  await drive.writeText(system.id, "accounts.json", JSON.stringify({ accounts: [] }, null, 2));
+  await drive.writeText(system.id, "accounts.json", JSON.stringify(AccountsFileSchema.parse({ accounts }), null, 2));
   await drive.writeText(system.id, "ingest-log.json", JSON.stringify({ last_sync_at: null, entries: [] }, null, 2));
 
   for (const p of SEED_POSTS) {
-    const stylePack = getStylePack(CHANNEL_DEFAULT_STYLE_PACK[p.channel]);
-    const [top, bottom] = PALETTES[p.channel];
+    const stylePack = getStylePack(seedAccount(p.channel).stylePack);
+    const [top, bottom] = seedAccount(p.channel).palette;
     const folderName = `${p.date}_${p.slug}`;
     const statusFolder = folderForStatus(p.status);
     const parent = await drive.ensureFolder(channelFolders[p.channel], [statusFolder]);
@@ -383,7 +331,7 @@ export async function seedMockTree(tree: MockTree): Promise<void> {
           fact_check_status: p.factCheck ?? "pending",
           fact_checked_at: p.factCheck === "approved" ? isoAt(p.date, 7) : null,
           items:
-            p.channel === "LIFE"
+            seedAccount(p.channel).factCheck
               ? [{ title: `${p.topic} 안내`, url: "https://www.gov.kr", publisher: "정부24", source_type: "official" }]
               : [],
         }),
@@ -417,7 +365,7 @@ export async function seedMockTree(tree: MockTree): Promise<void> {
   for (const s of INBOX_SAMPLES) {
     const inbox = await drive.ensureFolder(root, ["inbox", s.channel]);
     await drive.writeText(inbox.id, `${s.prefix}.md`, s.md, "text/markdown");
-    const [top, bottom] = PALETTES[s.channel];
+    const [top, bottom] = seedAccount(s.channel).palette;
     for (let i = 1; i <= s.images; i++) {
       await drive.uploadBytes(inbox.id, `${s.prefix}_${i}.png`, makeGradientPng(540, 675, bottom, top), "image/png");
     }
@@ -434,21 +382,15 @@ function prng(seed: number): () => number {
   };
 }
 
-const INSIGHT_BASE: Record<ChannelKey, { followers: number; reach: number; growth: number }> = {
-  LIFE: { followers: 4200, reach: 1800, growth: 6 },
-  MIND: { followers: 9800, reach: 3200, growth: 11 },
-  AI: { followers: 2600, reach: 1400, growth: 4 },
-  TREND: { followers: 1500, reach: 2600, growth: 14 },
-};
-
-/** Mock 전용: 4계정 × 120일 스냅샷 + published 포스트의 게시물 지표 */
+/** Mock 전용: 시드 계정 × 120일 스냅샷 + published 포스트의 게시물 지표 */
 async function seedInsights(drive: MockDriveClient, systemId: string, nowIso: string): Promise<void> {
   const folder = await drive.ensureFolder(systemId, ["insights"]);
   const nowMs = Date.parse(nowIso);
   const todayStart = Math.floor(nowMs / 86_400_000) * 86_400_000;
-  for (const ch of CHANNEL_KEYS) {
-    const key = ch.toLowerCase();
-    const base = INSIGHT_BASE[ch];
+  for (const acc of SEED_ACCOUNTS) {
+    const ch = acc.key;
+    const key = acc.key;
+    const base = acc.insights;
     const rand = prng(ch.length * 7919 + base.followers);
     const days = [];
     let followers = base.followers - base.growth * 120;
@@ -467,7 +409,7 @@ async function seedInsights(drive: MockDriveClient, systemId: string, nowIso: st
     }
     const media = SEED_POSTS.filter((p) => p.channel === ch && p.status === "published").map((p) => {
       const reach = Math.round(base.reach * (2 + rand() * 3));
-      const saves = Math.round(reach * (ch === "TREND" ? 0.09 : 0.035) * (0.7 + rand() * 0.6));
+      const saves = Math.round(reach * (ch === "trend.magazine" ? 0.09 : 0.035) * (0.7 + rand() * 0.6));
       const likes = Math.round(reach * 0.06 * (0.7 + rand() * 0.6));
       const comments = Math.round(likes * 0.08 * rand());
       const shares = Math.round(saves * 0.4 * rand());
@@ -480,7 +422,7 @@ async function seedInsights(drive: MockDriveClient, systemId: string, nowIso: st
         collected_at: nowIso,
       };
     });
-    const file = InsightsFileSchema.parse({ account_key: key, ig_user_id: `1784${ch.length}`, last_collected_at: nowIso, days, media });
+    const file = InsightsFileSchema.parse({ account_key: key, ig_user_id: `mock-${key}`, last_collected_at: nowIso, days, media });
     await drive.writeText(folder.id, `${key}.json`, JSON.stringify(file, null, 2), "application/json");
   }
 }

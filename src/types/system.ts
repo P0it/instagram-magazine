@@ -1,40 +1,7 @@
 import { z } from "zod";
-import { ChannelKeySchema } from "./channel";
+import { AccountKeySchema } from "./account";
 import { ContentTypeSchema, PostStatusSchema } from "./post";
 import { FactCheckStatusSchema } from "./sources";
-
-// ---------- accounts.json ----------
-export const AccountStatusSchema = z.enum(["connected", "expiring", "expired", "error"]);
-export type AccountStatus = z.infer<typeof AccountStatusSchema>;
-
-export const InstagramAccountSchema = z.object({
-  key: z.string(),
-  ig_user_id: z.string(),
-  username: z.string(),
-  access_token_enc: z.string(),
-  token_expires_at: z.string(),
-  last_refreshed_at: z.string(),
-  status: AccountStatusSchema.default("connected"),
-  last_error: z.string().optional(),
-});
-export type InstagramAccount = z.infer<typeof InstagramAccountSchema>;
-
-export const AccountsFileSchema = z.object({
-  accounts: z.array(InstagramAccountSchema).default([]),
-});
-export type AccountsFile = z.infer<typeof AccountsFileSchema>;
-
-/** 브라우저로 내려가는 형태. 토큰 없음. */
-export const PublicAccountSchema = InstagramAccountSchema.pick({
-  key: true,
-  ig_user_id: true,
-  username: true,
-  token_expires_at: true,
-  last_refreshed_at: true,
-  status: true,
-  last_error: true,
-});
-export type PublicAccount = z.infer<typeof PublicAccountSchema>;
 
 // ---------- index.json ----------
 export const IndexWarningSchema = z.enum([
@@ -49,7 +16,7 @@ export type IndexWarning = z.infer<typeof IndexWarningSchema>;
 
 export const IndexEntrySchema = z.object({
   post_id: z.string(),
-  channel: ChannelKeySchema,
+  channel: AccountKeySchema,
   status: PostStatusSchema,
   folder_status: PostStatusSchema,
   drive_folder_id: z.string(),
@@ -83,7 +50,7 @@ export const IngestResultSchema = z.enum(["created", "needs_repair", "skipped", 
 
 export const IngestLogEntrySchema = z.object({
   at: z.string(),
-  channel: ChannelKeySchema,
+  channel: AccountKeySchema,
   prefix: z.string(),
   source_fingerprint: z.string(),
   result: IngestResultSchema,

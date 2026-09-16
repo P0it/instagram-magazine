@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { PresetIdSchema, ToneDefaultsSchema } from "./preset";
-import { SlideRoleSchema } from "./channel";
+import { SlideRoleSchema } from "./slide-role";
 
 export const StylePackSchema = z.object({
   schema_version: z.literal(1).default(1),

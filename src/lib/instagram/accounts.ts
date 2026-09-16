@@ -1,5 +1,13 @@
 import "server-only";
-import { PublicAccountSchema, type AccountStatus, type InstagramAccount, type PublicAccount } from "@/types";
+import {
+  AccountSettingsPatchSchema,
+  PublicAccountSchema,
+  type Account,
+  type AccountKey,
+  type AccountSettingsPatch,
+  type AccountStatus,
+  type PublicAccount,
+} from "@/types";
 import type { DriveClient } from "@/lib/drive/types";
 import { readAccounts, writeAccounts } from "@/lib/drive/system-files";
 import { decryptString, encryptString } from "@/lib/crypto/aes";
@@ -15,46 +23,50 @@ export function computeStatus(expiresAt: string, now = Date.now()): AccountStatu
   return "connected";
 }
 
-export function toPublicAccount(a: InstagramAccount): PublicAccount {
+export function toPublicAccount(a: Account): PublicAccount {
   return PublicAccountSchema.parse({ ...a, status: a.status === "error" ? "error" : computeStatus(a.token_expires_at) });
 }
 
-export async function listPublicAccounts(drive: DriveClient): Promise<PublicAccount[]> {
-  const { data } = await readAccounts(drive);
-  return data.accounts.map(toPublicAccount);
+/** 계정(=채널) 전체. 순서는 accounts.json 순(연결 순). */
+export async function listAccounts(drive: DriveClient): Promise<Account[]> {
+  return (await readAccounts(drive)).data.accounts;
 }
 
-export async function getAccount(drive: DriveClient, key: string): Promise<InstagramAccount | null> {
-  const { data } = await readAccounts(drive);
-  return data.accounts.find((a) => a.key === key) ?? null;
+export async function listAccountKeys(drive: DriveClient): Promise<AccountKey[]> {
+  return (await listAccounts(drive)).map((a) => a.key);
+}
+
+export async function listPublicAccounts(drive: DriveClient): Promise<PublicAccount[]> {
+  return (await listAccounts(drive)).map(toPublicAccount);
+}
+
+export async function getAccount(drive: DriveClient, key: string): Promise<Account | null> {
+  return (await listAccounts(drive)).find((a) => a.key === key) ?? null;
 }
 
 /** 복호화된 토큰. 서버 안에서만 쓴다 — 절대 응답에 넣지 않는다. */
-export function accessTokenOf(account: InstagramAccount): string {
+export function accessTokenOf(account: Account): string {
   return decryptString(account.access_token_enc, encryptionKey());
 }
 
-export async function upsertAccount(
+/** 설정 필드만 갱신. key·ig_user_id·토큰·폴더 id 는 스키마에서 걸러져 바뀌지 않는다. */
+export async function updateAccountSettings(
   drive: DriveClient,
-  input: { key: string; ig_user_id: string; username: string; access_token: string; expires_in_seconds: number },
-): Promise<PublicAccount> {
-  const now = new Date();
-  const account: InstagramAccount = {
-    key: input.key,
-    ig_user_id: input.ig_user_id,
-    username: input.username,
-    access_token_enc: encryptString(input.access_token, encryptionKey()),
-    token_expires_at: new Date(now.getTime() + input.expires_in_seconds * 1000).toISOString(),
-    last_refreshed_at: now.toISOString(),
-    status: "connected",
-  };
+  key: string,
+  patch: AccountSettingsPatch,
+): Promise<PublicAccount | null> {
+  const clean = AccountSettingsPatchSchema.parse(patch);
   const { data, version } = await readAccounts(drive);
-  const accounts = data.accounts.filter((a) => a.key !== account.key);
-  accounts.push(account);
+  const idx = data.accounts.findIndex((a) => a.key === key);
+  if (idx < 0) return null;
+  const next: Account = { ...data.accounts[idx], ...clean };
+  const accounts = [...data.accounts];
+  accounts[idx] = next;
   await writeAccounts(drive, { accounts }, version);
-  return toPublicAccount(account);
+  return toPublicAccount(next);
 }
 
+/** 연결 해제. accounts.json 에서만 제거 — Drive 폴더와 포스트는 남긴다. */
 export async function removeAccount(drive: DriveClient, key: string): Promise<void> {
   const { data, version } = await readAccounts(drive);
   await writeAccounts(drive, { accounts: data.accounts.filter((a) => a.key !== key) }, version);
@@ -69,7 +81,7 @@ export async function refreshExpiringAccounts(drive: DriveClient, f: typeof fetc
   let changed = false;
   const now = Date.now();
   const accounts = await Promise.all(
-    data.accounts.map(async (a): Promise<InstagramAccount> => {
+    data.accounts.map(async (a): Promise<Account> => {
       const status = computeStatus(a.token_expires_at, now);
       if (status !== "expiring") return { ...a, status: a.status === "error" ? "error" : status };
       try {

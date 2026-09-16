@@ -1,9 +1,10 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { CHANNEL_KEYS, type IngestLogEntry, type SyncResponse } from "@/types";
+import type { IngestLogEntry, SyncResponse } from "@/types";
 import type { DriveClient } from "@/lib/drive/types";
 import { inboxFolderId } from "@/lib/drive/paths";
-import { readChannels, readIngestLog, writeIngestLog } from "@/lib/drive/system-files";
+import { readIngestLog, writeIngestLog } from "@/lib/drive/system-files";
+import { listAccounts } from "@/lib/instagram/accounts";
 import { rebuildIndex } from "@/lib/metadata/index-builder";
 import { groupInboxFiles } from "./group";
 import { normalizeGroup } from "./normalize";
@@ -17,20 +18,19 @@ function fingerprint(files: { id: string; md5: string | null }[]): string {
   return h.digest("hex");
 }
 
-/** inbox 전체 스캔 → 정규화 → index 재생성. 멱등(fingerprint). */
+/** 모든 계정의 inbox 스캔 → 정규화 → index 재생성. 멱등(fingerprint). 계정 0개면 아무것도 안 한다. */
 export async function syncInbox(drive: DriveClient): Promise<SyncResponse> {
   const now = new Date();
   const nowIso = now.toISOString();
-  const { data: channelsFile } = await readChannels(drive);
   const log = await readIngestLog(drive);
   const seen = new Set(log.data.entries.filter((e) => e.result !== "error").map((e) => e.source_fingerprint));
 
   const entries: IngestLogEntry[] = [];
   let created = 0, needsRepair = 0, skipped = 0, errors = 0;
 
-  for (const channel of CHANNEL_KEYS) {
-    const channelConfig = channelsFile.channels.find((c) => c.key === channel);
-    const inboxId = await inboxFolderId(drive, channel);
+  for (const account of await listAccounts(drive)) {
+    const channel = account.key;
+    const inboxId = account.inbox_folder_id || (await inboxFolderId(drive, channel));
     const files = await drive.listChildren(inboxId);
     const groups = groupInboxFiles(files.map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType })));
 
@@ -47,7 +47,7 @@ export async function syncInbox(drive: DriveClient): Promise<SyncResponse> {
         continue;
       }
       try {
-        const res = await normalizeGroup(drive, channel, channelConfig, group, inboxId, now);
+        const res = await normalizeGroup(drive, account, group, inboxId, now);
         if (res.status === "draft") created++;
         else needsRepair++;
         entries.push({

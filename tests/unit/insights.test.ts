@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InsightsFileSchema, type ChannelConfig, type IndexEntry, type InsightsFile } from "@/types";
+import { InsightsFileSchema, type IndexEntry, type InsightsFile, type PublicAccount } from "@/types";
 import { pctChange, summarizeInsights } from "@/lib/insights/summarize";
 
 const NOW = Date.UTC(2026, 8, 16, 12); // 2026-09-16 12:00Z
@@ -12,12 +12,16 @@ function days(n: number, f: (i: number) => Partial<InsightsFile["days"][number]>
   });
 }
 
-const channels: ChannelConfig[] = [
-  { key: "LIFE", name: "라이프", color: "#000", drive_folder_id: null, default_style_pack: null, default_presets_by_role: {}, instagram_account_key: "life", caption_template: "", default_hashtags: [], editorial_rules: { fact_check_required: false } },
+const accounts: PublicAccount[] = [
+  {
+    key: "life", ig_user_id: "1", username: "life", token_expires_at: "t", last_refreshed_at: "t", status: "connected",
+    name: "라이프", color: "#000", drive_folder_id: "f", inbox_folder_id: "i", default_style_pack: null, default_presets_by_role: {},
+    caption_template: "", default_hashtags: [], editorial_rules: { fact_check_required: false },
+  },
 ];
 
 const post = (id: string, published_at: string, ig_media_id: string): IndexEntry => ({
-  post_id: id, channel: "LIFE", status: "published", folder_status: "published", drive_folder_id: "f", headline: `H ${id}`, topic: "",
+  post_id: id, channel: "life", status: "published", folder_status: "published", drive_folder_id: "f", headline: `H ${id}`, topic: "",
   content_type: "carousel", slide_count: 3, render_count: 3, cover_thumb_file_id: "t", fact_check_status: "approved", fact_check_required: false,
   scheduled_at: null, published_at, ig_media_id, account_key: "life", last_error: null, created_at: published_at, updated_at: published_at, warnings: [],
 });
@@ -28,9 +32,10 @@ describe("summarizeInsights", () => {
       account_key: "life",
       days: days(14, (i) => ({ reach: i < 7 ? 100 : 50, followers: 1000 - i })),
     });
-    const r = summarizeInsights({ files: [file], index: [], channels, accounts: [], range: "7", now: NOW });
+    const r = summarizeInsights({ files: [file], index: [], accounts, range: "7", now: NOW });
     const a = r.accounts[0];
-    expect(a.channel).toBe("LIFE");
+    expect(a.channel).toBe("life");
+    expect(a.username).toBe("life");
     expect(a.reach).toEqual({ value: 700, previous: 350 });
     expect(a.followers).toEqual({ value: 1000, previous: 993 });
     expect(a.series).toHaveLength(7);
@@ -39,7 +44,7 @@ describe("summarizeInsights", () => {
 
   it("returns previous=null when there is no comparison data", () => {
     const file = InsightsFileSchema.parse({ account_key: "life", days: days(3, () => ({ reach: 10 })) });
-    const a = summarizeInsights({ files: [file], index: [], channels, accounts: [], range: "7", now: NOW }).accounts[0];
+    const a = summarizeInsights({ files: [file], index: [], accounts, range: "7", now: NOW }).accounts[0];
     expect(a.reach).toEqual({ value: 30, previous: null });
     expect(pctChange(a.reach)).toBeNull();
   });
@@ -54,7 +59,7 @@ describe("summarizeInsights", () => {
       ],
     });
     const index = [post("p1", "2026-09-15T00:00:00Z", "m1"), post("p2", "2026-09-10T00:00:00Z", "m2"), post("p3", "2026-01-01T00:00:00Z", "old")];
-    const r = summarizeInsights({ files: [file], index, channels, accounts: [], range: "28", now: NOW });
+    const r = summarizeInsights({ files: [file], index, accounts, range: "28", now: NOW });
     const a = r.accounts[0];
     expect(a.posts_in_range).toBe(2);
     expect(a.avg_reach_per_post).toBe(750);
@@ -64,9 +69,9 @@ describe("summarizeInsights", () => {
     expect(r.media[0].cover_thumb_file_id).toBe("t");
   });
 
-  it("exposes an account with no channel mapping as channel=null", () => {
+  it("exposes a snapshot of a disconnected account as channel=null", () => {
     const file = InsightsFileSchema.parse({ account_key: "orphan" });
-    const a = summarizeInsights({ files: [file], index: [], channels, accounts: [], range: "7", now: NOW }).accounts[0];
+    const a = summarizeInsights({ files: [file], index: [], accounts, range: "7", now: NOW }).accounts[0];
     expect(a.channel).toBeNull();
     expect(a.followers).toEqual({ value: 0, previous: null });
   });

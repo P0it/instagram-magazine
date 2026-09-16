@@ -1,8 +1,7 @@
 import "server-only";
-import { StylePackSchema, type ChannelKey, type StylePack } from "@/types";
+import { StylePackSchema, type StylePack } from "@/types";
 import type { DriveClient } from "@/lib/drive/types";
 import { stylePacksFolderId } from "@/lib/drive/paths";
-import { readChannels, writeChannels } from "@/lib/drive/system-files";
 import { BUILTIN_STYLE_PACKS } from "@/presets";
 
 /** _system/style-packs/*.json + 내장 팩. 같은 id 면 Drive 가 우선. */
@@ -41,11 +40,4 @@ export async function deleteStylePack(drive: DriveClient, id: string): Promise<b
   if (!f) return false;
   await drive.deleteFile(f.id);
   return true;
-}
-
-/** 채널 기본 스타일팩 지정 */
-export async function setChannelStylePack(drive: DriveClient, channel: ChannelKey, packId: string | null): Promise<void> {
-  const { data, version } = await readChannels(drive);
-  const channels = data.channels.map((c) => (c.key === channel ? { ...c, default_style_pack: packId } : c));
-  await writeChannels(drive, { channels }, version);
 }

@@ -7,7 +7,6 @@ import { loadPost } from "@/lib/metadata/post-repo";
 import { rebuildIndex } from "@/lib/metadata/index-builder";
 import { transitionPost, repairPost, ApprovalGateError } from "@/lib/metadata/transition-service";
 import { publishPost } from "@/lib/publish/publish-post";
-import { upsertAccount } from "@/lib/instagram/accounts";
 import { invalidateFolderCache } from "@/lib/drive/paths";
 
 const KEY = randomBytes(32).toString("base64");
@@ -58,7 +57,7 @@ describe("index + ingest", () => {
   it("rebuilds index from seed and flags warnings", async () => {
     const d = await freshDrive();
     const idx = await rebuildIndex(d);
-    expect(idx.posts.length).toBeGreaterThanOrEqual(9);
+    expect(idx.posts.length).toBeGreaterThanOrEqual(7);
     const draft = idx.posts.find((p) => p.post_id === "2026-09-11_youth-housing-support")!;
     expect(draft.status).toBe("draft");
     expect(draft.warnings).toContain("missing_render");
@@ -70,7 +69,7 @@ describe("index + ingest", () => {
   it("syncInbox normalizes inbox files idempotently", async () => {
     const d = await freshDrive();
     const r1 = await syncInbox(d);
-    expect(r1.created).toBe(2);
+    expect(r1.created).toBe(1);
     expect(r1.needs_repair).toBe(1);
     const post = await loadPost(d, "2026-09-12_free-health-checkup");
     expect(post.metadata.status).toBe("draft");
@@ -103,7 +102,7 @@ describe("transitions", () => {
   it("schedule requires run_at and account; cancel returns to approved", async () => {
     const d = await freshDrive();
     await expect(transitionPost(d, "2026-09-10_transit-pass-changes", "scheduled")).rejects.toThrow();
-    const s = await transitionPost(d, "2026-09-10_transit-pass-changes", "scheduled", { run_at: "2030-01-01T00:00:00.000Z", account_key: "life" });
+    const s = await transitionPost(d, "2026-09-10_transit-pass-changes", "scheduled", { run_at: "2030-01-01T00:00:00.000Z", account_key: "life.magazine" });
     expect(s.metadata.publish?.mode).toBe("scheduled");
     const back = await transitionPost(d, "2026-09-10_transit-pass-changes", "approved");
     expect(back.metadata.scheduled_at).toBeNull();
@@ -147,16 +146,13 @@ describe("publishPost (IG mocked)", () => {
   }
   const deps = (f: ReturnType<typeof fakeFetch>) => ({ fetch: f as unknown as typeof fetch, sleep: async () => {}, now: () => new Date("2026-09-11T12:00:00Z") });
 
-  async function driveWithAccount() {
-    const d = await freshDrive();
-    await upsertAccount(d, { key: "life", ig_user_id: "178", username: "life_mag", access_token: "tok", expires_in_seconds: 5_000_000 });
-    return d;
-  }
+  // 시드가 life.magazine / trend.magazine 계정을 이미 연결해 둔다
+  const driveWithAccount = freshDrive;
 
   it("publishes a carousel and moves folder to published", async () => {
     const d = await driveWithAccount();
     const f = fakeFetch("ok");
-    const r = await publishPost(d, "2026-09-10_transit-pass-changes", "life", deps(f));
+    const r = await publishPost(d, "2026-09-10_transit-pass-changes", "life.magazine", deps(f));
     expect(r).toEqual({ ok: true, status: "published", ig_media_id: "media_123" });
     const post = await loadPost(d, "2026-09-10_transit-pass-changes");
     expect(post.metadata.status).toBe("published");
@@ -171,14 +167,14 @@ describe("publishPost (IG mocked)", () => {
 
   it("marks failed without moving folder, then retry works", async () => {
     const d = await driveWithAccount();
-    const r = await publishPost(d, "2026-09-10_transit-pass-changes", "life", deps(fakeFetch("fail-publish")));
+    const r = await publishPost(d, "2026-09-10_transit-pass-changes", "life.magazine", deps(fakeFetch("fail-publish")));
     expect(r.ok).toBe(false);
     expect(r.error).toContain("publish failed");
     let post = await loadPost(d, "2026-09-10_transit-pass-changes");
     expect(post.metadata.status).toBe("failed");
     expect(post.metadata.publish?.attempt).toBe(1);
     expect(post.located.folderStatus).toBe("approved");
-    const r2 = await publishPost(d, "2026-09-10_transit-pass-changes", "life", deps(fakeFetch("ok")));
+    const r2 = await publishPost(d, "2026-09-10_transit-pass-changes", "life.magazine", deps(fakeFetch("ok")));
     expect(r2.ok).toBe(true);
     post = await loadPost(d, "2026-09-10_transit-pass-changes");
     expect(post.metadata.publish?.attempt).toBe(2);
@@ -186,6 +182,6 @@ describe("publishPost (IG mocked)", () => {
 
   it("refuses to publish a draft without renders", async () => {
     const d = await driveWithAccount();
-    await expect(publishPost(d, "2026-09-11_youth-housing-support", "life", deps(fakeFetch("ok")))).rejects.toThrow(/게시할 수 없습니다|렌더/);
+    await expect(publishPost(d, "2026-09-11_youth-housing-support", "life.magazine", deps(fakeFetch("ok")))).rejects.toThrow(/게시할 수 없습니다|렌더/);
   });
 });

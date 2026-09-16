@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { ChannelKeySchema, SlideRoleSchema } from "./channel";
+import { AccountKeySchema } from "./account";
+import { SlideRoleSchema } from "./slide-role";
 import { LayoutPresetOverridesSchema, PresetIdSchema } from "./preset";
 
 import { PostFormatSchema } from "./editor-state";
@@ -55,7 +56,7 @@ export type PublishBlock = z.infer<typeof PublishBlockSchema>;
 export const PostMetadataSchema = z.object({
   schema_version: z.literal(1).default(1),
   post_id: z.string(),
-  channel: ChannelKeySchema,
+  channel: AccountKeySchema,
   status: PostStatusSchema.default("draft"),
   content_type: ContentTypeSchema.default("carousel"),
   topic: z.string().default(""),

@@ -27,7 +27,7 @@ visual_direction: "quiet editorial"
 describe("parseInboxMarkdown", () => {
   it("parses front-matter, slides, caption", () => {
     const d = parseInboxMarkdown(SAMPLE);
-    expect(d.frontMatter.channel).toBe("LIFE");
+    expect(d.frontMatter.channel).toBe("life");
     expect(d.frontMatter.headline).toBe("월세 내고 있다면\n이번 주 이건 확인");
     expect(d.frontMatter.hashtags).toEqual(["청년정책", "월세지원"]);
     expect(d.frontMatter.sources?.[0]?.source_type).toBe("official");
@@ -51,7 +51,7 @@ describe("parseInboxMarkdown", () => {
     expect(d.problems.some((p) => p.includes("caption"))).toBe(true);
   });
   it("invalid front-matter keeps valid keys", () => {
-    const d = parseInboxMarkdown(`---\nchannel: NOPE\ntopic: ok\n---\n## slide 1 (cover)\nT\n## caption\nc`);
+    const d = parseInboxMarkdown(`---\nchannel: "NO PE"\ntopic: ok\n---\n## slide 1 (cover)\nT\n## caption\nc`);
     expect(d.frontMatter.channel).toBeUndefined();
     expect(d.frontMatter.topic).toBe("ok");
     expect(d.problems.some((p) => p.includes("front-matter invalid"))).toBe(true);

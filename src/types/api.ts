@@ -3,8 +3,8 @@ import { EditorStateSchema } from "./editor-state";
 import { PostMetadataPatchSchema, PostMetadataSchema, PostStatusSchema } from "./post";
 import { SourcesFileSchema } from "./sources";
 import { VisualBriefSchema } from "./visual-brief";
-import { IngestLogEntrySchema, PublicAccountSchema } from "./system";
-import { ChannelConfigSchema } from "./channel";
+import { IngestLogEntrySchema } from "./system";
+import { PublicAccountSchema } from "./account";
 
 export const DriveFileRefSchema = z.object({
   fileId: z.string(),
@@ -116,7 +116,6 @@ export const SystemStatusSchema = z.object({
   last_sync_at: z.string().nullable(),
   should_auto_sync: z.boolean(),
   accounts: z.array(PublicAccountSchema),
-  channels: z.array(ChannelConfigSchema),
   recent_ingest: z.array(IngestLogEntrySchema),
 });
 export type SystemStatus = z.infer<typeof SystemStatusSchema>;

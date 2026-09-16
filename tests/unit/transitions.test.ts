@@ -40,7 +40,7 @@ describe("state machine", () => {
 
 describe("approval gate", () => {
   const base = PostMetadataSchema.parse({
-    post_id: "p", channel: "LIFE", headline: "h", caption: "c", hashtags: ["a"],
+    post_id: "p", channel: "life.magazine", headline: "h", caption: "c", hashtags: ["a"],
     slides: [{ id: "s1" }, { id: "s2" }], fact_check_required: true, created_at: "a", updated_at: "b",
   });
   const ok = { width: 1080, height: 1350, format: "jpeg" as const };
@@ -55,7 +55,7 @@ describe("approval gate", () => {
     expect(r.checks.find((c) => c.id === "render_dimensions")?.ok).toBe(false);
     expect(r.checks.find((c) => c.id === "render_count")?.ok).toBe(true);
   });
-  it("LIFE requires fact check approved", () => {
+  it("fact_check_required accounts need fact check approved", () => {
     const r = evaluateApprovalGate({ metadata: base, sources: SourcesFileSchema.parse({}), renderDims: [ok, ok] });
     expect(r.checks.find((c) => c.id === "fact_check")?.ok).toBe(false);
     const r2 = evaluateApprovalGate({ metadata: { ...base, fact_check_required: false }, sources: SourcesFileSchema.parse({}), renderDims: [ok, ok] });

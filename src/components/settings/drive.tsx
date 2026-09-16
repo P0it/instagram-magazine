@@ -9,7 +9,7 @@ import { SettingsRow, SettingsSection } from "./settings-shell";
 import { cn } from "@/lib/utils";
 
 const TREE = `/Instagram Magazine                      <- GOOGLE_DRIVE_ROOT_FOLDER_ID
-  /inbox/{LIFE,MIND,AI,POEM}/            <- ChatGPT 착지 지점: YYYY-MM-DD_slug.md + _1.png ...
+  /inbox/{LIFE,MIND,AI,TREND}/            <- ChatGPT 착지 지점: YYYY-MM-DD_slug.md + _1.png ...
   /LIFE/{draft,approved,published}/<post>/
       metadata.json · sources.json · visual-brief.json · editor-state.json
       /assets/source_01.png ... · /renders/slide_01.jpg ... · /_inbox_original/

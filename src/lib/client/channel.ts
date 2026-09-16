@@ -18,7 +18,7 @@ export const CHANNEL_META: Record<ChannelKey, ChannelMeta> = {
   LIFE: { name: "라이프", short: "LIFE", title: "LIFE — 생활·주거", handle: "life.magazine", color: "#FF5E00" },
   MIND: { name: "마인드", short: "MIND", title: "MIND — 마음·관계", handle: "mind.magazine", color: "#6541F2" },
   AI: { name: "AI", short: "AI", title: "AI — 도구·업무", handle: "ai.magazine", color: "#00BDDE" },
-  POEM: { name: "포엠", short: "POEM", title: "POEM — 시·문장", handle: "poem.magazine", color: "#F553DA" },
+  TREND: { name: "트렌드", short: "TREND", title: "TREND — 핫플·유행", handle: "trend.magazine", color: "#F553DA" },
 };
 
 export const DEFAULT_CHANNEL: ChannelKey = CHANNEL_KEYS[0];

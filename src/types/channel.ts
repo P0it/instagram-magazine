@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { PresetIdSchema } from "./preset";
 
-export const ChannelKeySchema = z.enum(["LIFE", "MIND", "AI", "POEM"]);
+export const ChannelKeySchema = z.enum(["LIFE", "MIND", "AI", "TREND"]);
 export type ChannelKey = z.infer<typeof ChannelKeySchema>;
 export const CHANNEL_KEYS = ChannelKeySchema.options;
 

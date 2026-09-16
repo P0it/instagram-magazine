@@ -24,7 +24,7 @@ import closingSlide from "./layouts/closing-slide.json";
 import lifeStyle from "./styles/life-quiet-editorial.json";
 import mindStyle from "./styles/mind-soft-paper.json";
 import aiStyle from "./styles/ai-mono-grid.json";
-import poemStyle from "./styles/poem-verse.json";
+import trendStyle from "./styles/trend-hotspot.json";
 
 export const LAYOUT_PRESETS: readonly LayoutPreset[] = LayoutPresetSchema.array().parse([
   largeEditorial,
@@ -53,14 +53,14 @@ export const BUILTIN_STYLE_PACKS: readonly StylePack[] = StylePackSchema.array()
   lifeStyle,
   mindStyle,
   aiStyle,
-  poemStyle,
+  trendStyle,
 ]);
 
 export const CHANNEL_DEFAULT_STYLE_PACK: Record<ChannelKey, string> = {
   LIFE: "life-quiet-editorial",
   MIND: "mind-soft-paper",
   AI: "ai-mono-grid",
-  POEM: "poem-verse",
+  TREND: "trend-hotspot",
 };
 
 export const ROLE_DEFAULT_PRESET: Record<SlideRole, PresetId> = {

@@ -92,9 +92,9 @@ ChatGPT 예약 작업이 Google Drive에 떨어뜨린 초안(텍스트 + 이미�
 
 ```text
 /Instagram Magazine                      ← GOOGLE_DRIVE_ROOT_FOLDER_ID
-  /inbox/{LIFE,MIND,AI,POEM}/            ← ChatGPT 착지 지점
+  /inbox/{LIFE,MIND,AI,TREND}/            ← ChatGPT 착지 지점
   /LIFE/{draft,approved,published}/<post-folder>/
-  /MIND …  /AI …  /POEM …
+  /MIND …  /AI …  /TREND …
   /_system
     channels.json        ← 채널 설정
     accounts.json        ← IG 계정 (토큰 암호화)

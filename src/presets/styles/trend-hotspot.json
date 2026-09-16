@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "trend-hotspot",
+  "name": "TREND · Hotspot",
+  "description": "사진이 주인공. 굵은 산세리프, 형광 포인트, 장소·아이템 캡션.",
+  "palette": {
+    "background": "#0b0b0b",
+    "text": "#ffffff",
+    "accent": "#F553DA",
+    "muted": "#9a9a9a"
+  },
+  "typography": {
+    "fontFamily": "sans",
+    "headlineWeight": 800,
+    "bodyWeight": 500,
+    "letterSpacing": -2,
+    "lineHeight": 1.15
+  },
+  "tone": {},
+  "presets_by_role": {
+    "cover": "cover-bottom",
+    "photo": "photo-caption",
+    "info": "list-editorial",
+    "quote": "info-dark",
+    "screenshot": "screenshot-frame",
+    "closing": "closing-slide"
+  },
+  "preset_overrides": {},
+  "references": []
+}

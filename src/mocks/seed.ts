@@ -39,7 +39,7 @@ const PALETTES: Record<ChannelKey, [Rgb, Rgb]> = {
   LIFE: [{ r: 40, g: 44, b: 52 }, { r: 12, g: 12, b: 14 }],
   MIND: [{ r: 214, g: 200, b: 170 }, { r: 120, g: 105, b: 80 }],
   AI: [{ r: 20, g: 40, b: 70 }, { r: 5, g: 5, b: 8 }],
-  POEM: [{ r: 60, g: 30, b: 40 }, { r: 15, g: 10, b: 12 }],
+  TREND: [{ r: 80, g: 20, b: 70 }, { r: 12, g: 8, b: 14 }],
 };
 
 const SEED_POSTS: SeedPost[] = [
@@ -136,15 +136,17 @@ const SEED_POSTS: SeedPost[] = [
     caption: "", hashtags: [],
   },
   {
-    channel: "POEM", date: "2026-09-11", slug: "september-window", status: "draft",
-    topic: "9월", headline: "구월의 창",
+    channel: "TREND", date: "2026-09-11", slug: "seongsu-weekend-spots", status: "draft",
+    topic: "성수 핫플", headline: "이번 주말 성수\n줄 서는 곳 3",
     slides: [
-      { role: "cover", text: "구월의 창", withImage: true },
-      { role: "quote", text: "열어두었더니\n바람이 먼저 들어와\n의자에 앉았다" },
-      { role: "closing", text: "— 매일 한 편" },
+      { role: "cover", text: "이번 주말 성수\n줄 서는 곳 3", withImage: true },
+      { role: "photo", text: "1. 팝업 카페 — 오픈런 필수", withImage: true },
+      { role: "photo", text: "2. 빈티지 편집숍 — 주말 한정", withImage: true },
+      { role: "info", text: "3. 루프탑 바\n선셋 타임 예약 오픈" },
+      { role: "closing", text: "다음 주 핫플은 저장하고 확인" },
     ],
-    caption: "구월의 창.",
-    hashtags: ["시", "구월"],
+    caption: "이번 주말 성수에서 줄 서는 곳 3곳. 저장해두고 가세요.",
+    hashtags: ["성수핫플", "주말나들이", "팝업"],
   },
 ];
 
@@ -271,7 +273,7 @@ export async function seedMockTree(tree: MockTree): Promise<void> {
   const system = await drive.ensureFolder(root, ["_system"]);
   await drive.ensureFolder(system.id, ["style-packs"]);
 
-  const channelFolders: Record<ChannelKey, string> = { LIFE: "", MIND: "", AI: "", POEM: "" };
+  const channelFolders: Record<ChannelKey, string> = { LIFE: "", MIND: "", AI: "", TREND: "" };
   for (const ch of CHANNEL_KEYS) {
     const f = await drive.ensureFolder(root, [ch]);
     channelFolders[ch] = f.id;
@@ -282,14 +284,14 @@ export async function seedMockTree(tree: MockTree): Promise<void> {
   const channelsFile = ChannelsFileSchema.parse({
     channels: CHANNEL_KEYS.map((key) => ({
       key,
-      name: { LIFE: "라이프 · 생활정보", MIND: "마인드 · 마음", AI: "AI · 도구", POEM: "포엠 · 시" }[key],
-      color: { LIFE: "#2563eb", MIND: "#b45309", AI: "#0891b2", POEM: "#9d174d" }[key],
+      name: { LIFE: "라이프 · 생활정보", MIND: "마인드 · 마음", AI: "AI · 도구", TREND: "트렌드 · 핫플" }[key],
+      color: { LIFE: "#2563eb", MIND: "#b45309", AI: "#0891b2", TREND: "#F553DA" }[key],
       drive_folder_id: channelFolders[key],
       default_style_pack: CHANNEL_DEFAULT_STYLE_PACK[key],
       default_presets_by_role: {},
       instagram_account_key: key.toLowerCase(),
       caption_template: "{{caption}}\n\n{{hashtags}}",
-      default_hashtags: { LIFE: ["생활정보", "청년"], MIND: ["마음챙김"], AI: ["AI"], POEM: ["시"] }[key],
+      default_hashtags: { LIFE: ["생활정보", "청년"], MIND: ["마음챙김"], AI: ["AI"], TREND: ["핫플", "트렌드"] }[key],
       editorial_rules: { fact_check_required: key === "LIFE" },
     })),
   });

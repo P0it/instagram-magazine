@@ -116,7 +116,7 @@ Vercel Hobby 크론은 하루 1회 제한이라 외부 핑거를 쓴다.
 
 ## 스타일팩 (M5)
 
-- 내장 4종: `life-quiet-editorial`, `mind-soft-paper`, `ai-mono-grid`, `poem-verse` (`src/presets/styles/*.json`).
+- 내장 4종: `life-quiet-editorial`, `mind-soft-paper`, `ai-mono-grid`, `trend-hotspot` (`src/presets/styles/*.json`).
 - 설정 → 스타일팩에서 `style-pack.json` 을 임포트하면 `_system/style-packs/<id>.json` 에 저장되고 채널 기본값으로 지정할 수 있다. 채널 기본 스타일팩은 역할별 기본 프리셋과 톤(배경·글자색·오버레이·서체)을 바꾼다.
 - 로컬 레퍼런스에서 스켈레톤 만들기: `npm run analyze-refs -- ./refs --id my-pack` → `my-pack.style-pack.json`.
 
@@ -146,7 +146,7 @@ vercel --prod
 
 ```text
 /Instagram Magazine
-  /inbox/{LIFE,MIND,AI,POEM}/
+  /inbox/{LIFE,MIND,AI,TREND}/
   /<CH>/{draft,approved,published}/<YYYY-MM-DD_slug>/
       metadata.json        PostMetadata (status, slides[], caption, hashtags, publish{…})
       sources.json         SourcesFile (fact_check_status, items[])

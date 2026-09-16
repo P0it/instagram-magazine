@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { ChannelKeySchema, ContentTypeSchema, PostStatusSchema } from "@/types";
+import { ContentTypeSchema, PostStatusSchema } from "@/types";
 import { getDrive } from "@/lib/drive";
 import { readIndex } from "@/lib/metadata/index-builder";
 import { handle, json } from "@/lib/api/respond";
 
 const QuerySchema = z.object({
-  channel: ChannelKeySchema.optional(),
+  channel: z.string().min(1).optional(),
   status: PostStatusSchema.optional(),
   type: ContentTypeSchema.optional(),
   from: z.string().optional(),

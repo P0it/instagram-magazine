@@ -8,7 +8,6 @@ import {
   type CustomPreset,
   ApiErrorSchema,
   ApprovalGateResultSchema,
-  ChannelsFileSchema,
   CollectResultSchema,
   IndexEntrySchema,
   InsightsResponseSchema,
@@ -17,7 +16,8 @@ import {
   StylePackSchema,
   SyncResponseSchema,
   SystemStatusSchema,
-  type ChannelsFile,
+  PublicAccountSchema,
+  type AccountSettingsPatch,
   type InsightsRange,
   type PostSaveRequest,
   type PostStatus,
@@ -110,12 +110,23 @@ export const api = {
   accounts: () => request("/api/instagram/accounts", AccountsResponseSchema),
   disconnectAccount: (key: string) => request("/api/instagram/accounts", AccountsResponseSchema, jsonInit("DELETE", { key })),
 
-  channels: () => request("/api/channels", ChannelsFileSchema),
-  saveChannels: (body: ChannelsFile) => request("/api/channels", ChannelsFileSchema, jsonInit("PUT", body)),
+  updateAccount: (key: string, patch: AccountSettingsPatch) =>
+    request(`/api/instagram/accounts/${encodeURIComponent(key)}`, PublicAccountSchema, jsonInit("PATCH", patch)),
+  /** Mock Drive 전용 가짜 연결 */
+  mockConnectAccount: (username: string) => request("/api/instagram/accounts/mock", AccountsResponseSchema, jsonInit("POST", { username })),
+
+  customPresets: () => request("/api/presets/custom", CustomPresetsFileSchema),
+  saveCustomPreset: (p: Omit<CustomPreset, "created_at">) => request("/api/presets/custom", CustomPresetsFileSchema, jsonInit("POST", p)),
+  deleteCustomPreset: (id: string) => request(`/api/presets/custom/${encodeURIComponent(id)}`, CustomPresetsFileSchema, jsonInit("DELETE")),
+  analyzeProvider: () => request("/api/presets/analyze", zod.object({ provider: zod.enum(["sdk", "cli"]) })),
+  analyzeScreenshot: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request("/api/presets/analyze", AnalyzeResponseSchema, { method: "POST", body: form });
+  },
 
   stylePacks: () => request("/api/style-packs", zod.object({ packs: zod.array(StylePackSchema) })),
   importStylePack: (raw: unknown) => request("/api/style-packs", StylePackSchema, jsonInit("POST", raw)),
-  assignStylePack: (channel: string, pack_id: string | null) => request("/api/style-packs", zod.object({ ok: zod.boolean() }), jsonInit("PATCH", { channel, pack_id })),
   deleteStylePack: (id: string) => request(`/api/style-packs/${encodeURIComponent(id)}`, zod.object({ ok: zod.boolean() }), jsonInit("DELETE")),
 };
 

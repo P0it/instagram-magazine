@@ -1,6 +1,6 @@
 import { SystemStatusSchema, type SystemStatus } from "@/types";
 import { getDrive } from "@/lib/drive";
-import { readIngestLog, readChannels } from "@/lib/drive/system-files";
+import { readIngestLog } from "@/lib/drive/system-files";
 import { shouldAutoSync } from "@/lib/ingest/sync";
 import { refreshExpiringAccounts } from "@/lib/instagram/accounts";
 import { env, isOauthConfigured } from "@/lib/env";
@@ -13,11 +13,7 @@ import { handle, json } from "@/lib/api/respond";
 export async function GET() {
   return handle(async () => {
     const drive = await getDrive();
-    const [log, channels, accounts] = await Promise.all([
-      readIngestLog(drive),
-      readChannels(drive),
-      refreshExpiringAccounts(drive),
-    ]);
+    const [log, accounts] = await Promise.all([readIngestLog(drive), refreshExpiringAccounts(drive)]);
     return json<SystemStatus>(
       SystemStatusSchema.parse({
         drive_kind: drive.kind,
@@ -26,7 +22,6 @@ export async function GET() {
         last_sync_at: log.data.last_sync_at,
         should_auto_sync: shouldAutoSync(log.data.last_sync_at),
         accounts,
-        channels: channels.data.channels,
         recent_ingest: log.data.entries.slice(0, 50),
       }),
     );

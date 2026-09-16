@@ -3,12 +3,13 @@ import { cookies } from "next/headers";
 import { getDrive } from "@/lib/drive";
 import { env } from "@/lib/env";
 import { exchangeCode, getLongLivedToken, getMe } from "@/lib/instagram/client";
-import { upsertAccount } from "@/lib/instagram/accounts";
+import { connectAccount } from "@/lib/instagram/connect";
 import { OAUTH_STATE_COOKIE } from "../start/route";
 
 /**
  * GET /api/instagram/oauth/callback?code=&state=
- * code → 단기 토큰 → 장기 토큰(60일) → accounts.json 에 암호화 저장 → /settings/accounts
+ * code → 단기 토큰 → 장기 토큰(60일) → 계정(=채널) 생성 또는 재연결 → /settings/accounts
+ * 신규 계정이면 Drive 에 /inbox/<username>/, /<username>/{draft,approved,published}/ 가 만들어진다.
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -24,7 +25,6 @@ export async function GET(req: Request) {
   const expected = jar.get(OAUTH_STATE_COOKIE)?.value;
   jar.delete(OAUTH_STATE_COOKIE);
   if (!code || !state || !expected || state !== expected) return fail("state mismatch");
-  const key = state.split(".")[0];
 
   try {
     const e = env();
@@ -32,14 +32,13 @@ export async function GET(req: Request) {
     const long = await getLongLivedToken({ appSecret: e.META_APP_SECRET, shortToken: short.access_token });
     const me = await getMe(long.access_token);
     const drive = await getDrive();
-    await upsertAccount(drive, {
-      key,
+    const { account } = await connectAccount(drive, {
       ig_user_id: me.user_id,
       username: me.username,
       access_token: long.access_token,
       expires_in_seconds: long.expires_in,
     });
-    return NextResponse.redirect(`${base}/settings/accounts?connected=${encodeURIComponent(key)}`);
+    return NextResponse.redirect(`${base}/settings/accounts?connected=${encodeURIComponent(account.key)}`);
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err));
   }

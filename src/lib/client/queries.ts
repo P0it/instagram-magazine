@@ -11,7 +11,6 @@ export const qk = {
   post: (id: string) => ["post", id] as const,
   approval: (id: string) => ["approval", id] as const,
   accounts: ["accounts"] as const,
-  channels: ["channels"] as const,
   customPresets: ["custom-presets"] as const,
   stylePacks: ["style-packs"] as const,
   insights: (range: InsightsRange) => ["insights", range] as const,
@@ -21,8 +20,8 @@ export function useSystemStatus() {
   return useQuery({ queryKey: qk.status, queryFn: api.systemStatus, staleTime: 60_000 });
 }
 
-export function usePosts(q: PostsQuery = {}) {
-  return useQuery({ queryKey: qk.posts(q), queryFn: () => api.listPosts(q) });
+export function usePosts(q: PostsQuery = {}, enabled = true) {
+  return useQuery({ queryKey: qk.posts(q), queryFn: () => api.listPosts(q), enabled });
 }
 
 export function usePost(id: string | null) {
@@ -37,8 +36,8 @@ export function useAccounts() {
   return useQuery({ queryKey: qk.accounts, queryFn: api.accounts });
 }
 
-export function useChannels() {
-  return useQuery({ queryKey: qk.channels, queryFn: api.channels });
+export function useCustomPresets() {
+  return useQuery({ queryKey: qk.customPresets, queryFn: api.customPresets });
 }
 
 export function useStylePacks() {

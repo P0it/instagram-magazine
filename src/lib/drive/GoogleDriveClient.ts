@@ -25,6 +25,33 @@ function toDriveFile(f: drive_v3.Schema$File): DriveFile {
   };
 }
 
+/**
+ * Drive API 의 일시적 오류(5xx · 429 · rate limit · "error preparing the response")는 몇 번 다시 시도한다.
+ * 쓰기 호출은 클로저 안에서 요청 본문을 새로 만들어야 스트림이 재사용된다.
+ */
+function isTransient(err: unknown): boolean {
+  const e = err as { code?: number | string; message?: string; errors?: { reason?: string }[] };
+  const code = Number(e?.code);
+  if (code >= 500 || code === 429) return true;
+  const reasons = (e?.errors ?? []).map((x) => x.reason ?? "");
+  if (reasons.some((r) => /rateLimitExceeded|userRateLimitExceeded|backendError|internalError/.test(r))) return true;
+  return /error preparing the response|ECONNRESET|ETIMEDOUT|socket hang up/i.test(String(e?.message ?? ""));
+}
+
+export async function withRetry<T>(fn: () => Promise<T>, attempts = 4, baseMs = 500): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      last = err;
+      if (!isTransient(err) || i === attempts - 1) throw err;
+      await new Promise((r) => setTimeout(r, baseMs * 2 ** i + Math.random() * 200));
+    }
+  }
+  throw last;
+}
+
 function escapeQuery(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
@@ -160,31 +187,25 @@ export class GoogleDriveClient implements DriveClient {
 
   private async upload(folderId: string, name: string, bytes: Uint8Array, mimeType: string): Promise<DriveFile> {
     const existing = await this.findChild(folderId, name);
-    const body = Readable.from(Buffer.from(bytes));
+    const create = (fileName: string) =>
+      withRetry(() =>
+        this.drive.files.create({
+          requestBody: { name: fileName, parents: [folderId], mimeType },
+          media: { mimeType, body: Readable.from(Buffer.from(bytes)) },
+          fields: FIELDS,
+          supportsAllDrives: true,
+        }),
+      );
     if (existing) {
       // 임시 이름으로 새 파일 업로드 → 기존 삭제 → 이름 교체 (원자성 근사)
-      const tmpName = `.${name}.tmp-${Date.now()}`;
-      const created = await this.drive.files.create({
-        requestBody: { name: tmpName, parents: [folderId], mimeType },
-        media: { mimeType, body },
-        fields: FIELDS,
-        supportsAllDrives: true,
-      });
-      await this.drive.files.delete({ fileId: existing.id, supportsAllDrives: true });
-      const renamed = await this.drive.files.update({
-        fileId: created.data.id ?? "",
-        requestBody: { name },
-        fields: FIELDS,
-        supportsAllDrives: true,
-      });
+      const created = await create(`.${name}.tmp-${Date.now()}`);
+      await withRetry(() => this.drive.files.delete({ fileId: existing.id, supportsAllDrives: true }));
+      const renamed = await withRetry(() =>
+        this.drive.files.update({ fileId: created.data.id ?? "", requestBody: { name }, fields: FIELDS, supportsAllDrives: true }),
+      );
       return toDriveFile(renamed.data);
     }
-    const created = await this.drive.files.create({
-      requestBody: { name, parents: [folderId], mimeType },
-      media: { mimeType, body },
-      fields: FIELDS,
-      supportsAllDrives: true,
-    });
+    const created = await create(name);
     return toDriveFile(created.data);
   }
 
@@ -197,11 +218,13 @@ export class GoogleDriveClient implements DriveClient {
   }
 
   async createFolder(parentId: string, name: string): Promise<DriveFile> {
-    const res = await this.drive.files.create({
-      requestBody: { name, parents: [parentId], mimeType: FOLDER_MIME },
-      fields: FIELDS,
-      supportsAllDrives: true,
-    });
+    const res = await withRetry(() =>
+      this.drive.files.create({
+        requestBody: { name, parents: [parentId], mimeType: FOLDER_MIME },
+        fields: FIELDS,
+        supportsAllDrives: true,
+      }),
+    );
     return toDriveFile(res.data);
   }
 
@@ -215,29 +238,33 @@ export class GoogleDriveClient implements DriveClient {
   }
 
   async moveFile(fileId: string, fromParentId: string, toParentId: string): Promise<DriveFile> {
-    const res = await this.drive.files.update({
-      fileId,
-      addParents: toParentId,
-      removeParents: fromParentId,
-      fields: FIELDS,
-      supportsAllDrives: true,
-    });
+    const res = await withRetry(() =>
+      this.drive.files.update({
+        fileId,
+        addParents: toParentId,
+        removeParents: fromParentId,
+        fields: FIELDS,
+        supportsAllDrives: true,
+      }),
+    );
     this.ancestryCache.delete(fileId);
     return toDriveFile(res.data);
   }
 
   async rename(fileId: string, name: string): Promise<DriveFile> {
-    const res = await this.drive.files.update({
-      fileId,
-      requestBody: { name },
-      fields: FIELDS,
-      supportsAllDrives: true,
-    });
+    const res = await withRetry(() =>
+      this.drive.files.update({
+        fileId,
+        requestBody: { name },
+        fields: FIELDS,
+        supportsAllDrives: true,
+      }),
+    );
     return toDriveFile(res.data);
   }
 
   async deleteFile(fileId: string): Promise<void> {
-    await this.drive.files.delete({ fileId, supportsAllDrives: true });
+    await withRetry(() => this.drive.files.delete({ fileId, supportsAllDrives: true }));
     this.ancestryCache.delete(fileId);
   }
 

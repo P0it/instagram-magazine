@@ -1,6 +1,6 @@
 import "server-only";
-import { env } from "@/lib/env";
-import { GoogleDriveClient } from "./GoogleDriveClient";
+import { env, googleAuthMode } from "@/lib/env";
+import { GoogleDriveClient, oauthAuth, resolveRootFolder, serviceAccountAuth, type GoogleAuth } from "./GoogleDriveClient";
 import { MockDriveClient, type MockTree } from "@/mocks/drive/MockDriveClient";
 import { seedMockTree } from "@/mocks/seed";
 import type { DriveClient } from "./types";
@@ -11,17 +11,43 @@ export { DriveNotFoundError, FOLDER_MIME, isFolder, guessMime, isImageMime } fro
 interface GlobalDriveState {
   mockTree?: MockTree;
   mockSeeded?: Promise<void>;
-  google?: GoogleDriveClient;
+  google?: Promise<GoogleDriveClient>;
 }
 
 const g = globalThis as typeof globalThis & { __magazineDesk?: GlobalDriveState };
 const state: GlobalDriveState = (g.__magazineDesk ??= {});
 
+/** 현재 환경변수로 만든 Google 인증. 자격증명이 없으면 null. */
+export function googleAuthFromEnv(): GoogleAuth | null {
+  const e = env();
+  switch (googleAuthMode(e)) {
+    case "oauth":
+      return oauthAuth({ clientId: e.GOOGLE_OAUTH_CLIENT_ID, clientSecret: e.GOOGLE_OAUTH_CLIENT_SECRET, refreshToken: e.GOOGLE_REFRESH_TOKEN });
+    case "service_account":
+      return serviceAccountAuth(e.GOOGLE_SERVICE_ACCOUNT_JSON);
+    default:
+      return null;
+  }
+}
+
+async function createGoogleDrive(): Promise<GoogleDriveClient> {
+  const e = env();
+  const auth = googleAuthFromEnv();
+  if (!auth) throw new Error("Google Drive 자격증명이 없습니다 (GOOGLE_REFRESH_TOKEN 또는 GOOGLE_SERVICE_ACCOUNT_JSON)");
+  // 서비스 계정은 공유받은 폴더 id 가 필수, OAuth 는 없으면 "Instagram Magazine" 을 찾거나 만든다
+  if (googleAuthMode(e) === "service_account" && !e.GOOGLE_DRIVE_ROOT_FOLDER_ID) throw new Error("GOOGLE_DRIVE_ROOT_FOLDER_ID missing");
+  const root = await resolveRootFolder(auth, e.GOOGLE_DRIVE_ROOT_FOLDER_ID);
+  return new GoogleDriveClient(auth, root);
+}
+
 /** 서버 전용. DRIVE_CLIENT=google 이고 자격증명이 있으면 Google, 아니면 Mock. */
 export async function getDrive(): Promise<DriveClient> {
   const e = env();
   if (e.DRIVE_CLIENT === "google") {
-    state.google ??= new GoogleDriveClient(e.GOOGLE_SERVICE_ACCOUNT_JSON, e.GOOGLE_DRIVE_ROOT_FOLDER_ID);
+    state.google ??= createGoogleDrive().catch((err) => {
+      state.google = undefined; // 실패는 캐시하지 않는다
+      throw err;
+    });
     return state.google;
   }
   if (!state.mockTree) {

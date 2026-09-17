@@ -25,7 +25,7 @@ ChatGPT 예약 작업이 Google Drive에 떨어뜨린 초안(텍스트 + 이미�
 | 에디터 상태 | **Zustand + Immer** (undo/redo) | 캔버스 편집은 클라이언트 로컬 상태 |
 | 캔버스 | **react-konva** | 폭 1080 × 포스트 규격 높이(4:5 1350 기본 · 3:4 1440 · 1:1 1080 · 1.91:1 566) 논리 좌표, `toDataURL({pixelRatio})`로 결정적 내보내기 |
 | 스키마 | **Zod** | 모든 Drive JSON은 Zod로 파싱·기본값 보정 |
-| 저장소 | **Google Drive만** (`googleapis` Drive v3, 서비스 계정) | 콘텐츠 + 앱 상태(계정·잡·인덱스) 전부 Drive의 `_system/` 폴더 |
+| 저장소 | **Google Drive만** (`googleapis` Drive v3, 사용자 OAuth refresh token 또는 서비스 계정) | 콘텐츠 + 앱 상태(계정·잡·인덱스) 전부 Drive의 `_system/` 폴더 |
 | 접근 제한 | **`proxy.ts` + 접근 키 쿠키** (환경변수 1개) | 로그인 화면 없음. `/?key=…` 한 번 열면 쿠키 저장, 이후 자유 |
 | Instagram | **Instagram API with Instagram Login (Graph API)** | 비밀번호 수집 없음, 장기 토큰(60일) + refresh |
 | IG 이미지 공개 URL | **자체 서명 URL 라우트** `/api/public/[token]` (HMAC, 30분 만료) | 외부 스토리지 없이 Drive 렌더를 IG가 읽을 수 있게 중계 |
@@ -46,7 +46,7 @@ ChatGPT 예약 작업이 Google Drive에 떨어뜨린 초안(텍스트 + 이미�
 
 ### 결정 사항(PRD 대비)
 
-1. **Drive 접근은 서비스 계정.** 루트 폴더를 서비스 계정 이메일에 "편집자"로 공유. 사용자 OAuth 없음 → refresh token 만료 이슈 없음.
+1. **Drive 접근은 사용자 Google 계정(OAuth) 또는 서비스 계정.** (v1.2) 설정 › Google Drive 에서 "Google 계정으로 연결" → 콜백이 refresh token 을 암호화 쿠키로 설정 화면에 한 번 보여주고, 사용자가 `GOOGLE_REFRESH_TOKEN` 환경변수에 넣는다. 토큰을 Drive 에 둘 수 없고(그 토큰으로 Drive 를 연다) 크론은 브라우저 없이 Drive 를 열어야 하므로 환경변수가 유일한 저장소다. 루트 폴더는 내 드라이브의 `/Instagram Magazine` 을 찾거나 만든다. 서비스 계정(폴더 공유 + `GOOGLE_DRIVE_ROOT_FOLDER_ID`)도 계속 지원. 둘 다 있으면 OAuth 우선(`googleAuthMode`).
 2. **Inbox + Ingest 계층.** `/inbox/<username>/`에 느슨하게 떨어진 ChatGPT 산출물을 앱이 정규화해 정식 포스트 폴더로 옮긴다. 폴더는 계정 연결 시 자동 생성되므로 매일 지침에는 그 폴더만 목적지로 적으면 된다.
 3. **IG 공개 이미지 URL은 자체 라우트로 중계.** `proxy.ts`에서 `/api/public/*`만 접근 키 검사에서 제외하고, 대신 HMAC 서명 토큰 + 만료로 보호.
 4. **Konva 이미지 소스는 same-origin 프록시**(`/api/drive/file/[id]`)로만 로드 (canvas taint 방지).
@@ -68,7 +68,7 @@ ChatGPT 예약 작업이 Google Drive에 떨어뜨린 초안(텍스트 + 이미�
 │  /Instagram Magazine/<CH>/{draft,approved,published}/<post>│
 │  /Instagram Magazine/_system/{accounts,index,ingest-log}.json, style-packs/ │
 └────────────┬──────────────────────────────────────────────┘
-             │ 서비스 계정 (Drive v3)
+             │ OAuth refresh token 또는 서비스 계정 (Drive v3)
              ▼
 ┌───────────────────────────────────────────────────────────┐
 │ Magazine Desk (Next.js 16 on Vercel Hobby)                 │
@@ -320,6 +320,7 @@ publish(post):
 | PATCH | `/api/instagram/accounts/[key]` | 채널 설정 편집. key·ig_user_id·토큰·폴더 id 는 바디에서 무시 |
 | POST | `/api/instagram/accounts/mock` | Mock Drive 전용 가짜 연결 (Google 모드 404) |
 | GET | `/api/instagram/oauth/start`, `/oauth/callback` | OAuth. 콜백이 username 을 키로 계정+폴더 생성 |
+| GET | `/api/google/oauth/start`, `/oauth/callback`, `/oauth/result` | Google Drive 연결. 콜백은 refresh token 을 암호화 쿠키(10분)에 두고, result 가 한 번 읽어 화면에 표시 |
 | GET | `/api/cron/publish` | (1.1) `scheduled` 중 run_at ≤ now 실행. Bearer CRON_SECRET |
 | GET | `/api/insights?range=7\|28\|90` | (M6) `_system/insights/*.json` 스냅샷 → 계정 요약·시계열·게시물 지표 |
 | POST | `/api/insights/collect` | (M6) 사용자가 "지금 수집" — 모든 연결 계정 인사이트 수집 |

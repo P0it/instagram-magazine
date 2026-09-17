@@ -28,24 +28,69 @@ function escapeQuery(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+export const DEFAULT_ROOT_FOLDER_NAME = "Instagram Magazine";
+
+export type GoogleAuth = InstanceType<typeof google.auth.JWT> | InstanceType<typeof google.auth.OAuth2>;
+
+export function serviceAccountAuth(serviceAccountJsonBase64: string): GoogleAuth {
+  if (!serviceAccountJsonBase64) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON missing");
+  const credentials = JSON.parse(Buffer.from(serviceAccountJsonBase64, "base64").toString("utf8")) as {
+    client_email: string;
+    private_key: string;
+  };
+  return new google.auth.JWT({
+    email: credentials.client_email,
+    key: credentials.private_key,
+    scopes: ["https://www.googleapis.com/auth/drive"],
+  });
+}
+
+/** 사용자 본인 Drive: refresh token 으로 access token 을 자동 갱신하는 OAuth2 클라이언트 */
+export function oauthAuth(opts: { clientId: string; clientSecret: string; refreshToken: string }): GoogleAuth {
+  const auth = new google.auth.OAuth2({ clientId: opts.clientId, clientSecret: opts.clientSecret });
+  auth.setCredentials({ refresh_token: opts.refreshToken });
+  return auth;
+}
+
+/**
+ * 루트 폴더 결정. rootFolderId 가 있으면 그대로, 없으면 내 드라이브 최상위에서
+ * "Instagram Magazine" 폴더를 찾고 없으면 만든다 (OAuth 모드 전용 — 서비스 계정은 공유된 폴더 id 가 필요).
+ */
+export async function resolveRootFolder(auth: GoogleAuth, rootFolderId: string): Promise<string> {
+  if (rootFolderId) return rootFolderId;
+  const drive = google.drive({ version: "v3", auth });
+  const q = `'root' in parents and name = '${escapeQuery(DEFAULT_ROOT_FOLDER_NAME)}' and mimeType = '${FOLDER_MIME}' and trashed = false`;
+  const found = await drive.files.list({ q, fields: "files(id)", pageSize: 1 });
+  const hit = found.data.files?.[0]?.id;
+  if (hit) return hit;
+  const created = await drive.files.create({
+    requestBody: { name: DEFAULT_ROOT_FOLDER_NAME, mimeType: FOLDER_MIME, parents: ["root"] },
+    fields: "id",
+  });
+  if (!created.data.id) throw new Error("루트 폴더를 만들지 못했습니다");
+  return created.data.id;
+}
+
+export interface GoogleDriveIdentity {
+  email: string | null;
+  displayName: string | null;
+}
+
+/** 연결된 Google 계정 (설정 화면 표시용) */
+export async function fetchDriveIdentity(auth: GoogleAuth): Promise<GoogleDriveIdentity> {
+  const drive = google.drive({ version: "v3", auth });
+  const res = await drive.about.get({ fields: "user(emailAddress,displayName)" });
+  return { email: res.data.user?.emailAddress ?? null, displayName: res.data.user?.displayName ?? null };
+}
+
 export class GoogleDriveClient implements DriveClient {
   readonly kind = "google" as const;
   private drive: drive_v3.Drive;
   private root: string;
   private ancestryCache = new Map<string, boolean>();
 
-  constructor(serviceAccountJsonBase64: string, rootFolderId: string) {
-    if (!serviceAccountJsonBase64) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON missing");
-    if (!rootFolderId) throw new Error("GOOGLE_DRIVE_ROOT_FOLDER_ID missing");
-    const credentials = JSON.parse(Buffer.from(serviceAccountJsonBase64, "base64").toString("utf8")) as {
-      client_email: string;
-      private_key: string;
-    };
-    const auth = new google.auth.JWT({
-      email: credentials.client_email,
-      key: credentials.private_key,
-      scopes: ["https://www.googleapis.com/auth/drive"],
-    });
+  constructor(auth: GoogleAuth, rootFolderId: string) {
+    if (!rootFolderId) throw new Error("root folder id missing");
     this.drive = google.drive({ version: "v3", auth });
     this.root = rootFolderId;
   }

@@ -44,16 +44,35 @@ npm run build
 
 ## Google Drive 연결 (M2)
 
+### 방법 1 — Google 계정으로 연결 (권장)
+
+내 드라이브를 그대로 쓴다. 루트 폴더 `/Instagram Magazine` 은 없으면 자동 생성.
+
+1. [Google Cloud 콘솔](https://console.cloud.google.com/apis/credentials) → 프로젝트 생성 → **Google Drive API** 사용 설정.
+2. 사용자 인증 정보 → **OAuth 클라이언트 ID(웹 애플리케이션)** 생성. 승인된 리디렉션 URI 에 `<APP_BASE_URL>/api/google/oauth/callback` 등록 (로컬은 `http://localhost:3000/api/google/oauth/callback`). OAuth 동의 화면에서 본인 계정을 테스트 사용자로 추가.
+3. `DRIVE_CLIENT=google`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` 설정 후 서버 시작 → 설정 › Google Drive › **Google 계정으로 연결**.
+4. 동의가 끝나면 화면에 `GOOGLE_REFRESH_TOKEN=…` 이 한 번 표시된다. 그 값을 환경변수에 넣고 서버를 다시 시작하면 연결 완료. (토큰은 Drive 에 저장할 수 없고 — 그 토큰으로 Drive 를 여니까 — 크론도 서버에서 Drive 를 열어야 하므로 환경변수가 유일한 저장소다.)
+
+```env
+DRIVE_CLIENT=google
+GOOGLE_OAUTH_CLIENT_ID=<xxx.apps.googleusercontent.com>
+GOOGLE_OAUTH_CLIENT_SECRET=<…>
+GOOGLE_REFRESH_TOKEN=<설정 화면에서 복사>
+```
+
+### 방법 2 — 서비스 계정
+
 1. Google Cloud 콘솔에서 서비스 계정 생성 → JSON 키 다운로드 → **Drive API 활성화**.
 2. Drive 에 `/Instagram Magazine` 폴더를 만들고 서비스 계정 이메일(`xxx@yyy.iam.gserviceaccount.com`)에 **편집자**로 공유. 폴더 URL 의 ID 를 `GOOGLE_DRIVE_ROOT_FOLDER_ID` 로.
-3. 하위 폴더(`inbox/<CH>`, `<CH>/{draft,approved,published}`, `_system`)는 앱이 첫 접근 시 자동 생성한다.
-4. 환경변수:
+3. 환경변수:
 
 ```env
 DRIVE_CLIENT=google
 GOOGLE_SERVICE_ACCOUNT_JSON=<서비스 계정 JSON 파일을 base64 로 인코딩한 한 줄>
 GOOGLE_DRIVE_ROOT_FOLDER_ID=<폴더 ID>
 ```
+
+두 방식 모두 하위 폴더(`inbox/<username>`, `<username>/{draft,approved,published}`, `_system`)는 앱이 자동 생성한다. 둘 다 설정돼 있으면 OAuth 가 우선.
 
 ```bash
 # base64 인코딩 (PowerShell)

@@ -7,6 +7,7 @@
 ## 절대 규칙
 - **DB 없음.** Supabase/Prisma/Drizzle/Postgres/KV/Blob 어떤 것도 추가하지 않는다. 상태는 Google Drive JSON(`_system/*.json`, 포스트 폴더)과 환경변수에만 둔다.
 - **로그인/인증 라이브러리 없음.** 접근 제한은 `src/proxy.ts`의 `APP_ACCESS_KEY` 쿠키 검사 하나.
+- **Google Drive 자격증명은 환경변수에만.** 사용자 OAuth(`GOOGLE_REFRESH_TOKEN` + 클라이언트 id/secret) 또는 서비스 계정. 콜백은 토큰을 화면에 한 번 보여줄 뿐 어디에도 저장하지 않는다 (`src/lib/google`, `googleAuthMode`).
 - **계정 = 채널, 고정 채널 없음.** Instagram 계정은 OAuth 로 동적으로 추가된다(`src/lib/instagram/connect.ts`). 키는 연결 시점 username, Drive 폴더 `/inbox/<key>/`·`/<key>/…` 는 연결 시 자동 생성. 채널 enum·`CHANNEL_META`·`channels.json` 같은 하드코딩을 다시 만들지 않는다. 계정 목록은 서버 `listAccounts()`, 클라이언트 `useAccountList()`.
 - **모든 Drive JSON은 `src/types/*.ts`의 Zod 스키마로만 읽고 쓴다.** `any` 금지.
 - **Drive/Instagram 접근 코드는 `server-only`.** 토큰·시크릿이 클라이언트로 내려가는 경로를 만들지 않는다. 브라우저에는 `username/status/expires_at`만.

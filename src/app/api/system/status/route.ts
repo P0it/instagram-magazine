@@ -1,5 +1,6 @@
 import { SystemStatusSchema, type SystemStatus } from "@/types";
 import { getDrive } from "@/lib/drive";
+import { googleDriveStatus } from "@/lib/google/status";
 import { readIngestLog } from "@/lib/drive/system-files";
 import { shouldAutoSync } from "@/lib/ingest/sync";
 import { refreshExpiringAccounts } from "@/lib/instagram/accounts";
@@ -13,10 +14,11 @@ import { handle, json } from "@/lib/api/respond";
 export async function GET() {
   return handle(async () => {
     const drive = await getDrive();
-    const [log, accounts] = await Promise.all([readIngestLog(drive), refreshExpiringAccounts(drive)]);
+    const [log, accounts, googleStatus] = await Promise.all([readIngestLog(drive), refreshExpiringAccounts(drive), googleDriveStatus()]);
     return json<SystemStatus>(
       SystemStatusSchema.parse({
         drive_kind: drive.kind,
+        google: googleStatus,
         oauth_configured: isOauthConfigured(),
         access_key_enabled: Boolean(env().APP_ACCESS_KEY),
         last_sync_at: log.data.last_sync_at,

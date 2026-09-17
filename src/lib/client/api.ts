@@ -112,6 +112,12 @@ export const api = {
 
   updateAccount: (key: string, patch: AccountSettingsPatch) =>
     request(`/api/instagram/accounts/${encodeURIComponent(key)}`, PublicAccountSchema, jsonInit("PATCH", patch)),
+  /** Google OAuth 콜백이 남긴 일회성 결과 (refresh token · 이메일) */
+  googleSetupResult: () =>
+    request(
+      "/api/google/oauth/result",
+      zod.object({ result: zod.object({ refresh_token: zod.string(), email: zod.string().nullable(), issued_at: zod.string() }).nullable(), active: zod.boolean() }),
+    ),
   /** Mock Drive 전용 가짜 연결 */
   mockConnectAccount: (username: string) => request("/api/instagram/accounts/mock", AccountsResponseSchema, jsonInit("POST", { username })),
 

@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronRight, CircleCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Check, CircleCheck, Copy, ExternalLink, HardDrive } from "lucide-react";
+import type { GoogleDriveStatus } from "@/types";
 import { useSync, useSystemStatus } from "@/lib/client/queries";
+import { api } from "@/lib/client/api";
 import { fmtTime } from "@/lib/client/format";
 import { SettingsRow, SettingsSection } from "./settings-shell";
 import { cn } from "@/lib/utils";
 
-const TREE = `/Instagram Magazine                      <- GOOGLE_DRIVE_ROOT_FOLDER_ID
+const TREE = `/Instagram Magazine                      <- 내 드라이브 최상위 (OAuth) 또는 GOOGLE_DRIVE_ROOT_FOLDER_ID (서비스 계정)
   /inbox/<username>/                      <- 계정 연결 시 자동 생성. ChatGPT 착지 지점: YYYY-MM-DD_slug.md + _1.png ...
   /<username>/{draft,approved,published}/<post>/
       metadata.json · sources.json · visual-brief.json · editor-state.json
@@ -22,26 +27,13 @@ export function DriveSettings() {
 
   return (
     <>
-      <SettingsSection title="Google Drive" description="초안이 들어오는 폴더예요.">
-        <SettingsRow>
-          <div className="flex flex-1 flex-col gap-[3px]">
-            <span className="text-[15px] font-semibold">저장소</span>
-            <span className="text-[13px] text-label-alt">{s ? (s.drive_kind === "google" ? "Google Drive · 서비스 계정" : "Mock · 인메모리 (DRIVE_CLIENT=mock)") : "…"}</span>
-          </div>
-          <ChevronRight className="size-[18px] opacity-40" />
-        </SettingsRow>
-        <SettingsRow>
-          <div className="flex flex-1 flex-col gap-[3px]">
-            <span className="text-[15px] font-semibold">루트 폴더</span>
-            <span className="text-[13px] text-label-alt">GOOGLE_DRIVE_ROOT_FOLDER_ID · inbox/채널 아래에 .md + 이미지</span>
-            <span className="text-xs text-label-assistive">서비스 계정 이메일에 이 폴더를 편집자로 공유하세요.</span>
-          </div>
-        </SettingsRow>
+      <SettingsSection title="Google Drive" description="초안·포스트·설정이 전부 여기 저장돼요. Google 계정으로 연결하면 내 드라이브에 /Instagram Magazine 폴더가 자동으로 생겨요.">
+        {s ? <GoogleConnection g={s.google} /> : <SettingsRow><span className="text-sm text-label-alt">…</span></SettingsRow>}
         <SettingsRow>
           <div className="flex flex-1 flex-col gap-[3px]">
             <span className="text-[15px] font-semibold">접근 키 · Meta OAuth</span>
             <span className="text-[13px] text-label-alt">
-              {s ? (s.access_key_enabled ? "APP_ACCESS_KEY 활성" : "접근 키 없음 — 로컬 개발 모드") : "…"} · {s ? (s.oauth_configured ? "OAuth 설정됨" : "OAuth 미설정") : "…"}
+              {s ? (s.access_key_enabled ? "APP_ACCESS_KEY 활성" : "접근 키 없음 — 로컬 개발 모드") : "…"} · {s ? (s.oauth_configured ? "Meta OAuth 설정됨" : "Meta OAuth 미설정") : "…"}
             </span>
           </div>
         </SettingsRow>
@@ -95,6 +87,133 @@ export function DriveSettings() {
       <SettingsSection title="Drive 폴더 구조">
         <pre className="m-0 overflow-x-auto px-5 pb-5 font-mono text-[11px] leading-relaxed text-label-neutral">{TREE}</pre>
       </SettingsSection>
+    </>
+  );
+}
+
+const MODE_LABEL: Record<GoogleDriveStatus["mode"], string> = {
+  mock: "Mock · 인메모리 (DRIVE_CLIENT=mock)",
+  oauth: "Google 계정 (OAuth)",
+  service_account: "서비스 계정",
+  none: "자격증명 없음",
+};
+
+function CopyButton({ text, label = "복사" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          toast.error("클립보드에 복사하지 못했어요.");
+        }
+      }}
+      className="flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold text-brand hover:bg-fill"
+    >
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}{copied ? "복사됨" : label}
+    </button>
+  );
+}
+
+/**
+ * Google Drive 연결 카드.
+ *  - 연결됨: 이메일 · 루트 폴더 링크
+ *  - OAuth 클라이언트 있음: "Google 계정으로 연결" → 콜백이 남긴 refresh token 을 여기서 보여주고 환경변수로 안내
+ *  - 없음: Google Cloud 콘솔 설정 안내 (리디렉션 URI 복사)
+ */
+function GoogleConnection({ g }: { g: GoogleDriveStatus }) {
+  const sp = useSearchParams();
+  const justConnected = sp.get("google") === "connected";
+  const setup = useQuery({ queryKey: ["google-setup"], queryFn: api.googleSetupResult, enabled: justConnected, staleTime: Infinity });
+  useEffect(() => {
+    const error = sp.get("error");
+    if (error) toast.error(`Google 연결 실패: ${error}`);
+  }, [sp]);
+
+  const connected = g.mode === "oauth" || g.mode === "service_account";
+  const rootUrl = g.root_folder_id ? `https://drive.google.com/drive/folders/${g.root_folder_id}` : null;
+  const result = setup.data?.result ?? null;
+
+  return (
+    <>
+      <SettingsRow>
+        <div className="grid size-10 shrink-0 place-items-center rounded-full bg-fill">
+          <HardDrive className="size-[18px] opacity-60" />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+          <span className="text-[15px] font-semibold">{MODE_LABEL[g.mode]}</span>
+          {g.error ? (
+            <span className="text-[13px] text-negative">{g.error}</span>
+          ) : connected ? (
+            <span className="text-[13px] text-label-alt">{g.email ? `${g.email} · ` : ""}루트 폴더 {g.root_folder_id}</span>
+          ) : g.mode === "mock" ? (
+            <span className="text-[13px] text-label-alt">실제 Drive 를 쓰려면 DRIVE_CLIENT=google 로 바꾸고 아래에서 Google 계정을 연결하세요.</span>
+          ) : (
+            <span className="text-[13px] text-label-alt">아래에서 Google 계정을 연결하세요.</span>
+          )}
+        </div>
+        {rootUrl && (
+          <a href={rootUrl} target="_blank" rel="noreferrer" className="flex h-8 items-center gap-1 rounded-md px-2 text-[13px] font-semibold text-brand hover:bg-fill-alt">
+            <ExternalLink className="size-3.5" />폴더 열기
+          </a>
+        )}
+      </SettingsRow>
+
+      {result && (
+        <div className="mx-5 my-3 flex flex-col gap-3 rounded-xl px-4 py-3.5" style={{ background: "var(--semantic-background-status-positive)" }}>
+          <div className="flex items-center gap-2">
+            <CircleCheck className="size-4 text-positive" />
+            <span className="text-sm font-semibold">{result.email ? `${result.email} 연결 승인됨` : "Google 연결 승인됨"}</span>
+          </div>
+          {setup.data?.active ? (
+            <p className="m-0 text-[13px] text-label-alt">이 토큰은 이미 GOOGLE_REFRESH_TOKEN 으로 설정돼 있어요. 추가로 할 일이 없습니다.</p>
+          ) : (
+            <>
+              <p className="m-0 text-[13px] leading-normal text-label-neutral">
+                마지막 한 단계 — 아래 값을 <code className="rounded bg-surface px-1 font-mono text-xs">GOOGLE_REFRESH_TOKEN</code> 환경변수에 넣고 서버를 다시 시작하세요
+                (로컬은 <code className="rounded bg-surface px-1 font-mono text-xs">.env.local</code>, 배포는 Vercel 환경변수). 예약 게시·인사이트 크론도 이 토큰으로 Drive 를 열어요.
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded bg-surface px-2 py-1.5 font-mono text-xs hairline">GOOGLE_REFRESH_TOKEN={result.refresh_token}</code>
+                <CopyButton text={`GOOGLE_REFRESH_TOKEN=${result.refresh_token}`} />
+              </div>
+              <p className="m-0 text-xs text-label-assistive">이 값은 지금 한 번만 표시돼요. 잃어버리면 다시 연결하면 됩니다.</p>
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3 px-5 pb-4 pt-3.5" style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
+        {g.oauth_configured ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <a href="/api/google/oauth/start" className="flex h-10 items-center gap-2 rounded-[10px] bg-brand px-4 text-sm font-semibold text-white hover:opacity-90">
+              {connected ? "다른 Google 계정으로 다시 연결" : "Google 계정으로 연결"}
+            </a>
+            <span className="text-[13px] text-label-alt">Drive 전체 접근 권한을 요청해요 (ChatGPT 가 넣는 파일도 읽어야 해서).</span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 rounded-xl bg-fill-alt px-4 py-3.5">
+            <span className="text-sm font-semibold">Google OAuth 클라이언트가 아직 없어요</span>
+            <p className="m-0 text-[13px] leading-normal text-label-alt">Google 계정으로 연결하려면 Google Cloud 콘솔에서 OAuth 클라이언트를 한 번 만들어야 해요.</p>
+            <ol className="m-0 list-decimal space-y-1.5 pl-5 text-[13px] leading-normal text-label-neutral">
+              <li><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="font-semibold text-brand hover:underline">console.cloud.google.com</a> → 프로젝트 생성 → <b>Google Drive API</b> 사용 설정.</li>
+              <li>사용자 인증 정보 → OAuth 클라이언트 ID(웹 애플리케이션) 생성. 승인된 리디렉션 URI 에 등록:
+                <span className="mt-1 flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded bg-surface px-2 py-1 font-mono text-xs hairline">{g.redirect_uri}</code>
+                  <CopyButton text={g.redirect_uri} />
+                </span>
+              </li>
+              <li>OAuth 동의 화면에서 본인 Google 계정을 테스트 사용자로 추가 (앱 게시 불필요).</li>
+              <li>환경변수 <code className="rounded bg-surface px-1 font-mono text-xs">GOOGLE_OAUTH_CLIENT_ID</code> · <code className="rounded bg-surface px-1 font-mono text-xs">GOOGLE_OAUTH_CLIENT_SECRET</code> 를 넣고 서버를 다시 시작하면 여기에 연결 버튼이 나타나요.</li>
+            </ol>
+            <p className="m-0 text-xs leading-normal text-label-assistive">서비스 계정 방식(GOOGLE_SERVICE_ACCOUNT_JSON + GOOGLE_DRIVE_ROOT_FOLDER_ID)도 계속 지원해요. 둘 다 있으면 OAuth 가 우선.</p>
+          </div>
+        )}
+      </div>
     </>
   );
 }

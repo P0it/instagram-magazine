@@ -6,7 +6,7 @@ import type { SlideDef, SlideEditorState, SlideLayer } from "@/types";
 import { useEditorStore, type Selection } from "@/stores/editor-store";
 import { stickerColors, stickerDef, iconLabel } from "@/lib/render/stickers";
 import { CANVAS_WIDTH, FORMAT_INFO } from "@/types";
-import { ChipButton, GhostIcon } from "@/components/md/primitives";
+import { ChipButton, GhostIcon, rangeStyle } from "@/components/md/primitives";
 import { SlideCanvas } from "./canvas";
 import { cn } from "@/lib/utils";
 
@@ -261,7 +261,7 @@ function Quick({ label, min, max, step, value, display, onChange }: { label: str
   return (
     <div className="flex items-center gap-2">
       <span className="w-7 whitespace-nowrap text-[11px] font-semibold text-label-alt">{label}</span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="!h-4 !w-[132px]" />
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="!h-4 !w-[132px]" style={rangeStyle(value, min, max)} />
       <span className="w-[30px] text-right text-[11px] font-semibold tabular-nums text-label-neutral">{display}</span>
     </div>
   );

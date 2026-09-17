@@ -132,7 +132,7 @@ export function RangeRow({
         <span className="text-xs font-semibold text-label-alt">{label}</span>
         <span className="text-[13px] font-semibold tabular-nums">{display}</span>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} />
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} style={rangeStyle(value, min, max)} />
       {hint && onHint && (
         <button type="button" onClick={onHint} className="self-start rounded-md bg-fill-alt px-2.5 py-[3px] text-[11px] text-label-alt hover:bg-fill">
           {hint}
@@ -140,6 +140,12 @@ export function RangeRow({
       )}
     </div>
   );
+}
+
+/** 슬라이더 채움 비율 — globals.css 의 input[type=range] 트랙이 --range-pct 로 그린다 */
+export function rangeStyle(value: number, min: number, max: number): React.CSSProperties {
+  const pct = max === min ? 0 : ((value - min) / (max - min)) * 100;
+  return { "--range-pct": `${Math.max(0, Math.min(100, pct))}%` } as React.CSSProperties;
 }
 
 /** 색 팔레트 그리드 + 직접 고르기 */

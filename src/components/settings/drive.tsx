@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, CircleCheck, Copy, ExternalLink, HardDrive } from "lucide-react";
+import { Check, CircleCheck, Copy, ExternalLink } from "lucide-react";
+import { GoogleDriveLogo, GoogleGLogo } from "@/components/brand/logos";
 import type { GoogleDriveStatus } from "@/types";
 import { useSync, useSystemStatus } from "@/lib/client/queries";
 import { api } from "@/lib/client/api";
@@ -129,10 +130,15 @@ function GoogleConnection({ g }: { g: GoogleDriveStatus }) {
   const sp = useSearchParams();
   const justConnected = sp.get("google") === "connected";
   const setup = useQuery({ queryKey: ["google-setup"], queryFn: api.googleSetupResult, enabled: justConnected, staleTime: Infinity });
+  const qc = useQueryClient();
   useEffect(() => {
     const error = sp.get("error");
     if (error) toast.error(`Google 연결 실패: ${error}`);
   }, [sp]);
+  useEffect(() => {
+    // 로컬 자동 저장이면 서버 상태가 이미 바뀌었으니 카드를 새로 그린다
+    if (setup.data?.result?.saved_locally) void qc.invalidateQueries({ queryKey: ["system-status"] });
+  }, [setup.data, qc]);
 
   const connected = g.mode === "oauth" || g.mode === "service_account";
   const rootUrl = g.root_folder_id ? `https://drive.google.com/drive/folders/${g.root_folder_id}` : null;
@@ -141,8 +147,8 @@ function GoogleConnection({ g }: { g: GoogleDriveStatus }) {
   return (
     <>
       <SettingsRow>
-        <div className="grid size-10 shrink-0 place-items-center rounded-full bg-fill">
-          <HardDrive className="size-[18px] opacity-60" />
+        <div className="grid size-10 shrink-0 place-items-center rounded-full bg-fill-alt hairline-neutral">
+          <GoogleDriveLogo size={22} />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
           <span className="text-[15px] font-semibold">{MODE_LABEL[g.mode]}</span>
@@ -169,7 +175,12 @@ function GoogleConnection({ g }: { g: GoogleDriveStatus }) {
             <CircleCheck className="size-4 text-positive" />
             <span className="text-sm font-semibold">{result.email ? `${result.email} 연결 승인됨` : "Google 연결 승인됨"}</span>
           </div>
-          {setup.data?.active ? (
+          {result.saved_locally ? (
+            <p className="m-0 text-[13px] leading-normal text-label-alt">
+              토큰을 <code className="rounded bg-surface px-1 font-mono text-xs">.env.local</code> 에 저장했어요. 바로 사용할 수 있고, 재시작도 필요 없어요.
+              배포(Vercel)에는 같은 값을 <code className="rounded bg-surface px-1 font-mono text-xs">GOOGLE_REFRESH_TOKEN</code> 환경변수로 넣어주세요.
+            </p>
+          ) : setup.data?.active ? (
             <p className="m-0 text-[13px] text-label-alt">이 토큰은 이미 GOOGLE_REFRESH_TOKEN 으로 설정돼 있어요. 추가로 할 일이 없습니다.</p>
           ) : (
             <>
@@ -190,7 +201,8 @@ function GoogleConnection({ g }: { g: GoogleDriveStatus }) {
       <div className="flex flex-col gap-3 px-5 pb-4 pt-3.5" style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
         {g.oauth_configured ? (
           <div className="flex flex-wrap items-center gap-3">
-            <a href="/api/google/oauth/start" className="flex h-10 items-center gap-2 rounded-[10px] bg-brand px-4 text-sm font-semibold text-white hover:opacity-90">
+            <a href="/api/google/oauth/start" className="flex h-10 items-center gap-2.5 rounded-[10px] bg-surface px-4 text-sm font-semibold text-label hairline-neutral shadow-e-xs hover:bg-fill-alt">
+              <GoogleGLogo size={18} />
               {connected ? "다른 Google 계정으로 다시 연결" : "Google 계정으로 연결"}
             </a>
             <span className="text-[13px] text-label-alt">Drive 전체 접근 권한을 요청해요 (ChatGPT 가 넣는 파일도 읽어야 해서).</span>

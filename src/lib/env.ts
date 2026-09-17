@@ -40,6 +40,16 @@ export function env(): Env {
   return cached;
 }
 
+/** process.env 가 바뀐 뒤(로컬 .env.local 자동 저장) 다시 읽게 한다 */
+export function resetEnvCache(): void {
+  cached = null;
+}
+
+/** 로컬 개발 프로세스인가 — .env.local 을 직접 고칠 수 있는 환경 */
+export function isLocalDev(): boolean {
+  return process.env.NODE_ENV !== "production" && !process.env.VERCEL;
+}
+
 /** 32바이트 키. 미설정이면 개발용 고정 키(경고 로그) — 운영에서는 반드시 설정. */
 export function encryptionKey(): Buffer {
   const raw = env().APP_ENCRYPTION_KEY;

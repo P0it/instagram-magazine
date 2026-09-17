@@ -4,6 +4,7 @@ import { env, googleRedirectUri } from "@/lib/env";
 import { encryptString } from "@/lib/crypto/aes";
 import { encryptionKey } from "@/lib/env";
 import { exchangeGoogleCode, fetchGoogleEmail, type GoogleSetupResult } from "@/lib/google/oauth";
+import { persistRefreshTokenLocally } from "@/lib/google/local-env";
 import { GOOGLE_SETUP_COOKIE, GOOGLE_STATE_COOKIE } from "../start/route";
 
 /**
@@ -30,7 +31,9 @@ export async function GET(req: Request) {
     const e = env();
     const token = await exchangeGoogleCode({ clientId: e.GOOGLE_OAUTH_CLIENT_ID, clientSecret: e.GOOGLE_OAUTH_CLIENT_SECRET, redirectUri: googleRedirectUri(), code });
     const email = await fetchGoogleEmail(token.access_token);
-    const result: GoogleSetupResult = { refresh_token: token.refresh_token, email, issued_at: new Date().toISOString() };
+    // 로컬이면 .env.local 에 바로 써서 복사·재시작을 생략한다. 실패해도 화면에 토큰을 보여주는 경로가 남는다.
+    const savedLocally = await persistRefreshTokenLocally(token.refresh_token).catch(() => false);
+    const result: GoogleSetupResult = { refresh_token: token.refresh_token, email, issued_at: new Date().toISOString(), saved_locally: savedLocally };
     jar.set({
       name: GOOGLE_SETUP_COOKIE,
       value: encryptString(JSON.stringify(result), encryptionKey()),

@@ -4,7 +4,8 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AtSign, Check, ChevronDown, Copy, ExternalLink } from "lucide-react";
+import { Check, ChevronDown, Copy, ExternalLink } from "lucide-react";
+import { InstagramLogo } from "@/components/brand/logos";
 import { PresetIdSchema, SlideRoleSchema, type AccountSettingsPatch, type PublicAccount, type SlideRole } from "@/types";
 import { useAccounts, useStylePacks, useSystemStatus } from "@/lib/client/queries";
 import { api } from "@/lib/client/api";
@@ -109,7 +110,10 @@ function AccountCard({ account: a, inboxUrl, open, onToggle, oauth, onDisconnect
   return (
     <div data-testid={`account-card-${a.key}`} style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
       <div className="flex items-center gap-3.5 px-5 py-3.5">
-        <AvatarPlaceholder size={40} ring={meta.color} />
+        <div className="relative shrink-0">
+          <AvatarPlaceholder size={40} ring={meta.color} />
+          <span className="absolute -bottom-0.5 -right-0.5 grid size-[18px] place-items-center rounded-full bg-surface"><InstagramLogo size={14} /></span>
+        </div>
         <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
           <span className="flex items-center gap-2 text-[15px] font-semibold">
             <span className="size-2 rounded-full" style={{ background: meta.color }} />
@@ -269,15 +273,15 @@ function ConnectSection({ oauth, isMock, mockName, setMockName, onMockConnect, m
     <div className="flex flex-col gap-4 px-5 pb-5 pt-4" style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
       {oauth ? (
         <div className="flex flex-wrap items-center gap-3">
-          <a href="/api/instagram/oauth/start" className="flex h-10 items-center gap-2 rounded-[10px] bg-brand px-4 text-sm font-semibold text-white hover:opacity-90">
-            <AtSign className="size-4" />Instagram 계정 연결
+          <a href="/api/instagram/oauth/start" className="flex h-10 items-center gap-2.5 rounded-[10px] bg-surface px-4 text-sm font-semibold text-label hairline-neutral shadow-e-xs hover:bg-fill-alt">
+            <InstagramLogo size={18} />Instagram 계정 연결
           </a>
           <span className="text-[13px] text-label-alt">Meta 로그인 창에서 프로페셔널 계정을 고르면 그 username 으로 채널이 만들어져요.</span>
         </div>
       ) : (
         <div className="flex flex-col gap-3 rounded-xl bg-fill-alt px-4 py-3.5">
           <div className="flex items-center gap-2">
-            <AtSign className="size-4 opacity-60" />
+            <InstagramLogo size={18} />
             <span className="text-sm font-semibold">Meta 앱이 아직 연결되지 않았어요</span>
           </div>
           <p className="m-0 text-[13px] leading-normal text-label-alt">

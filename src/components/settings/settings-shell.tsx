@@ -5,11 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import { Segmented } from "@/components/md/segmented";
+import { GoogleDriveLogo, InstagramLogo } from "@/components/brand/logos";
 
 const TABS = [
-  { href: "/settings/accounts", label: "계정 · 채널" },
-  { href: "/settings/drive", label: "Google Drive" },
-  { href: "/settings/style-packs", label: "스타일팩" },
+  { href: "/settings/accounts", label: <span className="flex items-center gap-1.5"><InstagramLogo size={14} />계정 · 채널</span>, text: "계정 · 채널" },
+  { href: "/settings/drive", label: <span className="flex items-center gap-1.5"><GoogleDriveLogo size={14} />Google Drive</span>, text: "Google Drive" },
+  { href: "/settings/style-packs", label: "스타일팩", text: "스타일팩" },
 ] as const;
 
 /** 목업 S-05 설정: 720px 중앙 컬럼, 섹션 카드 */

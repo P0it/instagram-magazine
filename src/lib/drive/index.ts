@@ -65,6 +65,12 @@ export async function getDrive(): Promise<DriveClient> {
   return new MockDriveClient(state.mockTree);
 }
 
+/** 자격증명이 바뀌었을 때(로컬 자동 저장) Google 클라이언트를 다시 만들게 한다 */
+export function resetGoogleDrive(): void {
+  state.google = undefined;
+  state.warnedNoCreds = false;
+}
+
 /** 테스트용: mock 트리 초기화 */
 export function resetMockDrive(): void {
   state.mockTree = undefined;

@@ -69,3 +69,12 @@ describe("Google OAuth helpers", () => {
     expect(await fetchGoogleEmail("at", bad as unknown as typeof fetch)).toBeNull();
   });
 });
+
+describe("upsertEnvLine", () => {
+  it("replaces an existing line or appends a new one", async () => {
+    const { upsertEnvLine } = await import("@/lib/google/local-env");
+    expect(upsertEnvLine("A=1\nGOOGLE_REFRESH_TOKEN=\nB=2\n", "GOOGLE_REFRESH_TOKEN", "tok")).toBe("A=1\nGOOGLE_REFRESH_TOKEN=tok\nB=2\n");
+    expect(upsertEnvLine("A=1", "GOOGLE_REFRESH_TOKEN", "tok")).toBe("A=1\nGOOGLE_REFRESH_TOKEN=tok\n");
+    expect(upsertEnvLine("", "GOOGLE_REFRESH_TOKEN", "tok")).toBe("GOOGLE_REFRESH_TOKEN=tok\n");
+  });
+});

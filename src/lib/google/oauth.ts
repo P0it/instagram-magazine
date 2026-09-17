@@ -83,5 +83,7 @@ export const GoogleSetupResultSchema = z.object({
   refresh_token: z.string(),
   email: z.string().nullable(),
   issued_at: z.string(),
+  /** 로컬 개발이라 .env.local 에 자동 저장됐는가 — true 면 사용자가 할 일이 없다 */
+  saved_locally: z.boolean().default(false),
 });
 export type GoogleSetupResult = z.infer<typeof GoogleSetupResultSchema>;

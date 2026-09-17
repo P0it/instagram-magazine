@@ -12,7 +12,7 @@ import {
 import { upsertIndexEntry } from "@/lib/metadata/index-builder";
 import { fullCaption } from "@/lib/metadata/approval-gate";
 import { canTransition, isStaleLock } from "@/lib/metadata/transitions";
-import { accessTokenOf, getAccount } from "@/lib/instagram/accounts";
+import { accessTokenOf, getAccount, isUnlinked } from "@/lib/instagram/accounts";
 import {
   createCarouselContainer,
   createImageContainer,
@@ -72,6 +72,7 @@ export async function publishPost(
   }
   const account = await getAccount(drive, accountKey);
   if (!account) throw new PublishPreconditionError(`연결된 Instagram 계정이 없습니다: ${accountKey}`);
+  if (isUnlinked(account)) throw new PublishPreconditionError(`@${account.key} 채널에 Instagram 계정을 먼저 연결하세요`);
   const attempt = (m.publish?.attempt ?? 0) + 1;
   const maxAttempts = m.publish?.max_attempts ?? 3;
   if (attempt > maxAttempts) {

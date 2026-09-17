@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Check, CircleCheck, Copy, ExternalLink } from "lucide-react";
 import { GoogleDriveLogo, GoogleGLogo } from "@/components/brand/logos";
@@ -65,6 +65,8 @@ export function DriveSettings() {
           <p className="m-0 text-[11px] leading-relaxed text-label-assistive">index.json 은 캐시예요. 삭제해도 다음 동기화에서 다시 만들어요.</p>
         </div>
       </SettingsSection>
+
+      {s?.google.mode !== "mock" && <LegacyImport accounts={s?.accounts ?? []} />}
 
       <SettingsSection title="최근 인제스트" description="Drive inbox 에서 가져온 결과 (최대 50)">
         {!s || s.recent_ingest.length === 0 ? (
@@ -227,5 +229,63 @@ function GoogleConnection({ g }: { g: GoogleDriveStatus }) {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * 앱 이전에 ChatGPT 가 쓰던 /LIFE/draft/ 같은 폴더의 Google Docs 초안을 채널로 가져온다.
+ * 폴더마다 대상 채널을 고르고 한 번 누르면 끝 — 원본은 새 포스트 폴더의 _inbox_original 로 옮겨진다.
+ */
+function LegacyImport({ accounts }: { accounts: { key: string; name: string }[] }) {
+  const qc = useQueryClient();
+  const folders = useQuery({ queryKey: ["legacy-folders"], queryFn: api.legacyFolders, staleTime: 60_000 });
+  const [target, setTarget] = useState<Record<string, string>>({});
+  const run = useMutation({
+    mutationFn: (args: { id: string; key: string }) => api.importLegacy(args.id, args.key),
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: ["legacy-folders"] });
+      void qc.invalidateQueries({ queryKey: ["posts"] });
+      void qc.invalidateQueries({ queryKey: ["system-status"] });
+      const parts = [`초안 ${r.created}`, r.needs_repair ? `확인 필요 ${r.needs_repair}` : "", r.errors ? `실패 ${r.errors}` : ""].filter(Boolean).join(" · ");
+      (r.errors ? toast.error : toast.success)(`${r.source} → @${r.account_key}: ${parts}`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+  const list = folders.data?.folders ?? [];
+  if (folders.isLoading || list.length === 0) return null;
+
+  // 폴더명(LIFE)과 같은 이름의 채널(life)이 있으면 기본 선택
+  const guess = (name: string) => accounts.find((a) => a.key === name.toLowerCase())?.key ?? accounts[0]?.key ?? "";
+
+  return (
+    <SettingsSection title="기존 초안 가져오기" description="앱 이전에 만든 채널 폴더(예: LIFE/draft)의 Google Docs 초안을 채널로 옮겨요. 원본은 각 포스트 폴더의 _inbox_original 로 이동합니다.">
+      {accounts.length === 0 && (
+        <SettingsRow><span className="text-[13px] text-cautionary">먼저 계정 · 채널 탭에서 채널을 만들어야 가져올 수 있어요.</span></SettingsRow>
+      )}
+      {list.map((f) => {
+        const key = target[f.id] ?? guess(f.name);
+        const busy = run.isPending && run.variables?.id === f.id;
+        return (
+          <SettingsRow key={f.id}>
+            <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+              <span className="font-mono text-[15px] font-semibold">{f.name}/draft</span>
+              <span className="text-[13px] text-label-alt">초안 {f.drafts}개</span>
+            </div>
+            <span className="text-[13px] text-label-alt">→</span>
+            <select value={key} onChange={(e) => setTarget({ ...target, [f.id]: e.target.value })} disabled={accounts.length === 0} className={cn("h-9 rounded-lg bg-fill-alt px-2 text-[13px] outline-none")}>
+              {accounts.map((a) => <option key={a.key} value={a.key}>@{a.key}{a.name && a.name !== a.key ? ` · ${a.name}` : ""}</option>)}
+            </select>
+            <button
+              type="button"
+              disabled={!key || run.isPending}
+              onClick={() => run.mutate({ id: f.id, key })}
+              className="h-9 rounded-[10px] bg-brand px-3 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {busy ? "가져오는 중…" : "가져오기"}
+            </button>
+          </SettingsRow>
+        );
+      })}
+    </SettingsSection>
   );
 }

@@ -2,7 +2,7 @@ import "server-only";
 import type { CollectResult, InsightsFile, MediaInsight } from "@/types";
 import type { DriveClient } from "@/lib/drive/types";
 import { readAccounts, readIndexFile } from "@/lib/drive/system-files";
-import { accessTokenOf } from "@/lib/instagram/accounts";
+import { accessTokenOf, isUnlinked } from "@/lib/instagram/accounts";
 import { getAccountDayMetrics, getMediaMetrics, getProfileCounts } from "@/lib/instagram/client";
 import { readInsights, upsertDay, writeInsights } from "./store";
 
@@ -25,6 +25,7 @@ export async function collectInsights(drive: DriveClient, now = Date.now(), f: t
   const results: CollectResult["accounts"] = [];
 
   for (const account of accountsFile.accounts) {
+    if (isUnlinked(account)) continue;
     const file = await readInsights(drive, account.key);
     let mediaUpdated = 0;
     try {

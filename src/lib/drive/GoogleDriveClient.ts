@@ -4,6 +4,7 @@ import { Readable } from "node:stream";
 import {
   DriveNotFoundError,
   FOLDER_MIME,
+  GDOC_MIME,
   guessMime,
   type DriveClient,
   type DriveFile,
@@ -140,6 +141,12 @@ export class GoogleDriveClient implements DriveClient {
   }
 
   async readText(fileId: string): Promise<string> {
+    const meta = await this.getFile(fileId);
+    if (meta.mimeType === GDOC_MIME) {
+      const res = await this.drive.files.export({ fileId, mimeType: "text/plain" }, { responseType: "text" });
+      // Docs export 는 BOM 으로 시작한다
+      return String(res.data).replace(/^\uFEFF/, "");
+    }
     return Buffer.from(await this.readBytes(fileId)).toString("utf8");
   }
 

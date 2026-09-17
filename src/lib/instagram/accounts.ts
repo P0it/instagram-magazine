@@ -23,8 +23,13 @@ export function computeStatus(expiresAt: string, now = Date.now()): AccountStatu
   return "connected";
 }
 
+export function isUnlinked(a: Pick<Account, "status" | "access_token_enc">): boolean {
+  return a.status === "unlinked" || !a.access_token_enc;
+}
+
 export function toPublicAccount(a: Account): PublicAccount {
-  return PublicAccountSchema.parse({ ...a, status: a.status === "error" ? "error" : computeStatus(a.token_expires_at) });
+  const status = isUnlinked(a) ? "unlinked" : a.status === "error" ? "error" : computeStatus(a.token_expires_at);
+  return PublicAccountSchema.parse({ ...a, status });
 }
 
 /** 계정(=채널) 전체. 순서는 accounts.json 순(연결 순). */
@@ -46,6 +51,7 @@ export async function getAccount(drive: DriveClient, key: string): Promise<Accou
 
 /** 복호화된 토큰. 서버 안에서만 쓴다 — 절대 응답에 넣지 않는다. */
 export function accessTokenOf(account: Account): string {
+  if (isUnlinked(account)) throw new Error(`@${account.key} 채널에 아직 Instagram 계정이 연결되지 않았습니다`);
   return decryptString(account.access_token_enc, encryptionKey());
 }
 
@@ -82,6 +88,7 @@ export async function refreshExpiringAccounts(drive: DriveClient, f: typeof fetc
   const now = Date.now();
   const accounts = await Promise.all(
     data.accounts.map(async (a): Promise<Account> => {
+      if (isUnlinked(a)) return { ...a, status: "unlinked" };
       const status = computeStatus(a.token_expires_at, now);
       if (status !== "expiring") return { ...a, status: a.status === "error" ? "error" : status };
       try {

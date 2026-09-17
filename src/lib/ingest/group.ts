@@ -1,4 +1,5 @@
 import type { InboxGroup } from "@/types";
+import { GDOC_MIME } from "@/lib/drive/types";
 
 export interface InboxFileLike {
   id: string;
@@ -41,6 +42,13 @@ export function groupInboxFiles(files: InboxFileLike[]): InboxGroup[] {
       prefix = `${date}_${slug}`;
       order = m[3] ? Number(m[3]) : 0;
       ext = m[4].toLowerCase();
+    } else if (f.mimeType === GDOC_MIME) {
+      // Google Docs 는 확장자가 없다: "2026-09-17 TREND — 제목" / "2026-09-15_AI_제목" 에서 날짜·슬러그를 뽑는다
+      const parsed = parseDraftName(f.name);
+      date = parsed.date;
+      slug = parsed.slug;
+      prefix = date ? `${date}_${slug}` : slug;
+      ext = "gdoc";
     } else {
       const dot = f.name.lastIndexOf(".");
       const base = dot > 0 ? f.name.slice(0, dot) : f.name;
@@ -52,7 +60,7 @@ export function groupInboxFiles(files: InboxFileLike[]): InboxGroup[] {
       order = im ? Number(im[2]) : 0;
     }
     const g = ensure(prefix, date, slug);
-    if (TEXT_EXT.has(ext) || f.mimeType === "text/markdown") {
+    if (TEXT_EXT.has(ext) || ext === "gdoc" || f.mimeType === "text/markdown") {
       if (!g.markdownFileId) g.markdownFileId = f.id;
       else g.otherFileIds.push({ fileId: f.id, name: f.name });
     } else if (IMAGE_EXT.has(ext) || f.mimeType.startsWith("image/")) {
@@ -66,6 +74,20 @@ export function groupInboxFiles(files: InboxFileLike[]): InboxGroup[] {
     g.imageFileIds.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
   }
   return [...groups.values()].sort((a, b) => a.prefix.localeCompare(b.prefix));
+}
+
+/**
+ * 초안 문서 이름 → 날짜·슬러그. 채널 토큰(LIFE, TREND …)은 슬러그에서 뺀다.
+ *  "2026-09-17 TREND — 고추장 버터가 아시아 메뉴가 된 날" → { date: 2026-09-17, slug: 고추장-버터가-아시아-메뉴가-된-날 }
+ *  "2026-09-15_AI_이미지 생성보다 편집이 더 중요해졌다"      → { date: 2026-09-15, slug: 이미지-생성보다-편집이-더-중요해졌다 }
+ */
+export function parseDraftName(name: string): { date: string | null; slug: string } {
+  const m = /^(\d{4}-\d{2}-\d{2})[\s_-]*(.*)$/.exec(name.trim());
+  const date = m ? m[1] : null;
+  let rest = m ? m[2] : name;
+  rest = rest.replace(/^[A-Z]{2,10}(?=[\s_—–-]|$)/, "").replace(/^[\s_—–-]+/, "");
+  rest = rest.replace(/\b(sample\s+draft|draft)\b/gi, "").replace(/\s+/g, " ").trim();
+  return { date, slug: slugify(rest || "untitled") };
 }
 
 export function slugify(input: string): string {

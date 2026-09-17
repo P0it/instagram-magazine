@@ -11,11 +11,11 @@ import {
 const SLIDE_HEADING = /^##\s*slide\s*(\d+)\s*(?:\(([^)]*)\))?\s*$/i;
 const CAPTION_HEADING = /^##\s*caption\s*$/i;
 
-function normalizeRole(raw: string | undefined, index: number, total: number): SlideRole {
+export function normalizeRole(raw: string | undefined, index: number, total: number): SlideRole {
   const r = (raw ?? "").trim().toLowerCase();
   const parsed = SlideRoleSchema.safeParse(r);
   if (parsed.success) return parsed.data;
-  if (r.includes("cover") || r.includes("title")) return "cover";
+  if (r.includes("cover") || r.includes("title") || r.includes("hook")) return "cover";
   if (r.includes("quote")) return "quote";
   if (r.includes("shot")) return "screenshot";
   if (r.includes("photo") || r.includes("image")) return "photo";

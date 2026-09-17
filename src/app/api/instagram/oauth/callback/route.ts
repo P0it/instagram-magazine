@@ -25,6 +25,7 @@ export async function GET(req: Request) {
   const expected = jar.get(OAUTH_STATE_COOKIE)?.value;
   jar.delete(OAUTH_STATE_COOKIE);
   if (!code || !state || !expected || state !== expected) return fail("state mismatch");
+  const linkKey = state.split(".")[0] || null;
 
   try {
     const e = env();
@@ -32,12 +33,11 @@ export async function GET(req: Request) {
     const long = await getLongLivedToken({ appSecret: e.META_APP_SECRET, shortToken: short.access_token });
     const me = await getMe(long.access_token);
     const drive = await getDrive();
-    const { account } = await connectAccount(drive, {
-      ig_user_id: me.user_id,
-      username: me.username,
-      access_token: long.access_token,
-      expires_in_seconds: long.expires_in,
-    });
+    const { account } = await connectAccount(
+      drive,
+      { ig_user_id: me.user_id, username: me.username, access_token: long.access_token, expires_in_seconds: long.expires_in },
+      { linkKey },
+    );
     return NextResponse.redirect(`${base}/settings/accounts?connected=${encodeURIComponent(account.key)}`);
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err));

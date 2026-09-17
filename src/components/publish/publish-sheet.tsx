@@ -133,7 +133,7 @@ function SheetBody({ onClose, snapshot, prepare, onDone }: SheetProps) {
               <div className="flex flex-col gap-1.5">
                 {list.map((a) => {
                   const on = a.key === accountKey;
-                  const bad = a.status === "expired" || a.status === "error";
+                  const bad = a.status === "expired" || a.status === "error" || a.status === "unlinked";
                   return (
                     <button key={a.key} type="button" onClick={() => setAccountKey(a.key)} className={cn("flex items-center gap-3 rounded-xl px-3.5 py-3 text-left", on ? "bg-fill" : "bg-fill-alt hover:bg-fill")}>
                       <AvatarPlaceholder size={40} ring={a.key === channelAccountKey ? meta.color : undefined} />
@@ -141,7 +141,7 @@ function SheetBody({ onClose, snapshot, prepare, onDone }: SheetProps) {
                         <span className="text-[15px] font-semibold">@{a.username}</span>
                         <span className={cn("text-[13px]", bad ? "text-negative" : "text-label-alt")}>
                           {a.key === channelAccountKey ? `이 채널의 계정` : `다른 채널 · ${a.name || a.key}`}
-                          {bad ? " · 토큰 만료 — 재연결 필요" : a.status === "expiring" ? " · 만료 임박" : ""}
+                          {a.status === "unlinked" ? " · Instagram 미연결" : bad ? " · 토큰 만료 — 재연결 필요" : a.status === "expiring" ? " · 만료 임박" : ""}
                         </span>
                       </div>
                       {on && <Check className="size-5 text-brand" />}

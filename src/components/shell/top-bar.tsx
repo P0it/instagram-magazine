@@ -38,7 +38,7 @@ export function TopBar() {
   }, [status.data, sync]);
 
   const queued = (posts.data?.posts ?? []).filter((p) => p.status === "scheduled" || p.status === "failed" || p.status === "publishing").length;
-  const expiring = status.data?.accounts.filter((a) => a.status !== "connected").length ?? 0;
+  const expiring = status.data?.accounts.filter((a) => a.status !== "connected" && a.status !== "unlinked").length ?? 0;
   const inSettings = pathname.startsWith("/settings");
   const inQueue = pathname.startsWith("/queue");
 

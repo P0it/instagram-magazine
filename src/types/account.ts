@@ -10,7 +10,8 @@ import { SlideRoleSchema } from "./slide-role";
 export const AccountKeySchema = z.string().regex(/^[a-z0-9._]{1,30}$/, "Instagram username 형식(소문자·숫자·._ 1~30자)");
 export type AccountKey = z.infer<typeof AccountKeySchema>;
 
-export const AccountStatusSchema = z.enum(["connected", "expiring", "expired", "error"]);
+/** unlinked = Instagram 없이 먼저 만든 채널. 편집은 되고 게시만 막힌다. OAuth 로 나중에 계정을 붙인다. */
+export const AccountStatusSchema = z.enum(["connected", "expiring", "expired", "error", "unlinked"]);
 export type AccountStatus = z.infer<typeof AccountStatusSchema>;
 
 export const EditorialRulesSchema = z.object({
@@ -43,9 +44,11 @@ export type AccountSettingsPatch = z.infer<typeof AccountSettingsPatchSchema>;
 /** _system/accounts.json 항목. 토큰은 AES-256-GCM 으로 암호화되어 있다. */
 export const AccountSchema = AccountSettingsSchema.extend({
   key: AccountKeySchema,
+  /** unlinked 채널은 빈 문자열 */
   ig_user_id: z.string(),
-  /** IG 최신 username. key 와 다르면 핸들이 바뀐 것 — 경고만, 폴더는 그대로. */
+  /** IG 최신 username. key 와 다르면 핸들이 바뀐 것 — 경고만, 폴더는 그대로. unlinked 면 key 와 같다. */
   username: z.string(),
+  /** unlinked 채널은 빈 문자열 */
   access_token_enc: z.string(),
   token_expires_at: z.string(),
   last_refreshed_at: z.string(),

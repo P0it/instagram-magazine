@@ -1,4 +1,6 @@
 export const FOLDER_MIME = "application/vnd.google-apps.folder";
+/** Google Docs 문서 — 바이너리가 아니라 export 로만 읽을 수 있다 */
+export const GDOC_MIME = "application/vnd.google-apps.document";
 
 export interface DriveFile {
   id: string;
@@ -27,6 +29,7 @@ export interface DriveClient {
   listChildren(folderId: string): Promise<DriveFile[]>;
   findChild(folderId: string, name: string): Promise<DriveFile | null>;
 
+  /** 텍스트 읽기. Google Docs 문서는 text/plain 으로 export 한다. */
   readText(fileId: string): Promise<string>;
   readBytes(fileId: string): Promise<Uint8Array>;
 

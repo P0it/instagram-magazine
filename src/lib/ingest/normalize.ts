@@ -14,7 +14,7 @@ import type { DriveClient } from "@/lib/drive/types";
 import { statusFolderId } from "@/lib/drive/paths";
 import { defaultPresetForRole, getStylePack, resolvePreset } from "@/presets";
 import { slideStateFromPreset } from "@/lib/render/layout";
-import { parseInboxMarkdown } from "./parse-md";
+import { parseDraft } from "./parse-draft";
 import { slugify } from "./group";
 
 export interface NormalizeResult {
@@ -45,10 +45,10 @@ export async function normalizeGroup(
   const channel = account.key;
 
   // 1. 텍스트 파싱
-  let parsed = parseInboxMarkdown("");
+  let parsed = parseDraft("");
   if (group.markdownFileId) {
     const text = await drive.readText(group.markdownFileId);
-    parsed = parseInboxMarkdown(text);
+    parsed = parseDraft(text);
   } else {
     problems.push("markdown file missing");
   }

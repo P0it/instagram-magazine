@@ -47,6 +47,11 @@ export function AccountsSettings() {
     onSuccess: () => { invalidate(); toast.success("연결을 해제했어요. Drive 폴더와 포스트는 남아 있어요."); },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
+  const createChannel = useMutation({
+    mutationFn: (args: { key: string; name?: string }) => api.createChannel(args.key, args.name),
+    onSuccess: (_, args) => { invalidate(); toast.success(`@${args.key} 채널을 만들었어요. Drive 에 inbox 폴더가 준비됐어요.`); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
   const mockConnect = useMutation({
     mutationFn: (username: string) => api.mockConnectAccount(username),
     onSuccess: (_, username) => { invalidate(); setMockName(""); toast.success(`@${username.replace(/^@/, "").toLowerCase()} 가짜 연결 완료`); },
@@ -77,7 +82,7 @@ export function AccountsSettings() {
             onSaved={invalidate}
           />
         ))}
-        <ConnectSection oauth={oauth} isMock={isMock} mockName={mockName} setMockName={setMockName} onMockConnect={() => mockConnect.mutate(mockName.trim())} mockPending={mockConnect.isPending} />
+        <ConnectSection oauth={oauth} isMock={isMock} mockName={mockName} setMockName={setMockName} onMockConnect={() => mockConnect.mutate(mockName.trim())} mockPending={mockConnect.isPending} onCreateChannel={(key, name) => createChannel.mutate({ key, name })} creating={createChannel.isPending} />
       </SettingsSection>
     </>
   );
@@ -120,18 +125,25 @@ function AccountCard({ account: a, inboxUrl, open, onToggle, oauth, onDisconnect
             {meta.name}
             <span className="font-normal text-label-alt">@{a.key}</span>
           </span>
-          <span className="text-[13px] text-label-alt">
-            {a.status === "connected" ? "연결됨" : a.status === "expiring" ? "만료 임박" : a.status === "expired" ? "만료됨" : "오류"} · 토큰 만료 {fmtDay(a.token_expires_at)}
+          <span className={cn("text-[13px]", a.status === "unlinked" ? "text-cautionary" : "text-label-alt")}>
+            {a.status === "unlinked"
+              ? "Instagram 미연결 · 초안 편집은 가능, 게시는 계정을 연결한 뒤에"
+              : `${a.status === "connected" ? "연결됨" : a.status === "expiring" ? "만료 임박" : a.status === "expired" ? "만료됨" : "오류"} · 토큰 만료 ${fmtDay(a.token_expires_at)}`}
           </span>
           {meta.handleChanged && (
             <span className="text-xs text-cautionary">Instagram 핸들이 @{a.username} 으로 바뀌었어요. 폴더는 @{a.key} 그대로 사용해요.</span>
           )}
           {a.last_error && <span className="text-xs text-negative">{a.last_error}</span>}
         </div>
-        {(bad || a.status === "expiring") && oauth && (
-          <a href="/api/instagram/oauth/start" className="rounded-md px-2 py-1 text-[13px] font-semibold text-brand hover:bg-fill-alt">다시 연결</a>
+        {a.status === "unlinked" && oauth && (
+          <a href={`/api/instagram/oauth/start?link=${encodeURIComponent(a.key)}`} className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-semibold text-brand hairline hover:bg-fill-alt">
+            <InstagramLogo size={14} />Instagram 연결
+          </a>
         )}
-        <button type="button" onClick={onDisconnect} disabled={disconnecting} className="rounded-md px-2 py-1 text-[13px] font-semibold text-label-alt hover:bg-fill-alt disabled:opacity-50">연결 해제</button>
+        {(bad || a.status === "expiring") && oauth && (
+          <a href={`/api/instagram/oauth/start?link=${encodeURIComponent(a.key)}`} className="rounded-md px-2 py-1 text-[13px] font-semibold text-brand hover:bg-fill-alt">다시 연결</a>
+        )}
+        <button type="button" onClick={onDisconnect} disabled={disconnecting} className="rounded-md px-2 py-1 text-[13px] font-semibold text-label-alt hover:bg-fill-alt disabled:opacity-50">{a.status === "unlinked" ? "채널 제거" : "연결 해제"}</button>
         <button type="button" onClick={onToggle} aria-expanded={open} className="grid size-8 place-items-center rounded-full hover:bg-fill" title="채널 설정">
           <ChevronDown className={cn("size-4 opacity-70 transition-transform", open && "rotate-180")} />
         </button>
@@ -247,14 +259,18 @@ function AccountSettingsForm({ account: a, onSaved }: { account: PublicAccount; 
 }
 
 /** 연결 섹션 — 상태별로 다른 안내. Meta 앱이 설정돼야만 실제 OAuth 버튼이 살아난다. */
-function ConnectSection({ oauth, isMock, mockName, setMockName, onMockConnect, mockPending }: {
+function ConnectSection({ oauth, isMock, mockName, setMockName, onMockConnect, mockPending, onCreateChannel, creating }: {
   oauth: boolean;
   isMock: boolean;
   mockName: string;
   setMockName: (v: string) => void;
   onMockConnect: () => void;
   mockPending: boolean;
+  onCreateChannel: (key: string, name?: string) => void;
+  creating: boolean;
 }) {
+  const [newKey, setNewKey] = useState("");
+  const [newName, setNewName] = useState("");
   // origin 은 클라이언트에서만 알 수 있으므로 마운트 후에 채운다 (SSR 과 불일치 방지)
   const origin = useSyncExternalStore(() => () => {}, () => window.location.origin, () => "");
   const redirectUri = `${origin}/api/instagram/oauth/callback`;
@@ -305,6 +321,23 @@ function ConnectSection({ oauth, isMock, mockName, setMockName, onMockConnect, m
           </p>
         </div>
       )}
+
+      <form
+        className="flex flex-col gap-2 rounded-xl bg-fill-alt px-4 py-3.5"
+        onSubmit={(e) => { e.preventDefault(); if (newKey.trim()) { onCreateChannel(newKey.trim(), newName.trim() || undefined); setNewKey(""); setNewName(""); } }}
+      >
+        <span className="text-sm font-semibold">Instagram 없이 채널 먼저 만들기</span>
+        <p className="m-0 text-[13px] leading-normal text-label-alt">
+          Drive 폴더가 바로 생기고 초안을 받아 편집할 수 있어요. 게시는 나중에 이 채널에 Instagram 계정을 연결한 뒤에. 키는 앞으로 쓸 Instagram username 으로 두는 게 좋아요.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input value={newKey} onChange={(e) => setNewKey(e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, ""))} placeholder="키 (예: life.magazine)" className={cn(fieldClass, "h-9 w-48 py-0 font-mono text-[13px]")} aria-label="채널 키" />
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="채널 이름 (선택)" className={cn(fieldClass, "h-9 w-40 py-0 text-[13px]")} aria-label="채널 이름" />
+          <button type="submit" disabled={!newKey.trim() || creating} className="h-9 rounded-[10px] bg-surface px-3 text-[13px] font-semibold text-label-neutral hairline hover:bg-fill disabled:opacity-50">
+            {creating ? "만드는 중…" : "채널 만들기"}
+          </button>
+        </div>
+      </form>
 
       {isMock && (
         <form

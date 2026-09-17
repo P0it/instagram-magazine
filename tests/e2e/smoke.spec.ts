@@ -24,7 +24,8 @@ test("home 3-stage board → builder → preset switch → sticker → export 10
   const canvas = page.locator("canvas").first();
   await expect(canvas).toBeVisible({ timeout: 15_000 });
 
-  // 프리셋 전환 → 자동 저장
+  // 오른쪽 패널 프리셋 탭에서 전환 → 자동 저장
+  await page.getByRole("tab", { name: "프리셋" }).click();
   await page.getByRole("button", { name: /Cover Center/ }).click();
   await expect(page.getByText(/저장됨 · 방금/)).toBeVisible({ timeout: 10_000 });
 
@@ -38,10 +39,11 @@ test("home 3-stage board → builder → preset switch → sticker → export 10
   await expect(thumbs).toHaveCount(4);
   await thumbs.nth(1).click();
   await thumbs.nth(1).hover();
-  await page.getByTitle("왼쪽으로").click();
+  await page.getByTitle("위로").click();
 
-  // 포스트 패널에서 JPEG 내려받기 — 4장
+  // 포스트 패널(속성 탭, 선택 없음)에서 JPEG 내려받기 — 4장
   await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "포스트" }).click();
   const downloads: Promise<import("@playwright/test").Download>[] = [];
   page.on("download", (d) => downloads.push(Promise.resolve(d)));
   await page.getByRole("button", { name: /JPEG 내려받기/ }).click();
@@ -179,6 +181,7 @@ test("post format 1:1 → export 1080x1080, fonts and element library are presen
 
   // 되돌리기: 4:5 로
   await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "포스트" }).click();
   await page.getByRole("tab", { name: "4:5", exact: true }).click();
   await expect(page.getByText(/저장됨 · 방금/)).toBeVisible({ timeout: 10_000 });
   expect(errors).toEqual([]);

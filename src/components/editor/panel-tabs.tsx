@@ -13,44 +13,22 @@ import { removeBackgroundToPng } from "@/lib/render/cutout";
 import { ICONS, STICKERS, iconLabel, stickerDef } from "@/lib/render/stickers";
 import { ICON_COMPONENTS } from "@/lib/render/icon-svg";
 import { useAccount } from "@/lib/client/channel";
-import { Segmented } from "@/components/md/segmented";
 import { PanelLabel, fieldClass } from "@/components/md/primitives";
 import { cn } from "@/lib/utils";
 
-export type LeftTab = "presets" | "elements" | "layers";
+/** 오른쪽 패널의 탭. props = 선택된 것의 속성(포스트/텍스트/이미지/요소) */
+export type PanelTab = "props" | "presets" | "elements" | "layers";
 
 const ROLE_LABEL: Record<SlideRole, string> = { cover: "커버", photo: "사진", info: "정보", quote: "인용", screenshot: "스크린샷", closing: "클로징" };
 
-const HINT: Record<LeftTab, string> = {
+export const PANEL_HINT: Record<Exclude<PanelTab, "props">, string> = {
   presets: "프리셋을 고르거나, 역할을 바꿔 채널 스타일팩 기본값을 적용하세요.",
   elements: "눌러서 캔버스에 얹고, 끌어서 옮기세요. 방향키로 4px씩 이동.",
   layers: "이 슬라이드의 레이어 순서와 표시를 관리해요.",
 };
 
-export function LeftPanel({ tab, onTab, slide, state, bundle, disabled }: { tab: LeftTab; onTab: (t: LeftTab) => void; slide: SlideDef | null; state: SlideEditorState | null; bundle: PostBundle; disabled: boolean }) {
-  return (
-    <aside className={cn("flex w-[260px] shrink-0 flex-col bg-surface", disabled && "pointer-events-none opacity-45")} style={{ boxShadow: "inset -1px 0 0 var(--semantic-line-solid-neutral)" }}>
-      <div className="flex shrink-0 flex-col gap-2.5 px-4 pb-2.5 pt-3.5">
-        <Segmented value={tab} onChange={onTab} items={[{ value: "presets", label: "프리셋" }, { value: "elements", label: "요소" }, { value: "layers", label: "레이어" }]} />
-        <p className="text-xs leading-normal text-label-assistive">{HINT[tab]}</p>
-      </div>
-      <div className="flex-1 overflow-auto px-4 pb-4 pt-1">
-        {!slide || !state ? (
-          <p className="text-xs text-label-assistive">슬라이드를 선택하세요.</p>
-        ) : tab === "presets" ? (
-          <PresetsTab slide={slide} />
-        ) : tab === "elements" ? (
-          <ElementsTab slide={slide} bundle={bundle} />
-        ) : (
-          <LayersTab slide={slide} state={state} />
-        )}
-      </div>
-    </aside>
-  );
-}
-
 // ---------------- 프리셋 ----------------
-function PresetsTab({ slide }: { slide: SlideDef }) {
+export function PresetsTab({ slide }: { slide: SlideDef }) {
   const applyPreset = useEditorStore((s) => s.applyPreset);
   const applyCustomPreset = useEditorStore((s) => s.applyCustomPreset);
   const updateSlideRole = useEditorStore((s) => s.updateSlideRole);
@@ -220,7 +198,7 @@ const BASE_LAYER: Omit<SlideLayer, "id" | "kind" | "key"> = {
   asset: null, x: 540, y: 540, width: 300, rotation: 0, opacity: 1, flip: false, text: "", color: "#FFFFFF", bg: null, ink: null, fontFamily: "sans", hidden: false, locked: false,
 };
 
-function ElementsTab({ slide, bundle }: { slide: SlideDef; bundle: PostBundle }) {
+export function ElementsTab({ slide, bundle }: { slide: SlideDef; bundle: PostBundle }) {
   const addLayer = useEditorStore((s) => s.addLayer);
   const markSaved = useEditorStore((s) => s.markSaved);
   const channel = useEditorStore((s) => s.snapshot?.metadata.channel);
@@ -377,7 +355,7 @@ function StickerPreview({ k, text, color }: { k: StickerKey; text: string; color
 }
 
 // ---------------- 레이어 ----------------
-function LayersTab({ slide, state }: { slide: SlideDef; state: SlideEditorState }) {
+export function LayersTab({ slide, state }: { slide: SlideDef; state: SlideEditorState }) {
   const selection = useEditorStore((s) => s.selection);
   const setSelection = useEditorStore((s) => s.setSelection);
   const updateLayer = useEditorStore((s) => s.updateLayer);

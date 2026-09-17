@@ -16,8 +16,7 @@ import { isTouched } from "@/lib/metadata/stage";
 import { GhostIcon, StageBadge } from "@/components/md/primitives";
 import { BuilderSkeleton } from "@/components/md/skeleton";
 import { SlideCanvas } from "./canvas";
-import { SlideStrip } from "./slide-strip";
-import { LeftPanel, type LeftTab } from "./left-panel";
+import { SlideRail } from "./slide-rail";
 import { RightPanel } from "./right-panel";
 import { StageArea } from "./stage-area";
 import { PreviewMode } from "./preview-mode";
@@ -58,7 +57,6 @@ export function EditorInner({ postId }: { postId: string }) {
   const hiddenStageRef = useRef<Konva.Stage>(null);
   const [exportSlide, setExportSlide] = useState<string | null>(null);
   const [mode, setMode] = useState<"edit" | "preview">("edit");
-  const [leftTab, setLeftTab] = useState<LeftTab>("presets");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("loaded");
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -345,7 +343,7 @@ export function EditorInner({ postId }: { postId: string }) {
       ) : (
         <>
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            <LeftPanel tab={leftTab} onTab={setLeftTab} slide={selected} state={selectedState} bundle={bundle} disabled={readOnly} />
+            <SlideRail bundle={bundle} disabled={readOnly} />
             <StageArea
               slide={selected}
               state={selectedState}
@@ -377,7 +375,6 @@ export function EditorInner({ postId }: { postId: string }) {
               }
             }} />
           </div>
-          <SlideStrip bundle={bundle} disabled={readOnly} />
         </>
       )}
 

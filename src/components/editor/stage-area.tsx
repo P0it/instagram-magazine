@@ -64,8 +64,8 @@ export function StageArea({
     const el = host.current;
     if (!el) return;
     const ro = new ResizeObserver(([e]) => {
-      const w = e.contentRect.width - 16;
-      const h = e.contentRect.height - 20;
+      const w = e.contentRect.width - 8;
+      const h = e.contentRect.height - 8;
       setFitWidth(Math.max(160, Math.floor(Math.min(w, (h * CANVAS_WIDTH) / canvasHeight))));
     });
     ro.observe(el);
@@ -96,9 +96,20 @@ export function StageArea({
   const currentPaletteColor = palette === "text" ? tx?.color : L ? (palette === "bg" ? (L.bg ?? layerColors?.bg ?? "none") : L.kind === "icon" ? L.color : (L.ink ?? layerColors?.ink)) : undefined;
 
   return (
-    <section className="relative flex min-w-0 flex-1 flex-col items-center gap-3.5 overflow-hidden px-6 pt-4 pb-4">
-      {/* 선택 툴바 */}
+    <section className="relative flex min-w-0 flex-1 flex-col items-center gap-2 overflow-hidden px-3 pb-3 pt-2">
+      {/* 툴바 줄: 가운데 선택 툴바 · 오른쪽 스테이지 컨트롤 (한 줄로 합쳐 세로 공간 절약) */}
       <div className="relative z-[8] flex h-10 w-full shrink-0 items-center justify-center">
+        <div className="absolute left-0 flex h-full items-center gap-2 text-xs text-label-alt">
+          <span className="whitespace-nowrap">{format} · {FORMAT_INFO[format].label}</span>
+        </div>
+        <div className="absolute right-0 flex h-full items-center gap-1">
+          <ChipButton title="배경 이미지 보정 (밝기 · 대비 · 채도)" on={selection?.kind === "image"} onClick={() => setSelection({ kind: "image" })} className={cn(selection?.kind === "image" && "text-brand")}>배경 보정</ChipButton>
+          <ChipButton title="안전 영역 표시" on={showSafe} onClick={() => setShowSafe((v) => !v)}>안전 영역</ChipButton>
+          <div className="mx-1 h-3.5 w-px bg-line" />
+          {(["fit", "75", "50"] as Zoom[]).map((z) => (
+            <ChipButton key={z} on={zoom === z} onClick={() => setZoom(z)}>{z === "fit" ? "맞춤" : `${z}%`}</ChipButton>
+          ))}
+        </div>
         {selection && slide && !readOnly && (
           <div className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-surface p-1 shadow-e-sm">
             <span className="max-w-[120px] truncate px-1.5 text-[11px] font-semibold text-label-neutral">{selName}</span>
@@ -193,7 +204,7 @@ export function StageArea({
       </div>
 
       {/* 캔버스 */}
-      <div ref={host} className="relative grid min-h-0 w-full flex-1 place-items-center py-2">
+      <div ref={host} className="relative grid min-h-0 w-full flex-1 place-items-center">
         {slide && state ? (
           <div className="relative overflow-hidden rounded-[4px] shadow-e-md" style={{ width: displayWidth }}>
             <SlideCanvas
@@ -238,19 +249,6 @@ export function StageArea({
         )}
       </div>
 
-      {/* 하단 컨트롤 */}
-      <div className="flex h-8 max-w-full shrink-0 items-center gap-2.5 overflow-hidden">
-        <span className="shrink-0 whitespace-nowrap text-xs text-label-alt">{format} · {FORMAT_INFO[format].label}</span>
-        <div className="h-3.5 w-px shrink-0 bg-line" />
-        <span className="min-w-0 flex-1 truncate text-xs text-label-assistive">캔버스 전체가 업로드돼요 · 좌우 끝 클릭으로 슬라이드 이동</span>
-        <ChipButton title="배경 이미지 보정 (밝기 · 대비 · 채도)" on={selection?.kind === "image"} onClick={() => setSelection({ kind: "image" })} className={cn(selection?.kind === "image" && "text-brand")}>배경 보정</ChipButton>
-        <ChipButton title="안전 영역 표시" on={showSafe} onClick={() => setShowSafe((v) => !v)}>안전 영역</ChipButton>
-        <div className="flex shrink-0 items-center gap-0.5">
-          {(["fit", "75", "50"] as Zoom[]).map((z) => (
-            <ChipButton key={z} on={zoom === z} onClick={() => setZoom(z)}>{z === "fit" ? "맞춤" : `${z}%`}</ChipButton>
-          ))}
-        </div>
-      </div>
     </section>
   );
 }

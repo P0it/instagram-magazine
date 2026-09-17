@@ -14,6 +14,7 @@ import { useAccount } from "@/lib/client/channel";
 import { Segmented } from "@/components/md/segmented";
 import { Collapsible, PaletteGrid, PanelLabel, RangeRow, fieldClass } from "@/components/md/primitives";
 import { cn } from "@/lib/utils";
+import { ElementsTab, LayersTab, PANEL_HINT, PresetsTab, type PanelTab } from "./panel-tabs";
 
 const FONT_LABEL = (f: FontFamily) => `${FONT_META[f].label} · ${FONT_META[f].family}`;
 
@@ -31,33 +32,70 @@ function FontList({ value, onChange, size = 15 }: { value: FontFamily; onChange:
   );
 }
 
+/**
+ * 오른쪽 패널 하나로 통합: 속성(선택된 것) · 프리셋 · 요소 · 레이어.
+ * 캔버스에서 무언가를 선택하면 자동으로 "속성" 탭으로 온다.
+ */
 export function RightPanel({ slide, state, bundle, disabled, onDownload }: { slide: SlideDef | null; state: SlideEditorState | null; bundle: PostBundle; disabled: boolean; onDownload: () => void }) {
   const selection = useEditorStore((s) => s.selection);
   const setSelection = useEditorStore((s) => s.setSelection);
   const layer = useEditorStore(selectSelectedLayer);
+  const [tab, setTab] = useState<PanelTab>("props");
+  const [lastSel, setLastSel] = useState(selection);
+  if (selection !== lastSel) {
+    // 선택이 새로 생기면 속성 탭으로 (렌더 중 상태 파생 — effect 대신)
+    setLastSel(selection);
+    if (selection) setTab("props");
+  }
+
   const title = selection?.kind === "text" ? "텍스트 레이어" : selection?.kind === "image" ? "이미지 레이어" : selection?.kind === "layer" ? "요소 레이어" : "포스트";
+  const propsLabel = selection?.kind === "text" ? "텍스트" : selection?.kind === "image" ? "이미지" : selection?.kind === "layer" ? "요소" : "포스트";
 
   return (
-    <aside className={cn("w-[320px] shrink-0 overflow-auto bg-surface", disabled && "pointer-events-none opacity-45")} style={{ boxShadow: "inset 1px 0 0 var(--semantic-line-solid-neutral)" }}>
-      <div className="sticky top-0 z-[2] flex items-center justify-between bg-surface px-4 py-3.5" style={{ boxShadow: "inset 0 -1px 0 var(--semantic-line-solid-neutral)" }}>
-        <span className="text-sm font-semibold">{title}</span>
-        {selection && (
-          <button type="button" onClick={() => setSelection(null)} className="flex items-center gap-1 rounded-full bg-fill py-[5px] pl-2 pr-2.5 text-xs font-semibold text-label-neutral hover:bg-fill-strong">
-            <X className="size-3.5 opacity-60" />선택 해제 · Esc
-          </button>
+    <aside className={cn("flex w-[340px] shrink-0 flex-col bg-surface", disabled && "pointer-events-none opacity-45")} style={{ boxShadow: "inset 1px 0 0 var(--semantic-line-solid-neutral)" }}>
+      <div className="shrink-0 px-4 pb-2.5 pt-3.5">
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          items={[
+            { value: "props", label: propsLabel },
+            { value: "presets", label: "프리셋" },
+            { value: "elements", label: "요소" },
+            { value: "layers", label: "레이어" },
+          ]}
+        />
+      </div>
+      {tab === "props" ? (
+        <div className="flex items-center justify-between px-4 py-2" style={{ boxShadow: "inset 0 -1px 0 var(--semantic-line-solid-neutral)" }}>
+          <span className="text-sm font-semibold">{title}</span>
+          {selection && (
+            <button type="button" onClick={() => setSelection(null)} className="flex items-center gap-1 rounded-full bg-fill py-[5px] pl-2 pr-2.5 text-xs font-semibold text-label-neutral hover:bg-fill-strong">
+              <X className="size-3.5 opacity-60" />선택 해제 · Esc
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="px-4 pb-2 text-xs leading-normal text-label-assistive">{PANEL_HINT[tab]}</p>
+      )}
+      <div className="min-h-0 flex-1 overflow-auto">
+        {!slide || !state ? (
+          <p className="p-4 text-xs text-label-assistive">슬라이드를 선택하세요.</p>
+        ) : tab === "presets" ? (
+          <div className="px-4 pb-4 pt-1"><PresetsTab slide={slide} /></div>
+        ) : tab === "elements" ? (
+          <div className="px-4 pb-4 pt-1"><ElementsTab slide={slide} bundle={bundle} /></div>
+        ) : tab === "layers" ? (
+          <div className="px-4 pb-4 pt-1"><LayersTab slide={slide} state={state} /></div>
+        ) : selection?.kind === "text" ? (
+          <TextPanel slide={slide} state={state} />
+        ) : selection?.kind === "image" ? (
+          <ImagePanel slide={slide} state={state} bundle={bundle} />
+        ) : selection?.kind === "layer" && layer ? (
+          <LayerPanel slide={slide} state={state} layer={layer} />
+        ) : (
+          <PostPanel onDownload={onDownload} />
         )}
       </div>
-      {!slide || !state ? (
-        <p className="p-4 text-xs text-label-assistive">슬라이드를 선택하세요.</p>
-      ) : selection?.kind === "text" ? (
-        <TextPanel slide={slide} state={state} />
-      ) : selection?.kind === "image" ? (
-        <ImagePanel slide={slide} state={state} bundle={bundle} />
-      ) : selection?.kind === "layer" && layer ? (
-        <LayerPanel slide={slide} state={state} layer={layer} />
-      ) : (
-        <PostPanel onDownload={onDownload} />
-      )}
     </aside>
   );
 }

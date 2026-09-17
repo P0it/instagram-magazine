@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, ChevronDown, Copy, ExternalLink } from "lucide-react";
+import { AtSign, Check, ChevronDown, Copy, ExternalLink } from "lucide-react";
 import { PresetIdSchema, SlideRoleSchema, type AccountSettingsPatch, type PublicAccount, type SlideRole } from "@/types";
 import { useAccounts, useStylePacks, useSystemStatus } from "@/lib/client/queries";
 import { api } from "@/lib/client/api";
 import { accountMeta } from "@/lib/client/channel";
 import { fmtDay } from "@/lib/client/format";
 import { LAYOUT_PRESETS } from "@/presets";
-import { PaletteGrid, fieldClass } from "@/components/md/primitives";
+import { PALETTE, fieldClass } from "@/components/md/primitives";
 import { AvatarPlaceholder } from "@/components/md/placeholder";
 import { SettingsSection } from "./settings-shell";
 import { cn } from "@/lib/utils";
@@ -76,39 +76,7 @@ export function AccountsSettings() {
             onSaved={invalidate}
           />
         ))}
-        <div className="flex flex-col gap-3 px-5 pb-5 pt-3.5" style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
-          {!oauth && !isMock && (
-            <div className="rounded-xl px-3.5 py-3 text-xs text-cautionary" style={{ background: "var(--semantic-background-status-cautionary)" }}>
-              META_APP_ID / META_APP_SECRET / META_REDIRECT_URI 환경변수가 없어 OAuth 를 시작할 수 없어요. README 의 Meta 앱 설정 절차를 참고하세요.
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            <a
-              href={oauth ? "/api/instagram/oauth/start" : undefined}
-              aria-disabled={!oauth}
-              className={cn("flex h-10 items-center justify-center rounded-[10px] bg-brand px-4 text-sm font-semibold text-white hover:opacity-90", !oauth && "pointer-events-none opacity-50")}
-            >
-              Instagram 계정 연결
-            </a>
-            {isMock && (
-              <form
-                className="flex items-center gap-2"
-                onSubmit={(e) => { e.preventDefault(); if (mockName.trim()) mockConnect.mutate(mockName.trim()); }}
-              >
-                <input value={mockName} onChange={(e) => setMockName(e.target.value)} placeholder="@username (Mock)" className={cn(fieldClass, "h-10 w-44 py-0 font-mono text-[13px]")} aria-label="Mock 계정 username" />
-                <button type="submit" disabled={!mockName.trim() || mockConnect.isPending} className="h-10 rounded-[10px] px-3 text-sm font-semibold text-label-neutral hairline hover:bg-fill-alt disabled:opacity-50">
-                  가짜 연결
-                </button>
-              </form>
-            )}
-          </div>
-          <ol className="m-0 list-decimal space-y-1 pl-5 text-xs text-label-alt">
-            <li>Instagram 프로페셔널 계정(비즈니스/크리에이터)이어야 해요.</li>
-            <li>Meta 앱에 &quot;Instagram API with Instagram Login&quot; 제품 추가, 리디렉션 URI 등록.</li>
-            <li>연결 시 instagram_business_basic, instagram_business_content_publish, instagram_business_manage_insights 권한을 요청해요.</li>
-            <li>연결된 username 이 채널 키가 되고 Drive 폴더명(<code>inbox/&lt;username&gt;/</code>)으로 쓰여요.</li>
-          </ol>
-        </div>
+        <ConnectSection oauth={oauth} isMock={isMock} mockName={mockName} setMockName={setMockName} onMockConnect={() => mockConnect.mutate(mockName.trim())} mockPending={mockConnect.isPending} />
       </SettingsSection>
     </>
   );
@@ -224,7 +192,7 @@ function AccountSettingsForm({ account: a, onSaved }: { account: PublicAccount; 
       </div>
       <div className="flex flex-col gap-1.5">
         <span className="text-xs font-semibold text-label-alt">채널 색</span>
-        <PaletteGrid value={form.color ?? "#171717"} onChange={(color) => setForm({ ...form, color })} />
+        <ColorSwatches value={form.color ?? "#171717"} onChange={(color) => setForm({ ...form, color })} />
       </div>
       <div className="flex flex-col gap-1.5">
         <span className="text-xs font-semibold text-label-alt">역할별 기본 프리셋 (비우면 스타일팩 → 역할 기본)</span>
@@ -270,6 +238,108 @@ function AccountSettingsForm({ account: a, onSaved }: { account: PublicAccount; 
           {save.isPending ? "저장 중…" : "저장"}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** 연결 섹션 — 상태별로 다른 안내. Meta 앱이 설정돼야만 실제 OAuth 버튼이 살아난다. */
+function ConnectSection({ oauth, isMock, mockName, setMockName, onMockConnect, mockPending }: {
+  oauth: boolean;
+  isMock: boolean;
+  mockName: string;
+  setMockName: (v: string) => void;
+  onMockConnect: () => void;
+  mockPending: boolean;
+}) {
+  // origin 은 클라이언트에서만 알 수 있으므로 마운트 후에 채운다 (SSR 과 불일치 방지)
+  const origin = useSyncExternalStore(() => () => {}, () => window.location.origin, () => "");
+  const redirectUri = `${origin}/api/instagram/oauth/callback`;
+  const [copied, setCopied] = useState(false);
+  async function copyRedirect() {
+    try {
+      await navigator.clipboard.writeText(redirectUri);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error("클립보드에 복사하지 못했어요.");
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 px-5 pb-5 pt-4" style={{ boxShadow: "inset 0 1px 0 var(--semantic-line-solid-alternative)" }}>
+      {oauth ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <a href="/api/instagram/oauth/start" className="flex h-10 items-center gap-2 rounded-[10px] bg-brand px-4 text-sm font-semibold text-white hover:opacity-90">
+            <AtSign className="size-4" />Instagram 계정 연결
+          </a>
+          <span className="text-[13px] text-label-alt">Meta 로그인 창에서 프로페셔널 계정을 고르면 그 username 으로 채널이 만들어져요.</span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 rounded-xl bg-fill-alt px-4 py-3.5">
+          <div className="flex items-center gap-2">
+            <AtSign className="size-4 opacity-60" />
+            <span className="text-sm font-semibold">Meta 앱이 아직 연결되지 않았어요</span>
+          </div>
+          <p className="m-0 text-[13px] leading-normal text-label-alt">
+            실제 Instagram 계정을 붙이려면 Meta 개발자 앱이 필요해요. 한 번만 하면 됩니다.
+          </p>
+          <ol className="m-0 list-decimal space-y-1.5 pl-5 text-[13px] leading-normal text-label-neutral">
+            <li><a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer" className="font-semibold text-brand hover:underline">developers.facebook.com</a> 에서 앱 생성 → <b>Instagram</b> 제품 추가 → &quot;API setup with Instagram login&quot;.</li>
+            <li>
+              리디렉션 URI 에 아래 주소를 등록:
+              <span className="mt-1 flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded bg-surface px-2 py-1 font-mono text-xs hairline">{redirectUri}</code>
+                <button type="button" onClick={copyRedirect} className="flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold text-brand hover:bg-fill">
+                  {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}{copied ? "복사됨" : "복사"}
+                </button>
+              </span>
+            </li>
+            <li>환경변수 <code className="rounded bg-surface px-1 font-mono text-xs">META_APP_ID</code> · <code className="rounded bg-surface px-1 font-mono text-xs">META_APP_SECRET</code> · <code className="rounded bg-surface px-1 font-mono text-xs">META_REDIRECT_URI</code> 를 넣고 서버를 다시 시작하면 여기에 연결 버튼이 나타나요.</li>
+          </ol>
+          <p className="m-0 text-xs leading-normal text-label-assistive">
+            계정은 프로페셔널(비즈니스/크리에이터)이어야 하고, 연결 시 instagram_business_basic · content_publish · manage_insights 권한을 요청해요. 연결된 username 이 채널 키이자 Drive 폴더명(<code>inbox/&lt;username&gt;/</code>)이 됩니다.
+          </p>
+        </div>
+      )}
+
+      {isMock && (
+        <form
+          className="flex flex-wrap items-center gap-2 rounded-xl px-4 py-3" style={{ background: "var(--semantic-background-status-cautionary)" }}
+          onSubmit={(e) => { e.preventDefault(); if (mockName.trim()) onMockConnect(); }}
+        >
+          <span className="text-[13px] font-semibold text-cautionary">Mock 모드</span>
+          <span className="text-[13px] text-label-alt">실제 OAuth 대신 가짜 계정을 붙여 흐름을 시험할 수 있어요.</span>
+          <span className="flex-1" />
+          <input value={mockName} onChange={(e) => setMockName(e.target.value)} placeholder="@username" className={cn(fieldClass, "h-9 w-40 py-0 font-mono text-[13px]")} aria-label="Mock 계정 username" />
+          <button type="submit" disabled={!mockName.trim() || mockPending} className="h-9 rounded-[10px] bg-surface px-3 text-[13px] font-semibold text-label-neutral hairline hover:bg-fill-alt disabled:opacity-50">
+            가짜 연결
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/** 설정 폼용 작은 색 스와치 (편집기 PaletteGrid 의 축소판) */
+function ColorSwatches({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const cur = value.toUpperCase();
+  const list = PALETTE.includes(cur) ? PALETTE : [...PALETTE, cur];
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {list.map((c) => (
+        <button
+          key={c}
+          type="button"
+          title={c}
+          onClick={() => onChange(c)}
+          className="size-6 rounded-full"
+          style={{ background: c, boxShadow: cur === c.toUpperCase() ? "0 0 0 2px var(--semantic-primary-normal), inset 0 0 0 1px rgba(23,23,25,0.14)" : "inset 0 0 0 1px rgba(23,23,25,0.14)" }}
+        />
+      ))}
+      <label title="직접 고르기" className="relative size-6 cursor-pointer overflow-hidden rounded-full" style={{ background: "conic-gradient(#FF3B30, #FF9500, #FFD60A, #34C759, #00BDDE, #0066FF, #AF52DE, #F553DA, #FF3B30)", boxShadow: "inset 0 0 0 1px rgba(23,23,25,0.18)" }}>
+        <input type="color" value={/^#[0-9a-f]{6}$/i.test(value) ? value : "#0066FF"} onChange={(e) => onChange(e.target.value.toUpperCase())} className="absolute -inset-1.5 size-[200%] cursor-pointer opacity-0" />
+      </label>
+      <span className="ml-1 text-xs tabular-nums text-label-alt">{value}</span>
     </div>
   );
 }

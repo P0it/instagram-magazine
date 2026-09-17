@@ -10,6 +10,7 @@ import {
   ApprovalGateResultSchema,
   CollectResultSchema,
   IndexEntrySchema,
+  IngestLogEntrySchema,
   InsightsResponseSchema,
   PostBundleSchema,
   PublishResultSchema,
@@ -103,6 +104,13 @@ export const api = {
   retry: (id: string) => request(`/api/posts/${encodeURIComponent(id)}/retry`, PublishResultSchema, jsonInit("POST")),
 
   sync: () => request("/api/ingest/sync", SyncResponseSchema, jsonInit("POST")),
+  legacyFolders: () => request("/api/ingest/legacy", zod.object({ folders: zod.array(zod.object({ id: zod.string(), name: zod.string(), drafts: zod.number() })) })),
+  importLegacy: (source_folder_id: string, account_key: string) =>
+    request(
+      "/api/ingest/legacy",
+      zod.object({ source: zod.string(), account_key: zod.string(), created: zod.number(), needs_repair: zod.number(), skipped: zod.number(), errors: zod.number(), entries: zod.array(IngestLogEntrySchema) }),
+      jsonInit("POST", { source_folder_id, account_key }),
+    ),
 
   insights: (range: InsightsRange) => request(`/api/insights?range=${range}`, InsightsResponseSchema),
   collectInsights: () => request("/api/insights/collect", CollectResultSchema, jsonInit("POST")),
@@ -118,6 +126,8 @@ export const api = {
       "/api/google/oauth/result",
       zod.object({ result: zod.object({ refresh_token: zod.string(), email: zod.string().nullable(), issued_at: zod.string(), saved_locally: zod.boolean().default(false) }).nullable(), active: zod.boolean() }),
     ),
+  /** Instagram 없이 채널만 먼저 만들기 (unlinked) */
+  createChannel: (key: string, name?: string) => request("/api/instagram/accounts/channel", AccountsResponseSchema, jsonInit("POST", { key, name })),
   /** Mock Drive 전용 가짜 연결 */
   mockConnectAccount: (username: string) => request("/api/instagram/accounts/mock", AccountsResponseSchema, jsonInit("POST", { username })),
 

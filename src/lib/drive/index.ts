@@ -12,6 +12,7 @@ interface GlobalDriveState {
   mockTree?: MockTree;
   mockSeeded?: Promise<void>;
   google?: Promise<GoogleDriveClient>;
+  warnedNoCreds?: boolean;
 }
 
 const g = globalThis as typeof globalThis & { __magazineDesk?: GlobalDriveState };
@@ -43,7 +44,13 @@ async function createGoogleDrive(): Promise<GoogleDriveClient> {
 /** 서버 전용. DRIVE_CLIENT=google 이고 자격증명이 있으면 Google, 아니면 Mock. */
 export async function getDrive(): Promise<DriveClient> {
   const e = env();
-  if (e.DRIVE_CLIENT === "google") {
+  if (e.DRIVE_CLIENT === "google" && googleAuthMode(e) === "none") {
+    // 아직 Google 계정을 연결하지 않은 상태 — 앱이 죽지 않게 Mock 으로 동작하고 설정 화면이 "자격증명 없음" 을 보여준다
+    if (!state.warnedNoCreds) {
+      state.warnedNoCreds = true;
+      console.warn("[drive] DRIVE_CLIENT=google 이지만 자격증명이 없어 Mock 으로 동작합니다. 설정 › Google Drive 에서 연결하세요.");
+    }
+  } else if (e.DRIVE_CLIENT === "google") {
     state.google ??= createGoogleDrive().catch((err) => {
       state.google = undefined; // 실패는 캐시하지 않는다
       throw err;

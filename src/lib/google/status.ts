@@ -15,7 +15,7 @@ export async function googleDriveStatus(): Promise<GoogleDriveStatus> {
   const base = { oauth_configured: isGoogleOauthConfigured(), redirect_uri: googleRedirectUri(), root_folder_id: null, email: null, error: null };
   if (e.DRIVE_CLIENT !== "google") return { ...base, mode: "mock" };
   const mode = googleAuthMode(e);
-  if (mode === "none") return { ...base, mode };
+  if (mode === "none") return { ...base, mode, error: "Google 자격증명이 없어 임시로 Mock 데이터로 동작 중이에요. 아래에서 연결하세요." };
   try {
     const drive = await getDrive();
     const auth = googleAuthFromEnv();

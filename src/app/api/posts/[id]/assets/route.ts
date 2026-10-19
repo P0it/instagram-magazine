@@ -1,8 +1,4 @@
-import type { PostBundle } from "@/types";
-import { getDrive, isImageMime } from "@/lib/drive";
-import { ensureSubfolder, loadPost, toBundle, writeMetadata } from "@/lib/metadata/post-repo";
-import { readImageDims } from "@/lib/metadata/image-dims";
-import { upsertIndexEntry } from "@/lib/metadata/index-builder";
+import { addAssetToPost, BadImageError } from "@/lib/metadata/assets";
 import { error, handle, json } from "@/lib/api/respond";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -22,33 +18,12 @@ export async function POST(req: Request, ctx: Ctx) {
     if (file.size > MAX_BYTES) return error(413, "file exceeds 15MB", "too_large");
     const kind = form.get("kind")?.toString() === "cutout" ? "cutout" : "source";
     const slideId = kind === "source" ? form.get("slide_id")?.toString() || undefined : undefined;
-
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const dims = readImageDims(bytes);
-    if (!dims) return error(400, "only PNG/JPEG/WebP supported", "bad_image");
-    const mime = file.type && isImageMime(file.type) ? file.type : `image/${dims.format === "jpeg" ? "jpeg" : dims.format}`;
-    const ext = dims.format === "jpeg" ? "jpg" : dims.format;
-
-    const drive = await getDrive();
-    const post = await loadPost(drive, id);
-    const assetsFolder = await ensureSubfolder(drive, post, "assets");
-    const existing = await drive.listChildren(assetsFolder.id);
-    const re = kind === "cutout" ? /cutout_(\d+)/ : /source_(\d+)/;
-    const nums = existing.map((f) => Number(re.exec(f.name)?.[1] ?? 0));
-    const next = (nums.length ? Math.max(...nums) : 0) + 1;
-    const name = `${kind}_${String(next).padStart(2, "0")}.${ext}`;
-    await drive.uploadBytes(assetsFolder.id, name, bytes, mime);
-
-    const now = new Date().toISOString();
-    const slides = slideId ? post.metadata.slides.map((s) => (s.id === slideId ? { ...s, asset: name } : s)) : post.metadata.slides;
-    const metadata = await writeMetadata(drive, post.folderId, {
-      ...post.metadata,
-      slides,
-      asset_mode: kind === "source" && post.metadata.asset_mode === "text_only" ? "upload" : post.metadata.asset_mode,
-      updated_at: now,
-    });
-    const reloaded = await loadPost(drive, id);
-    await upsertIndexEntry(drive, { ...reloaded, metadata });
-    return json<PostBundle & { uploaded: string }>({ ...toBundle({ ...reloaded, metadata }), uploaded: name });
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      return json(await addAssetToPost(id, bytes, { kind, slideId, mimeHint: file.type }));
+    } catch (e) {
+      if (e instanceof BadImageError) return error(400, e.message, "bad_image");
+      throw e;
+    }
   });
 }

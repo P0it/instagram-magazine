@@ -33,7 +33,11 @@ export type TextAlign = z.infer<typeof TextAlignSchema>;
  * 캔버스 렌더 폰트. 전부 next/font 로 self-host (app/layout.tsx) → 내보내기 결정적.
  * sans/serif 는 채널 스타일팩이 정하는 기본 둘, 나머지는 레이어 단위로 고르는 표현용.
  */
-export const FONT_FAMILIES = ["sans", "serif", "nanum-myeongjo", "song-myung", "gowun-dodum", "black-han-sans", "gaegu"] as const;
+export const FONT_FAMILIES = [
+  "sans", "serif", "nanum-myeongjo", "song-myung", "gowun-dodum", "black-han-sans", "gaegu",
+  "gowun-batang", "ibm-plex-sans-kr", "do-hyeon", "jua", "yeon-sung", "dongle", "nanum-pen",
+  "playfair-display", "dm-serif-display", "bebas-neue", "anton", "space-grotesk",
+] as const;
 export const FontFamilySchema = z.enum(FONT_FAMILIES);
 export type FontFamily = z.infer<typeof FontFamilySchema>;
 
@@ -45,6 +49,18 @@ export const FONT_META: Record<FontFamily, { label: string; cssVar: string; fall
   "gowun-dodum": { label: "고운돋움", cssVar: "--font-gowun-dodum", fallback: "sans-serif", family: "Gowun Dodum" },
   "black-han-sans": { label: "Black Han Sans", cssVar: "--font-black-han-sans", fallback: "sans-serif", family: "Black Han Sans" },
   gaegu: { label: "개구 손글씨", cssVar: "--font-gaegu", fallback: "cursive", family: "Gaegu" },
+  "gowun-batang": { label: "고운바탕", cssVar: "--font-gowun-batang", fallback: "serif", family: "Gowun Batang" },
+  "ibm-plex-sans-kr": { label: "IBM 플렉스", cssVar: "--font-ibm-plex-sans-kr", fallback: "sans-serif", family: "IBM Plex Sans KR" },
+  "do-hyeon": { label: "도현 · 굵은 제목", cssVar: "--font-do-hyeon", fallback: "sans-serif", family: "Do Hyeon" },
+  jua: { label: "주아 · 둥근 제목", cssVar: "--font-jua", fallback: "sans-serif", family: "Jua" },
+  "yeon-sung": { label: "연성 · 손글씨", cssVar: "--font-yeon-sung", fallback: "cursive", family: "Yeon Sung" },
+  dongle: { label: "동글 · 얇고 둥근", cssVar: "--font-dongle", fallback: "sans-serif", family: "Dongle" },
+  "nanum-pen": { label: "나눔펜 · 펜글씨", cssVar: "--font-nanum-pen", fallback: "cursive", family: "Nanum Pen Script" },
+  "playfair-display": { label: "Playfair · 영문 세리프", cssVar: "--font-playfair-display", fallback: "serif", family: "Playfair Display" },
+  "dm-serif-display": { label: "DM Serif · 영문 디스플레이", cssVar: "--font-dm-serif-display", fallback: "serif", family: "DM Serif Display" },
+  "bebas-neue": { label: "Bebas Neue · 영문 대문자", cssVar: "--font-bebas-neue", fallback: "sans-serif", family: "Bebas Neue" },
+  anton: { label: "Anton · 영문 임팩트", cssVar: "--font-anton", fallback: "sans-serif", family: "Anton" },
+  "space-grotesk": { label: "Space Grotesk · 영문 모던", cssVar: "--font-space-grotesk", fallback: "sans-serif", family: "Space Grotesk" },
 };
 
 export const ToneDefaultsSchema = z.object({

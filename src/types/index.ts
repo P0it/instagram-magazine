@@ -11,3 +11,6 @@ export * from "./ingest";
 export * from "./api";
 export * from "./insights";
 export * from "./custom-preset";
+export * from "./stock";
+export * from "./template";
+export * from "./reference";

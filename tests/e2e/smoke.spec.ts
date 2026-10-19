@@ -24,13 +24,13 @@ test("home 3-stage board → builder → preset switch → sticker → export 10
   const canvas = page.locator("canvas").first();
   await expect(canvas).toBeVisible({ timeout: 15_000 });
 
-  // 오른쪽 패널 프리셋 탭에서 전환 → 자동 저장
-  await page.getByRole("tab", { name: "프리셋" }).click();
+  // 오른쪽 패널 레이아웃 탭에서 전환 → 자동 저장
+  await page.getByRole("tab", { name: "레이아웃" }).click();
   await page.getByRole("button", { name: /Cover Center/ }).click();
   await expect(page.getByText(/저장됨 · 방금/)).toBeVisible({ timeout: 10_000 });
 
-  // 요소 탭에서 스티커 추가 → 요소 레이어 패널
-  await page.getByRole("tab", { name: "요소" }).click();
+  // 왼쪽 도구함의 요소 탭에서 스티커 추가 → 요소 레이어 패널
+  await page.getByRole("button", { name: "요소", exact: true }).click();
   await page.getByRole("button", { name: "테이프" }).click();
   await expect(page.getByText("요소 레이어")).toBeVisible();
 
@@ -166,17 +166,30 @@ test("post format 1:1 → export 1080x1080, fonts and element library are presen
   const buf = fs.readFileSync((await (await downloads[0]).path())!);
   expect(readJpegDims(buf)).toEqual({ width: 1080, height: 1080 });
 
-  // 폰트 7종
+  // 폰트 19종 (기존 7종 + 한글 감성·영문 디스플레이)
   await page.getByRole("tab", { name: "레이어" }).click();
   await page.getByRole("button", { name: /^텍스트 · / }).click();
   await page.getByRole("button", { name: /폰트 · 이 레이어만/ }).click();
   await expect(page.getByText("나눔명조")).toBeVisible();
   await expect(page.getByText("개구 손글씨")).toBeVisible();
+  await expect(page.getByText("도현 · 굵은 제목")).toBeVisible();
+  await expect(page.getByText("Bebas Neue · 영문 대문자")).toBeVisible();
 
-  // 요소 탭: 누끼 · 프리셋 탭: 스크린샷 분석 진입점
-  await page.getByRole("tab", { name: "요소" }).click();
+  // 왼쪽 도구함: 요소 탭(누끼·도형) · 텍스트 탭(자유 텍스트 상자) · 배경 탭(색 조합) · 템플릿 탭
+  await page.getByRole("button", { name: "요소", exact: true }).click();
   await expect(page.getByRole("button", { name: /배경 지워서 라이브러리에 담기/ })).toBeEnabled();
-  await page.getByRole("tab", { name: "프리셋" }).click();
+  await page.getByRole("button", { name: "별", exact: true }).click();
+  await expect(page.getByText("도형 · 별").first()).toBeVisible();
+  await page.getByRole("button", { name: "텍스트", exact: true }).click();
+  await page.getByRole("button", { name: "텍스트 상자 추가" }).click();
+  await expect(page.getByText("내용 · 더블클릭으로 바로 입력")).toBeVisible();
+  await page.getByRole("button", { name: "배경", exact: true }).click();
+  await page.getByRole("button", { name: /^가나다 Aa/ }).first().click();
+  await page.getByRole("button", { name: "템플릿", exact: true }).click();
+  await page.getByRole("button", { name: /네이비 × 민트 헤드라인/ }).click();
+  await expect(page.getByText(/저장됨 · 방금/)).toBeVisible({ timeout: 10_000 });
+  // 오른쪽 패널 레이아웃 탭: 스크린샷 분석 진입점
+  await page.getByRole("tab", { name: "레이아웃" }).click();
   await expect(page.getByRole("button", { name: "레이아웃 읽어 등록" })).toBeEnabled();
 
   // 되돌리기: 4:5 로

@@ -52,6 +52,12 @@ export const SlideImageStateSchema = z.object({
   contrast: z.number().min(-100).max(100).default(0),
   saturation: z.number().min(-2).max(2).default(0),
   blur: z.number().min(0).max(40).default(0),
+  /** 색온도: − 차갑게(청), + 따뜻하게(주황) */
+  warmth: z.number().min(-100).max(100).default(0),
+  /** 페이드: 블랙을 들어 올려 필름처럼 */
+  fade: z.number().min(0).max(100).default(0),
+  /** 비네팅: 가장자리를 어둡게 */
+  vignette: z.number().min(0).max(100).default(0),
   overlay: z
     .object({
       color: z.string().default("#000000"),
@@ -100,17 +106,27 @@ export const CUTOUT_PREFIX = "cutout_";
  * 텍스트/이미지 위에 얹는 요소 레이어(스티커·아이콘·누끼). 좌표는 1080×H 논리 px, (x,y) 는 중심.
  * cutout 은 브라우저에서 배경을 지운 투명 PNG(assets/cutout_NN.png) 를 가리킨다.
  */
+export const SHAPE_KEYS = ["rect", "circle", "triangle", "star", "diamond", "line"] as const;
+export const ShapeKeySchema = z.enum(SHAPE_KEYS);
+export type ShapeKey = z.infer<typeof ShapeKeySchema>;
+
+export const LAYER_KINDS = ["sticker", "icon", "cutout", "text", "image", "shape"] as const;
+
 export const SlideLayerSchema = z.object({
   id: z.string(),
-  kind: z.enum(["sticker", "icon", "cutout"]),
+  /**
+   * text: 자유 텍스트 박스(text/fontSize/…) · image: 사진 레이어(asset) · shape: 도형(key=ShapeKey, color=채움)
+   * 나머지는 기존 요소 레이어.
+   */
+  kind: z.enum(LAYER_KINDS),
   key: z.string(),
   /** cutout: assets 폴더 파일명 */
   asset: z.string().nullable().default(null),
   x: z.number().default(540),
   y: z.number().default(540),
-  width: z.number().min(24).max(1080).default(300),
-  /** 사용자가 박스를 직접 늘렸을 때만 존재. 없으면 스티커 기본 비율 */
-  height: z.number().min(24).max(1350).optional(),
+  width: z.number().min(8).max(1080).default(300),
+  /** 사용자가 박스를 직접 늘렸을 때만 존재. 없으면 스티커 기본 비율 (text 는 항상 자동) */
+  height: z.number().min(2).max(1350).optional(),
   rotation: z.number().default(0),
   opacity: z.number().min(0).max(1).default(1),
   flip: z.boolean().default(false),
@@ -121,6 +137,17 @@ export const SlideLayerSchema = z.object({
   bg: z.string().nullable().default(null),
   ink: z.string().nullable().default(null),
   fontFamily: FontFamilySchema.default("sans"),
+  /** text 레이어 서식 */
+  fontSize: z.number().min(8).max(400).default(64),
+  weight: z.number().int().default(700),
+  lineHeight: z.number().default(1.25),
+  letterSpacing: z.number().default(0),
+  align: TextAlignSchema.default("left"),
+  /** shape·image 모서리 둥글기, shape 외곽선 */
+  radius: z.number().min(0).max(1080).default(0),
+  stroke: z.string().nullable().default(null),
+  strokeWidth: z.number().min(0).max(80).default(0),
+  shadow: z.boolean().default(false),
   hidden: z.boolean().default(false),
   locked: z.boolean().default(false),
 });

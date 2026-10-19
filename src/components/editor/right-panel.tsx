@@ -3,18 +3,19 @@
 import { useRef, useState } from "react";
 import { Download, Link as LinkIcon, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
-import { FONT_FAMILIES, FONT_META, FORMAT_INFO, POST_FORMATS, type FontFamily, type PostBundle, type SlideDef, type SlideEditorState, type SlideLayer } from "@/types";
+import { CUTOUT_PREFIX, FONT_FAMILIES, FONT_META, FORMAT_INFO, POST_FORMATS, type FontFamily, type PostBundle, type SlideDef, type SlideEditorState, type SlideLayer } from "@/types";
 import { cssFontFamily } from "@/lib/render/export";
 import { useEditorStore, selectSelectedLayer } from "@/stores/editor-store";
 import { api, driveFileUrl } from "@/lib/client/api";
 import { useInvalidatePosts, useSystemStatus } from "@/lib/client/queries";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/metadata/approval-gate";
-import { iconLabel, stickerDef } from "@/lib/render/stickers";
+import { stickerDef } from "@/lib/render/stickers";
 import { useAccount } from "@/lib/client/channel";
 import { Segmented } from "@/components/md/segmented";
+import { LOOKS } from "@/presets/looks";
 import { Collapsible, PaletteGrid, PanelLabel, RangeRow, fieldClass } from "@/components/md/primitives";
 import { cn } from "@/lib/utils";
-import { ElementsTab, LayersTab, PANEL_HINT, PresetsTab, type PanelTab } from "./panel-tabs";
+import { LayersTab, PANEL_HINT, PresetsTab, layerName, type PanelTab } from "./panel-tabs";
 
 const FONT_LABEL = (f: FontFamily) => `${FONT_META[f].label} · ${FONT_META[f].family}`;
 
@@ -48,8 +49,8 @@ export function RightPanel({ slide, state, bundle, disabled, onDownload }: { sli
     if (selection) setTab("props");
   }
 
-  const title = selection?.kind === "text" ? "텍스트 레이어" : selection?.kind === "image" ? "이미지 레이어" : selection?.kind === "layer" ? "요소 레이어" : "포스트";
-  const propsLabel = selection?.kind === "text" ? "텍스트" : selection?.kind === "image" ? "이미지" : selection?.kind === "layer" ? "요소" : "포스트";
+  const title = selection?.kind === "text" ? "텍스트 레이어" : selection?.kind === "image" ? "이미지 레이어" : selection?.kind === "layer" ? (layer ? `${layerKindLabel(layer)} 레이어` : "요소 레이어") : "포스트";
+  const propsLabel = selection?.kind === "text" ? "텍스트" : selection?.kind === "image" ? "이미지" : selection?.kind === "layer" ? (layer ? layerKindLabel(layer) : "요소") : "포스트";
 
   return (
     <aside className={cn("flex w-[340px] shrink-0 flex-col bg-surface", disabled && "pointer-events-none opacity-45")} style={{ boxShadow: "inset 1px 0 0 var(--semantic-line-solid-neutral)" }}>
@@ -59,9 +60,8 @@ export function RightPanel({ slide, state, bundle, disabled, onDownload }: { sli
           onChange={setTab}
           items={[
             { value: "props", label: propsLabel },
-            { value: "presets", label: "프리셋" },
-            { value: "elements", label: "요소" },
             { value: "layers", label: "레이어" },
+            { value: "presets", label: "레이아웃" },
           ]}
         />
       </div>
@@ -82,8 +82,6 @@ export function RightPanel({ slide, state, bundle, disabled, onDownload }: { sli
           <p className="p-4 text-xs text-label-assistive">슬라이드를 선택하세요.</p>
         ) : tab === "presets" ? (
           <div className="px-4 pb-4 pt-1"><PresetsTab slide={slide} /></div>
-        ) : tab === "elements" ? (
-          <div className="px-4 pb-4 pt-1"><ElementsTab slide={slide} bundle={bundle} /></div>
         ) : tab === "layers" ? (
           <div className="px-4 pb-4 pt-1"><LayersTab slide={slide} state={state} /></div>
         ) : selection?.kind === "text" ? (
@@ -91,7 +89,7 @@ export function RightPanel({ slide, state, bundle, disabled, onDownload }: { sli
         ) : selection?.kind === "image" ? (
           <ImagePanel slide={slide} state={state} bundle={bundle} />
         ) : selection?.kind === "layer" && layer ? (
-          <LayerPanel slide={slide} state={state} layer={layer} />
+          <LayerPanel slide={slide} state={state} layer={layer} bundle={bundle} />
         ) : (
           <PostPanel onDownload={onDownload} />
         )}
@@ -205,10 +203,24 @@ function ImagePanel({ slide, state, bundle }: { slide: SlideDef; state: SlideEdi
           )}
         </div>
       </div>
+      <div className="flex flex-col gap-2">
+        <PanelLabel>룩 (색감 프리셋)</PanelLabel>
+        <div className="flex flex-wrap gap-1.5">
+          {LOOKS.map((l) => (
+            <button key={l.id} type="button" title={l.hint} onClick={() => set((i) => { Object.assign(i, l.values); })} className="flex h-[30px] items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold text-label-neutral hairline hover:bg-fill-alt">
+              <span className="size-2.5 rounded-full" style={{ background: l.swatch }} />
+              {l.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <RangeRow label="줌" value={im.zoom} display={`${im.zoom.toFixed(2)}×`} min={1} max={3} step={0.01} onChange={(v) => set((i) => { i.zoom = v; })} />
       <RangeRow label="밝기" value={im.brightness} display={signed(im.brightness * 100)} min={-0.6} max={0.6} step={0.01} onChange={(v) => set((i) => { i.brightness = v; })} hint="제안 −8" onHint={() => set((i) => { i.brightness = -0.08; })} />
       <RangeRow label="대비" value={im.contrast} display={signed(im.contrast)} min={-60} max={60} step={1} onChange={(v) => set((i) => { i.contrast = v; })} hint="제안 +12" onHint={() => set((i) => { i.contrast = 12; })} />
       <RangeRow label="채도" value={im.saturation} display={signed(im.saturation * 100)} min={-1} max={1} step={0.05} onChange={(v) => set((i) => { i.saturation = v; })} hint="제안 −20" onHint={() => set((i) => { i.saturation = -0.2; })} />
+      <RangeRow label="색온도" value={im.warmth} display={signed(im.warmth)} min={-100} max={100} step={1} onChange={(v) => set((i) => { i.warmth = v; })} hint="초기화" onHint={() => set((i) => { i.warmth = 0; })} />
+      <RangeRow label="페이드" value={im.fade} display={`${im.fade}`} min={0} max={100} step={1} onChange={(v) => set((i) => { i.fade = v; })} />
+      <RangeRow label="비네팅" value={im.vignette} display={`${im.vignette}`} min={0} max={100} step={1} onChange={(v) => set((i) => { i.vignette = v; })} />
       <RangeRow label="다크 오버레이" value={im.overlay.opacity} display={`${Math.round(im.overlay.opacity * 100)}%`} min={0} max={0.8} step={0.01} onChange={(v) => set((i) => { i.overlay.opacity = v; })} hint="제안 40%" onHint={() => set((i) => { i.overlay.opacity = 0.4; })} />
       <RangeRow label="그라디언트 강도" value={im.gradient.opacity} display={`${Math.round(im.gradient.opacity * 100)}%`} min={0} max={1} step={0.01} onChange={(v) => set((i) => { i.gradient.opacity = v; })} hint="제안 65%" onHint={() => set((i) => { i.gradient.opacity = 0.65; })} />
       <RangeRow label="블러" value={im.blur} display={`${im.blur}px`} min={0} max={30} step={1} onChange={(v) => set((i) => { i.blur = v; })} />
@@ -235,27 +247,80 @@ function ImagePanel({ slide, state, bundle }: { slide: SlideDef; state: SlideEdi
 }
 
 // ---------------- 요소 레이어 ----------------
-function LayerPanel({ slide, state, layer: L }: { slide: SlideDef; state: SlideEditorState; layer: SlideLayer }) {
+function layerKindLabel(L: SlideLayer): string {
+  return L.kind === "text" ? "텍스트" : L.kind === "image" ? "사진" : L.kind === "shape" ? "도형" : "요소";
+}
+
+function LayerPanel({ slide, state, layer: L, bundle }: { slide: SlideDef; state: SlideEditorState; layer: SlideLayer; bundle: PostBundle }) {
   const updateLayer = useEditorStore((s) => s.updateLayer);
   const removeLayer = useEditorStore((s) => s.removeLayer);
   const moveLayer = useEditorStore((s) => s.moveLayer);
+  const duplicateLayer = useEditorStore((s) => s.duplicateLayer);
+  const setSlideAsset = useEditorStore((s) => s.setSlideAsset);
+  const canvasH = useEditorStore((s) => s.snapshot?.editorState.canvas.height ?? 1350);
   const channel = useEditorStore((s) => s.snapshot?.metadata.channel);
   const channelColor = useAccount(channel)?.color ?? "#171717";
   const set = (patch: Partial<SlideLayer>) => updateLayer(slide.id, L.id, patch);
   const def = L.kind === "sticker" ? stickerDef(L.key) : null;
-  const name = L.kind === "cutout" ? "누끼 PNG" : L.kind === "icon" ? `아이콘 · ${iconLabel(L.key)}` : `스티커 · ${def?.label ?? ""}`;
+  const name = layerName(L);
   const idx = state.layers.findIndex((l) => l.id === L.id);
   const hasText = !!def && def.text !== "";
-  const colorLabel = L.kind === "icon" ? "아이콘 색" : def?.useColor ? "배경색" : "글자색";
+  const colorLabel = L.kind === "icon" ? "아이콘 색" : L.kind === "shape" ? "채움색" : L.kind === "text" ? "글자색" : def?.useColor ? "배경색" : "글자색";
+  const weightValue = L.weight >= 700 ? "Bold" : L.weight >= 500 ? "Medium" : "Regular";
+  const alignValue = L.align === "left" ? "좌" : L.align === "center" ? "가운데" : "우";
+  const isText = L.kind === "text";
+  const isShape = L.kind === "shape";
+  const isImage = L.kind === "image";
+  const h = L.height ?? L.width;
 
   return (
     <div className="flex flex-col gap-[18px] px-4 pb-8 pt-4">
       <div className="flex items-center gap-2.5 rounded-xl bg-fill-alt px-3 py-2.5">
-        <span className="flex-1 text-[13px] font-semibold">{name}</span>
-        <span className="text-[11px] text-label-alt">순서 {idx + 1} / {state.layers.length}</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{name}</span>
+        <span className="shrink-0 text-[11px] text-label-alt">순서 {idx + 1} / {state.layers.length}</span>
       </div>
       {L.kind === "cutout" && <span className="text-xs leading-normal text-label-assistive">브라우저에서 배경을 지운 투명 PNG예요. 크기·회전은 선택 프레임으로도 조정할 수 있어요.</span>}
-      <RangeRow label="크기" value={L.width} display={`${Math.round((L.width / 1080) * 100)}%`} min={60} max={1080} step={2} onChange={(v) => set({ width: v, height: L.height !== undefined ? Math.round((L.height * v) / L.width) : undefined })} />
+
+      {isText && (
+        <>
+          <div className="flex flex-col gap-2">
+            <PanelLabel>내용 · 더블클릭으로 바로 입력</PanelLabel>
+            <textarea id="layer-text-input" value={L.text} onChange={(e) => set({ text: e.target.value })} rows={3} className={cn(fieldClass, "resize-y leading-normal")} />
+          </div>
+          <Collapsible title="폰트 · 이 레이어만" summary={FONT_LABEL(L.fontFamily)}>
+            <FontList value={L.fontFamily} onChange={(f) => set({ fontFamily: f })} />
+          </Collapsible>
+          <RangeRow label="크기" value={L.fontSize} display={`${L.fontSize}px`} min={12} max={300} step={1} onChange={(v) => set({ fontSize: v })} />
+          <RangeRow label="행간" value={L.lineHeight} display={L.lineHeight.toFixed(2)} min={0.8} max={2.2} step={0.05} onChange={(v) => set({ lineHeight: v })} />
+          <RangeRow label="자간" value={L.letterSpacing} display={`${L.letterSpacing}px`} min={-8} max={20} step={0.5} onChange={(v) => set({ letterSpacing: v })} />
+          <RangeRow label="박스 폭" value={L.width} display={`${Math.round((L.width / 1080) * 100)}%`} min={120} max={1080} step={10} onChange={(v) => set({ width: v })} />
+          <div className="flex flex-col gap-2">
+            <PanelLabel>굵기 · 정렬</PanelLabel>
+            <Segmented value={weightValue} onChange={(v) => set({ weight: v === "Bold" ? 700 : v === "Medium" ? 500 : 400 })} items={["Regular", "Medium", "Bold"]} />
+            <Segmented value={alignValue} onChange={(v) => set({ align: v === "좌" ? "left" : v === "가운데" ? "center" : "right" })} items={["좌", "가운데", "우"]} />
+          </div>
+        </>
+      )}
+
+      {!isText && (
+        <RangeRow label={isShape ? "너비" : "크기"} value={L.width} display={isShape ? `${Math.round(L.width)}px` : `${Math.round((L.width / 1080) * 100)}%`} min={isShape ? 6 : 60} max={1080} step={2} onChange={(v) => set({ width: v, height: L.height !== undefined && !isShape ? Math.round((L.height * v) / L.width) : L.height })} />
+      )}
+      {isShape && <RangeRow label="높이" value={h} display={`${Math.round(h)}px`} min={2} max={canvasH} step={2} onChange={(v) => set({ height: v })} />}
+      {(isShape || isImage) && <RangeRow label="모서리 둥글기" value={L.radius} display={`${Math.round(L.radius)}px`} min={0} max={Math.round(Math.min(L.width, h) / 2)} step={2} onChange={(v) => set({ radius: v })} />}
+      {isImage && (
+        <div className="flex flex-col gap-2">
+          <PanelLabel>사진 교체</PanelLabel>
+          <div className="flex flex-wrap gap-1.5">
+            {bundle.assets.filter((a) => !a.name.startsWith(CUTOUT_PREFIX)).map((a) => (
+              <button key={a.fileId} type="button" title={a.name} onClick={() => set({ asset: a.name })} className="size-[52px] overflow-hidden rounded-lg hairline-neutral" style={{ boxShadow: L.asset === a.name ? "0 0 0 2px var(--semantic-primary-normal)" : undefined }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={driveFileUrl(a.fileId)} alt="" className="size-full object-cover" />
+              </button>
+            ))}
+          </div>
+          <PanelButton onClick={() => L.asset && setSlideAsset(slide.id, L.asset)}>이 사진을 배경으로 쓰기</PanelButton>
+        </div>
+      )}
       <RangeRow label="회전" value={L.rotation} display={`${L.rotation}°`} min={-180} max={180} step={1} onChange={(v) => set({ rotation: v })} />
       <RangeRow label="불투명도" value={L.opacity} display={`${Math.round(L.opacity * 100)}%`} min={0.1} max={1} step={0.01} onChange={(v) => set({ opacity: v })} />
       {hasText && (
@@ -269,17 +334,41 @@ function LayerPanel({ slide, state, layer: L }: { slide: SlideDef; state: SlideE
           </Collapsible>
         </>
       )}
-      {L.kind !== "cutout" && <Collapsible title={colorLabel} summary={<span className="size-3.5 rounded-full" style={{ background: L.color, boxShadow: "inset 0 0 0 1px rgba(23,23,25,0.2)" }} />}>
-        <PaletteGrid value={L.color} onChange={(c) => set({ color: c })} extra={channelColor} />
-      </Collapsible>}
+      {L.kind !== "cutout" && L.kind !== "image" && (
+        <Collapsible title={colorLabel} summary={<span className="size-3.5 rounded-full" style={{ background: L.color, boxShadow: "inset 0 0 0 1px rgba(23,23,25,0.2)" }} />}>
+          <PaletteGrid value={L.color} onChange={(c) => set({ color: c })} extra={channelColor} />
+          {isShape && (
+            <button type="button" onClick={() => set({ color: "transparent" })} className="mt-2 w-full rounded-lg bg-fill-alt py-1.5 text-xs font-semibold text-label-neutral hover:bg-fill">채움 없음 (외곽선만)</button>
+          )}
+        </Collapsible>
+      )}
+      {(isShape || isImage || isText) && (
+        <Collapsible title="외곽선 · 그림자" summary={L.stroke && L.strokeWidth > 0 ? <span className="size-3.5 rounded-full" style={{ background: L.stroke, boxShadow: "inset 0 0 0 1px rgba(23,23,25,0.2)" }} /> : undefined}>
+          <div className="flex flex-col gap-3">
+            <RangeRow label="두께" value={L.strokeWidth} display={`${L.strokeWidth}px`} min={0} max={40} step={1} onChange={(v) => set({ strokeWidth: v, stroke: L.stroke ?? "#FFFFFF" })} />
+            <PaletteGrid value={L.stroke ?? "#FFFFFF"} onChange={(c) => set({ stroke: c, strokeWidth: L.strokeWidth || 4 })} />
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm">그림자</span>
+              <Toggle checked={L.shadow} onChange={(v) => set({ shadow: v })} label="그림자" />
+            </div>
+          </div>
+        </Collapsible>
+      )}
       <Collapsible title="정렬 · 순서">
         <div className="grid grid-cols-2 gap-2">
-          <PanelButton onClick={() => set({ flip: !L.flip })}>좌우 반전</PanelButton>
-          <PanelButton onClick={() => set({ x: 540 })}>가운데로</PanelButton>
+          {!isText && <PanelButton onClick={() => set({ flip: !L.flip })}>좌우 반전</PanelButton>}
+          <PanelButton onClick={() => set({ x: 540 })}>가로 가운데</PanelButton>
+          <PanelButton onClick={() => set({ y: Math.round(canvasH / 2) })}>세로 가운데</PanelButton>
           <PanelButton onClick={() => moveLayer(slide.id, L.id, 1)}>앞으로</PanelButton>
           <PanelButton onClick={() => moveLayer(slide.id, L.id, -1)}>뒤로</PanelButton>
+          <PanelButton onClick={() => duplicateLayer(slide.id, L.id)}>복제</PanelButton>
         </div>
       </Collapsible>
+      <div className="grid grid-cols-3 gap-2">
+        <NumField label="X" value={Math.round(L.x)} onChange={(v) => set({ x: v })} />
+        <NumField label="Y" value={Math.round(L.y)} onChange={(v) => set({ y: v })} />
+        <NumField label="W" value={Math.round(L.width)} onChange={(v) => set({ width: Math.max(8, v) })} />
+      </div>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm">레이어 잠금</span>
         <Toggle checked={L.locked} onChange={(v) => set({ locked: v })} label="레이어 잠금" />

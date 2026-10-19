@@ -4,11 +4,15 @@ import {
   AccountsFileSchema,
   CustomPresetsFileSchema,
   IndexFileSchema,
+  ReferencesFileSchema,
+  TemplatesFileSchema,
   IngestLogFileSchema,
   type AccountsFile,
   type CustomPresetsFile,
   type IndexFile,
   type IngestLogFile,
+  type ReferencesFile,
+  type TemplatesFile,
 } from "@/types";
 import type { DriveClient } from "./types";
 import { systemFolderId } from "./paths";
@@ -84,3 +88,13 @@ export const readCustomPresets = (drive: DriveClient) =>
   readSystemJson(drive, "custom-presets.json", CustomPresetsFileSchema, { presets: [] });
 export const writeCustomPresets = (drive: DriveClient, data: CustomPresetsFile, v?: string | null) =>
   writeSystemJson(drive, "custom-presets.json", data, v);
+
+export const readTemplates = (drive: DriveClient) =>
+  readSystemJson(drive, "templates.json", TemplatesFileSchema, { templates: [] });
+export const writeTemplates = (drive: DriveClient, data: TemplatesFile, v?: string | null) =>
+  writeSystemJson(drive, "templates.json", data, v);
+
+export const readReferences = (drive: DriveClient) =>
+  readSystemJson(drive, "references.json", ReferencesFileSchema, { references: [] });
+export const writeReferences = (drive: DriveClient, data: ReferencesFile, v?: string | null) =>
+  writeSystemJson(drive, "references.json", data, v);

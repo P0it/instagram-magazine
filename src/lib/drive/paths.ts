@@ -30,6 +30,7 @@ async function ensureCached(drive: DriveClient, path: string[]): Promise<string>
 }
 
 export const systemFolderId = (drive: DriveClient) => ensureCached(drive, ["_system"]);
+export const referenceFolderId = (drive: DriveClient, refId: string) => ensureCached(drive, ["_system", "references", refId]);
 export const stylePacksFolderId = (drive: DriveClient) => ensureCached(drive, ["_system", "style-packs"]);
 export const inboxFolderId = (drive: DriveClient, ch: AccountKey) => ensureCached(drive, ["inbox", ch]);
 export const channelFolderId = (drive: DriveClient, ch: AccountKey) => ensureCached(drive, [ch]);

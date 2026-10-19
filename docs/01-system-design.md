@@ -1,11 +1,13 @@
 # Magazine Desk — 기술 스택 & 시스템 설계 (Claude Code 핸드오프)
 
-**Version:** 1.2 · **Date:** 2026-09-17 · **Source of truth:** `instagram-magazine-cms-prd.md`
+**Version:** 1.3 · **Date:** 2026-10-20 · **Source of truth:** `instagram-magazine-cms-prd.md`
 **용도:** 이 문서를 Claude Code에 그대로 넘겨 프로젝트를 생성한다. PRD와 충돌하면 이 문서가 우선한다.
 
 **v1.1 변경:** DB(Supabase) 완전 제거, 로그인 제거, 개인 용도 Vercel 배포 전제. 상태는 전부 Google Drive + 환경변수에만 둔다.
 
 **v1.2 변경:** 채널 4종 고정(LIFE/MIND/AI/TREND) 폐기. **Instagram 계정 = 채널.** 계정은 OAuth 로 동적으로 추가·해제하고, 키는 연결 시점의 username, Drive 폴더(`/inbox/<username>/`, `/<username>/…`)는 연결 시 자동 생성. `channels.json` 삭제, 채널 설정은 `accounts.json` 항목에 흡수. 상세: `docs/superpowers/specs/2026-09-16-dynamic-accounts-design.md`.
+
+**v1.3 변경 (편집기 확장, Canva·미리캔버스 지향):** 슬라이드에 **자유 레이어**(텍스트·사진·도형)를 여러 개 얹을 수 있다(`SlideLayer.kind` 확장 — 기존 포스트는 변환 없이 그대로). 왼쪽 **도구함**(템플릿·요소·텍스트·사진·업로드·배경), 사진 **보정 확장**(색온도·페이드·비네팅 + 룩 프리셋 8종), 폰트 7→19종, **색 조합** 24종, 내장 **템플릿** 18종 + 내 템플릿(`_system/templates.json`), **레퍼런스 보드**(`/references`, `_system/references.json`, 이미지는 `_system/references/<id>/`), **스톡 사진 검색**(Pexels/Unsplash, 키는 서버 환경변수). DB·로그인은 여전히 없다. 상세는 §15.
 
 ---
 
@@ -365,6 +367,8 @@ GOOGLE_DRIVE_ROOT_FOLDER_ID=
 META_APP_ID=
 META_APP_SECRET=
 META_REDIRECT_URI=
+PEXELS_API_KEY=                # 선택. 스톡 사진 검색(pexels.com/api, 무료)
+UNSPLASH_ACCESS_KEY=           # 선택. 스톡 사진 검색(unsplash.com/developers, 무료)
 ```
 
 `GOOGLE_CLIENT_ID/SECRET`, `DATABASE_URL`, `SUPABASE_*`, `AUTH_SECRET` 는 **없음**.
@@ -391,3 +395,36 @@ META_REDIRECT_URI=
 | **M4 폴리시** | 실패/재시도 UX, 토큰 만료 경고·재연결, status_mismatch 복구, 승인 체크리스트, 예약 게시(`/api/cron/publish` + 외부 핑거) | 예약 포스트가 정시(±5분)에 게시 |
 | **M5 스타일팩** | style-pack.json 임포터, 채널 기본값 적용, 로컬 Claude Code 레퍼런스 분석 스크립트 | 스타일팩 선택 시 프리셋 기본값이 바뀜 |
 | **M6 인사이트** | `instagram_business_manage_insights`, `_system/insights/*.json` 스냅샷, `/api/cron/insights` 일 1회 수집, 홈 "성과" 탭(타일·추이·TOP 게시물·채널 비교) | 실계정 연결 후 "지금 수집" → 다음 날 팔로워·도달 증감이 표시 |
+
+---
+
+## 15. 편집기 확장 (v1.3)
+
+### 레이어 모델
+`SlideEditorState = { image, text, layers[] }` 구조는 그대로다. 메인 텍스트(`text`)와 배경 이미지(`image`)는 슬라이드의 기본 요소로 남고, **추가 요소는 전부 `layers`** 에 쌓인다.
+
+| `layer.kind` | 용도 | 주요 필드 |
+|---|---|---|
+| `sticker` · `icon` · `cutout` | 기존 요소 | `key`, `text`, `color`, `asset`(누끼) |
+| `text` | 자유 텍스트 박스 | `text`, `fontSize`, `fontFamily`, `weight`, `lineHeight`, `letterSpacing`, `align`, `color`, `stroke*`, `shadow` |
+| `image` | 사진 레이어 (박스에 cover 크롭) | `asset`, `radius`, `stroke*`, `shadow` |
+| `shape` | 도형 (`rect/circle/triangle/star/diamond/line`) | `key`, `color`(채움, `transparent`=없음), `stroke*`, `radius` |
+
+좌표는 기존과 같이 **1080×H 논리 px, (x,y)=박스 중심**. 텍스트 레이어 높이는 내용에서 자동 계산한다(`height` 저장 안 함). 새 필드는 모두 스키마 기본값이 있어 기존 `editor-state.json` 이 그대로 읽힌다.
+
+### 보정
+`image.warmth`(−100..100) · `fade`(0..100) · `vignette`(0..100) 추가. 필터는 Konva 커스텀 필터(`src/lib/render/photo-filters.ts`)라 내보내기(스테이지 → JPEG)에 그대로 반영된다. 룩 프리셋은 `src/presets/looks.ts`(색 보정 필드만 덮어쓴다).
+
+### 템플릿
+`Template = { design: SlideEditorState(4:5 기준), sample_text, photo, category, source }`. 적용(`applyTemplate`)은 슬라이드의 이미지 보정·메인 텍스트 스타일·레이어를 교체하되, **슬라이드 글과 사용자 사진/누끼 레이어는 유지**하고 포스트 규격으로 y 를 리플로우한다. `photo:false`(색 조합) 템플릿은 배경 사진을 비운다.
+- 내장: `src/presets/templates.ts` (코드), 내 템플릿: Drive `_system/templates.json` (`GET/POST /api/templates`, `DELETE /api/templates/[id]`).
+- 레퍼런스 → 템플릿: 보드 상세의 "템플릿으로 만들기"가 첫 이미지를 기존 `/api/presets/analyze` 로 읽고 추출 팔레트로 칠해 저장한다(분석 불가 시 색만).
+
+### 레퍼런스 보드
+- `Reference = { title, kind(feed|design|palette), account, url, tags[], note, palette[], images[{name,fileId}] }` → Drive `_system/references.json`, 이미지는 `_system/references/<id>/NN.ext`(기존 `/api/drive/file/[id]` 프록시로 서빙).
+- 라우트: `GET/POST /api/references`(multipart `meta`+`files`), `PATCH/DELETE /api/references/[id]`, `POST/DELETE /api/references/[id]/images`.
+- **수집은 수동**(스크린샷 업로드·⌘V 붙여넣기). Instagram 은 타 계정 데이터를 읽는 공식 API 가 없고 자동 수집은 약관 문제가 있어, 수집부를 이 라우트 뒤에 두고 나중에 교체할 수 있게 한다. 팔레트는 브라우저에서 추출(`src/lib/render/palette.ts`).
+- 사업화 단계에서 DB 를 붙일 때는 이 JSON 들을 내려받아 옮긴다(스키마가 `src/types/*.ts` Zod 라 그대로 이관 가능).
+
+### 스톡 사진
+`GET /api/stock/search?q=&page=&provider=` · `POST /api/posts/[id]/assets/import`. 키는 `PEXELS_API_KEY` / `UNSPLASH_ACCESS_KEY`(서버 전용, 둘 다 없으면 UI 가 안내만 표시). 이미지 가져오기는 **호스트 허용 목록**(`images.pexels.com`, `images.unsplash.com`)만, Unsplash 는 약관대로 `download_location` 을 호출한다. 고른 사진은 포스트 assets 에 `source_NN` 으로 저장되고 출처가 `sources.json` 의 "참고 출처"에 남는다. 사업화 시에는 각 플랫폼 약관(재배포·경쟁 서비스 금지)을 원문으로 다시 확인할 것.

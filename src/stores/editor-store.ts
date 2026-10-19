@@ -17,6 +17,7 @@ import {
   type SlideRole,
   type SourcesFile,
   type StylePack,
+  type Template,
 } from "@/types";
 import { ROLE_DEFAULT_PRESET, resolvePreset } from "@/presets";
 import { applyPresetToState, reflowSlideForHeight, slideStateFromPreset } from "@/lib/render/layout";
@@ -70,6 +71,10 @@ interface EditorStore {
   moveSlide: (from: number, to: number) => void;
   duplicateSlide: (slideId: string) => void;
   setFactCheck: (status: SourcesFile["fact_check_status"], note?: string) => void;
+  /** 템플릿 적용 — 이미지 보정·텍스트·요소 레이어를 템플릿으로 교체. 사용자 사진 레이어와 슬라이드 글은 유지 */
+  applyTemplate: (slideId: string, tpl: Template) => void;
+  /** 참고 출처 한 건 추가(스톡 사진 크레딧 등). 같은 URL 이 이미 있으면 무시 */
+  addSource: (item: SourcesFile["items"][number]) => void;
 }
 
 const MAX_HISTORY = 100;
@@ -437,6 +442,46 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
           d.sources.fact_check_status = status;
           d.sources.fact_checked_at = status === "pending" ? null : new Date().toISOString();
           if (note !== undefined) d.sources.reviewer_note = note;
+        }),
+      ),
+    );
+  },
+
+  applyTemplate: (slideId, tpl) => {
+    const s = get();
+    if (!s.snapshot) return;
+    const design = reflowSlideForHeight(tpl.design, 1350, canvasH(s.snapshot));
+    set({
+      ...commit(
+        s,
+        produce(s.snapshot, (d) => {
+          const slide = d.metadata.slides.find((x) => x.id === slideId);
+          if (!slide) return;
+          const prev = d.editorState.slides[slideId] ?? ensureSlideState(s.snapshot!, slide, s.stylePack);
+          const keep = prev.layers.filter((l) => l.kind === "image" || l.kind === "cutout");
+          let n = Math.max(0, ...keep.map((l) => Number(l.id.replace(/^l/, "")) || 0));
+          d.editorState.slides[slideId] = {
+            image: structuredClone(design.image),
+            text: structuredClone(design.text),
+            layers: [...keep, ...design.layers.map((l) => ({ ...structuredClone(l), id: `l${++n}` }))],
+          };
+          // 색 조합 템플릿은 사진 없이 선다. 사진 템플릿은 슬라이드의 사진을 유지한다
+          if (!tpl.photo) slide.asset = null;
+        }),
+      ),
+      selection: { kind: "text" },
+    });
+  },
+
+  addSource: (item) => {
+    const s = get();
+    if (!s.snapshot) return;
+    if (item.url && s.snapshot.sources.items.some((x) => x.url === item.url)) return;
+    set(
+      commit(
+        s,
+        produce(s.snapshot, (d) => {
+          d.sources.items.push(item);
         }),
       ),
     );

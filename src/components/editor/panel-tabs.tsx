@@ -4,12 +4,13 @@ import { useRef, useState } from "react";
 import { Eye, EyeOff, Scissors, Trash2, Type, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { LAYOUT_PRESETS } from "@/presets";
-import { CUTOUT_PREFIX, SlideRoleSchema, type CustomPreset, type LayoutAnalysis, type PostBundle, type PresetId, type SlideDef, type SlideEditorState, type SlideLayer, type SlideRole, type StickerKey } from "@/types";
+import { CUTOUT_PREFIX, SlideRoleSchema, type CustomPreset, type LayoutAnalysis, type PostBundle, type PresetId, type SlideDef, type SlideEditorState, type SlideLayer, type ShapeKey, type SlideRole, type StickerKey } from "@/types";
 import { useEditorStore } from "@/stores/editor-store";
 import { api, driveFileUrl } from "@/lib/client/api";
 import { qk, useCustomPresets, useInvalidatePosts } from "@/lib/client/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { removeBackgroundToPng } from "@/lib/render/cutout";
+import { SHAPE_LABEL, makeLayer } from "@/lib/render/layer-factory";
 import { ICONS, STICKERS, iconLabel, stickerDef } from "@/lib/render/stickers";
 import { ICON_COMPONENTS } from "@/lib/render/icon-svg";
 import { useAccount } from "@/lib/client/channel";
@@ -17,13 +18,12 @@ import { PanelLabel, fieldClass } from "@/components/md/primitives";
 import { cn } from "@/lib/utils";
 
 /** 오른쪽 패널의 탭. props = 선택된 것의 속성(포스트/텍스트/이미지/요소) */
-export type PanelTab = "props" | "presets" | "elements" | "layers";
+export type PanelTab = "props" | "presets" | "layers";
 
 const ROLE_LABEL: Record<SlideRole, string> = { cover: "커버", photo: "사진", info: "정보", quote: "인용", screenshot: "스크린샷", closing: "클로징" };
 
 export const PANEL_HINT: Record<Exclude<PanelTab, "props">, string> = {
-  presets: "프리셋을 고르거나, 역할을 바꿔 채널 스타일팩 기본값을 적용하세요.",
-  elements: "눌러서 캔버스에 얹고, 끌어서 옮기세요. 방향키로 4px씩 이동.",
+  presets: "텍스트 배치 레이아웃을 고르거나, 역할을 바꿔 채널 스타일팩 기본값을 적용하세요.",
   layers: "이 슬라이드의 레이어 순서와 표시를 관리해요.",
 };
 
@@ -194,9 +194,7 @@ function PresetBlocks({ placement, align, dark }: { placement: string; align: st
 }
 
 // ---------------- 요소 ----------------
-const BASE_LAYER: Omit<SlideLayer, "id" | "kind" | "key"> = {
-  asset: null, x: 540, y: 540, width: 300, rotation: 0, opacity: 1, flip: false, text: "", color: "#FFFFFF", bg: null, ink: null, fontFamily: "sans", hidden: false, locked: false,
-};
+const BASE_LAYER: Omit<SlideLayer, "id" | "kind" | "key"> = makeLayer({ kind: "sticker", key: "tape" });
 
 export function ElementsTab({ slide, bundle }: { slide: SlideDef; bundle: PostBundle }) {
   const addLayer = useEditorStore((s) => s.addLayer);
@@ -367,7 +365,7 @@ export function LayersTab({ slide, state }: { slide: SlideDef; state: SlideEdito
     <div className="flex flex-col gap-1">
       {layers.map((l) => {
         const on = selection?.kind === "layer" && selection.id === l.id;
-        const name = l.kind === "cutout" ? `누끼 · ${(l.asset ?? "").replace(/\.png$/, "")}` : l.kind === "icon" ? `아이콘 · ${iconLabel(l.key)}` : `${stickerDef(l.key).label}${l.text ? ` · ${l.text}` : ""}`;
+        const name = layerName(l);
         return (
           <div key={l.id} role="button" tabIndex={0} onClick={() => setSelection({ kind: "layer", id: l.id })} onKeyDown={(e) => e.key === "Enter" && setSelection({ kind: "layer", id: l.id })} className={cn("flex cursor-pointer items-center gap-1.5 rounded-[10px] px-2 py-[7px] hover:bg-fill-alt", on && "bg-fill")}>
             <button type="button" title="표시" onClick={(e) => { e.stopPropagation(); updateLayer(slide.id, l.id, { hidden: !l.hidden }); }} className="grid size-6 place-items-center rounded-md">
@@ -397,4 +395,16 @@ export function LayersTab({ slide, state }: { slide: SlideDef; state: SlideEdito
       <span className="px-1 pt-2 text-[11px] leading-relaxed text-label-assistive">단축키 — ⌘Z 되돌리기 · ⇧⌘Z 다시하기 · ⌘D 복제 · Delete 삭제 · 방향키 이동 · Esc 선택 해제</span>
     </div>
   );
+}
+
+/** 레이어 한 줄 이름 (레이어 탭·선택 툴바 공용) */
+export function layerName(l: SlideLayer): string {
+  switch (l.kind) {
+    case "cutout": return `누끼 · ${(l.asset ?? "").replace(/\.png$/, "")}`;
+    case "icon": return `아이콘 · ${iconLabel(l.key)}`;
+    case "text": return `텍스트 · ${l.text.split("\n")[0] || "(비어 있음)"}`;
+    case "image": return `사진 · ${l.asset ?? "없음"}`;
+    case "shape": return `도형 · ${SHAPE_LABEL[l.key as ShapeKey] ?? l.key}`;
+    default: return `${stickerDef(l.key).label}${l.text ? ` · ${l.text}` : ""}`;
+  }
 }

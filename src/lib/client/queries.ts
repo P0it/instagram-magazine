@@ -13,6 +13,8 @@ export const qk = {
   accounts: ["accounts"] as const,
   stylePacks: ["style-packs"] as const,
   customPresets: ["custom-presets"] as const,
+  templates: ["templates"] as const,
+  references: ["references"] as const,
   insights: (range: InsightsRange) => ["insights", range] as const,
 };
 
@@ -34,6 +36,14 @@ export function useApproval(id: string | null) {
 
 export function useAccounts() {
   return useQuery({ queryKey: qk.accounts, queryFn: api.accounts });
+}
+
+export function useTemplates() {
+  return useQuery({ queryKey: qk.templates, queryFn: api.templates, staleTime: 60_000 });
+}
+
+export function useReferences() {
+  return useQuery({ queryKey: qk.references, queryFn: api.references });
 }
 
 export function useCustomPresets() {

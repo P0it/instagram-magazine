@@ -14,6 +14,9 @@ import {
   InsightsResponseSchema,
   PostBundleSchema,
   PublishResultSchema,
+  ReferencesFileSchema,
+  StockSearchResultSchema,
+  TemplatesFileSchema,
   StylePackSchema,
   SyncResponseSchema,
   SystemStatusSchema,
@@ -23,6 +26,11 @@ import {
   type PostSaveRequest,
   type PostStatus,
   type PublishRequest,
+  type ReferencePatch,
+  type ReferenceKind,
+  type Template,
+  type StockPhoto,
+  type StockProvider,
 } from "@/types";
 import { z as zod } from "zod";
 
@@ -95,6 +103,35 @@ export const api = {
     if (slideId) form.append("slide_id", slideId);
     return request(`/api/posts/${encodeURIComponent(id)}/assets`, PostBundleSchema.extend({ uploaded: zod.string() }), { method: "POST", body: form });
   },
+  templates: () => request("/api/templates", TemplatesFileSchema),
+  saveTemplate: (t: Omit<Template, "id">) => request("/api/templates", TemplatesFileSchema, jsonInit("POST", t)),
+  deleteTemplate: (id: string) => request(`/api/templates/${encodeURIComponent(id)}`, TemplatesFileSchema, jsonInit("DELETE")),
+
+  references: () => request("/api/references", ReferencesFileSchema),
+  createReference: (meta: { title: string; kind?: ReferenceKind; account?: string; url?: string; tags?: string[]; note?: string; palette?: string[] }, files: File[]) => {
+    const form = new FormData();
+    form.append("meta", JSON.stringify(meta));
+    for (const f of files) form.append("files", f);
+    return request("/api/references", ReferencesFileSchema, { method: "POST", body: form });
+  },
+  patchReference: (id: string, patch: ReferencePatch) => request(`/api/references/${encodeURIComponent(id)}`, ReferencesFileSchema, jsonInit("PATCH", patch)),
+  deleteReference: (id: string) => request(`/api/references/${encodeURIComponent(id)}`, ReferencesFileSchema, jsonInit("DELETE")),
+  addReferenceImages: (id: string, files: File[]) => {
+    const form = new FormData();
+    for (const f of files) form.append("files", f);
+    return request(`/api/references/${encodeURIComponent(id)}/images`, ReferencesFileSchema, { method: "POST", body: form });
+  },
+  removeReferenceImage: (id: string, name: string) =>
+    request(`/api/references/${encodeURIComponent(id)}/images?name=${encodeURIComponent(name)}`, ReferencesFileSchema, jsonInit("DELETE")),
+
+  stockSearch: (q: string, page = 1, provider?: StockProvider) =>
+    request(`/api/stock/search?${new URLSearchParams({ q, page: String(page), ...(provider ? { provider } : {}) })}`, StockSearchResultSchema),
+  importStock: (id: string, photo: StockPhoto) =>
+    request(
+      `/api/posts/${encodeURIComponent(id)}/assets/import`,
+      PostBundleSchema.extend({ uploaded: zod.string() }),
+      jsonInit("POST", { url: photo.full, provider: photo.provider, downloadLocation: photo.downloadLocation }),
+    ),
   transition: (id: string, to: PostStatus, extra: { run_at?: string; account_key?: string } = {}) =>
     request(`/api/posts/${encodeURIComponent(id)}/transition`, PostBundleSchema, jsonInit("POST", { to, ...extra })),
   repair: (id: string, strategy: "folder" | "metadata") =>

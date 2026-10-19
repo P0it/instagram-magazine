@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Trash2, X } from "lucide-react";
 import type { SlideDef, SlideEditorState, SlideLayer } from "@/types";
 import { useEditorStore, type Selection } from "@/stores/editor-store";
-import { stickerColors, stickerDef, iconLabel } from "@/lib/render/stickers";
+import { stickerColors, stickerDef } from "@/lib/render/stickers";
+import { layerName } from "./panel-tabs";
 import { CANVAS_WIDTH, FORMAT_INFO } from "@/types";
 import { ChipButton, GhostIcon, rangeStyle } from "@/components/md/primitives";
 import { SlideCanvas } from "./canvas";
@@ -82,8 +83,9 @@ export function StageArea({
   const def = L?.kind === "sticker" ? stickerDef(L.key) : null;
   const layerColors = L && def ? stickerColors(def, L) : null;
 
-  const selName =
-    selection?.kind === "text" ? "텍스트" : selection?.kind === "image" ? "배경 이미지" : L ? (L.kind === "cutout" ? "누끼 PNG" : L.kind === "icon" ? `아이콘 · ${iconLabel(L.key)}` : `스티커 · ${def?.label ?? ""}`) : "";
+  const selName = selection?.kind === "text" ? "텍스트" : selection?.kind === "image" ? "배경 이미지" : L ? layerName(L) : "";
+  /** 글자색·채움색을 layer.color 로 가지는 종류 (스티커는 ink/bg 오버라이드) */
+  const plainColor = !!L && (L.kind === "icon" || L.kind === "text" || L.kind === "shape");
 
   const pushRecent = (c: string) => setRecent((r) => [c, ...r.filter((x) => x.toUpperCase() !== c.toUpperCase())].slice(0, 8));
   const applyColor = (c: string) => {
@@ -91,9 +93,9 @@ export function StageArea({
     pushRecent(c);
     if (palette === "text") setText({ color: c });
     else if (L && palette === "bg") updateLayer(slide.id, L.id, { bg: c });
-    else if (L && palette === "ink") updateLayer(slide.id, L.id, L.kind === "icon" ? { color: c } : { ink: c });
+    else if (L && palette === "ink") updateLayer(slide.id, L.id, plainColor ? { color: c } : { ink: c });
   };
-  const currentPaletteColor = palette === "text" ? tx?.color : L ? (palette === "bg" ? (L.bg ?? layerColors?.bg ?? "none") : L.kind === "icon" ? L.color : (L.ink ?? layerColors?.ink)) : undefined;
+  const currentPaletteColor = palette === "text" ? tx?.color : L ? (palette === "bg" ? (L.bg ?? layerColors?.bg ?? "none") : plainColor ? L.color : (L.ink ?? layerColors?.ink)) : undefined;
 
   return (
     <section className="relative flex min-w-0 flex-1 flex-col items-center gap-2 overflow-hidden px-3 pb-3 pt-2">
@@ -156,7 +158,21 @@ export function StageArea({
             {L && (
               <>
                 {L.kind === "sticker" && <ColorChip title="배경색" active={palette === "bg"} onClick={() => setPalette((p) => (p === "bg" ? null : "bg"))} color={layerColors?.bg ?? "none"} />}
-                {L.kind !== "cutout" && <ColorChip title={L.kind === "icon" ? "아이콘 색" : "글자색"} active={palette === "ink"} onClick={() => setPalette((p) => (p === "ink" ? null : "ink"))} color={L.kind === "icon" ? L.color : (layerColors?.ink ?? "#fff")} glyph="T" />}
+                {L.kind === "text" && (
+                  <>
+                    <button type="button" title="크기 줄이기" onClick={() => updateLayer(slide.id, L.id, { fontSize: Math.max(8, L.fontSize - 4) })} className="size-7 rounded-lg text-xs font-bold hover:bg-fill">A−</button>
+                    <span className="min-w-[30px] text-center text-[11px] font-semibold tabular-nums text-label-neutral">{Math.round(L.fontSize)}</span>
+                    <button type="button" title="크기 키우기" onClick={() => updateLayer(slide.id, L.id, { fontSize: Math.min(400, L.fontSize + 4) })} className="size-7 rounded-lg text-sm font-bold hover:bg-fill">A+</button>
+                    <div className="flex items-center gap-0.5 rounded-lg bg-fill-alt p-0.5">
+                      {(["left", "center", "right"] as const).map((a) => (
+                        <button key={a} type="button" title={`${a === "left" ? "좌" : a === "center" ? "가운데" : "우"} 정렬`} onClick={() => updateLayer(slide.id, L.id, { align: a })} className={cn("grid h-6 w-[26px] place-items-center rounded-md", L.align === a ? "bg-surface text-brand shadow-e-xs" : "text-label-alt")}>
+                          <AlignGlyph align={a} />
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {L.kind !== "cutout" && L.kind !== "image" && <ColorChip title={L.kind === "icon" ? "아이콘 색" : L.kind === "shape" ? "채움색" : "글자색"} active={palette === "ink"} onClick={() => setPalette((p) => (p === "ink" ? null : "ink"))} color={plainColor ? L.color : (layerColors?.ink ?? "#fff")} glyph={L.kind === "shape" ? undefined : "T"} />}
                 <GhostIcon title="복제 (⌘D)" className="size-7" onClick={() => duplicateLayer(slide.id, L.id)}><Copy className="size-[15px] opacity-75" /></GhostIcon>
                 <GhostIcon title="앞으로" className="size-7" onClick={() => moveLayer(slide.id, L.id, 1)}><ChevronUp className="size-[15px] opacity-75" /></GhostIcon>
                 <GhostIcon title="뒤로" className="size-7" onClick={() => moveLayer(slide.id, L.id, -1)}><ChevronDown className="size-[15px] opacity-75" /></GhostIcon>

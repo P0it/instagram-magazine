@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { RefreshCw, Settings, ListOrdered } from "lucide-react";
+import { Lightbulb, RefreshCw, Settings, ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSync, useSystemStatus, usePosts } from "@/lib/client/queries";
 import { accountMeta, useAccountList, useChannel } from "@/lib/client/channel";
@@ -41,6 +41,7 @@ export function TopBar() {
   const expiring = status.data?.accounts.filter((a) => a.status !== "connected" && a.status !== "unlinked").length ?? 0;
   const inSettings = pathname.startsWith("/settings");
   const inQueue = pathname.startsWith("/queue");
+  const inRefs = pathname.startsWith("/references");
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-6 bg-surface px-5" style={{ boxShadow: "inset 0 -1px 0 var(--semantic-line-solid-neutral)" }}>
@@ -52,7 +53,7 @@ export function TopBar() {
         <nav className="flex items-center gap-0.5">
           {accounts.map((a) => {
             const m = accountMeta(a);
-            const on = a.key === channel && !inSettings && !inQueue;
+            const on = a.key === channel && !inSettings && !inQueue && !inRefs;
             return (
               <button
                 key={a.key}
@@ -73,6 +74,9 @@ export function TopBar() {
         <GhostIcon title="Drive 새로고침" onClick={() => sync.mutate()} disabled={sync.isPending} className="rounded-full">
           <RefreshCw className={cn("size-[18px] opacity-70", sync.isPending && "animate-spin")} />
         </GhostIcon>
+        <Link href="/references" title="레퍼런스 보드" className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold hover:bg-fill", inRefs ? "bg-fill text-label" : "text-label-alt")}>
+          <Lightbulb className="size-[16px] opacity-70" />레퍼런스
+        </Link>
         <Link href={channel ? `/queue?ch=${channel}` : "/queue"} title="게시 큐" className={cn("relative grid size-8 place-items-center rounded-full hover:bg-fill", inQueue && "bg-fill")}>
           <ListOrdered className="size-[18px] opacity-70" />
           {queued > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">{queued}</span>}

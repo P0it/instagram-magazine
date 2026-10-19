@@ -22,6 +22,7 @@
 - `src/lib/metadata` — 상태 전이표, 승인 게이트, 포스트 저장/인덱스 재생성.
 - `src/lib/ingest` — inbox `.md` + 이미지 → canonical 포스트 폴더.
 - `src/lib/instagram` — Graph API, `accounts.ts`(목록·설정 PATCH·해제), `connect.ts`(OAuth → 계정+폴더 생성). `src/lib/publish` — 게시 흐름.
+- `src/lib/stock`(Pexels/Unsplash, `server-only`) · `src/lib/references`(레퍼런스 보드, `server-only`) · `src/presets/{templates,looks,palettes}.ts`(내장 템플릿·룩·색 조합 데이터). 슬라이드 요소는 `SlideLayer.kind` 로 확장(설계 문서 §15).
 - `src/app/api/**` — 설계 문서 §10 라우트. `src/app/(desk)/**` — 화면.
 
 ## 명령

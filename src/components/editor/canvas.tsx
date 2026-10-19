@@ -1,11 +1,12 @@
 "use client";
 
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import { Stage, Layer, Rect, Image as KImage, Text as KText, Group, Transformer, Line } from "react-konva";
+import { Stage, Layer, Rect, Ellipse, Image as KImage, Text as KText, Group, Transformer, Line } from "react-konva";
 import Konva from "konva";
 import useImage from "use-image";
 import { CANVAS_HEIGHT, CANVAS_WIDTH, type SlideEditorState, type SlideLayer } from "@/types";
 import { konvaFontFamily } from "@/lib/render/export";
+import { fadeFilter, warmthFilter } from "@/lib/render/photo-filters";
 import { stickerColors, stickerDef, stickerHeight } from "@/lib/render/stickers";
 import { iconSvgDataUrl } from "@/lib/render/icon-svg";
 import type { Selection } from "@/stores/editor-store";
@@ -65,7 +66,7 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
     if (!node || !img) return;
     node.cache({ pixelRatio: 1 });
     node.getLayer()?.batchDraw();
-  }, [img, im.brightness, im.contrast, im.saturation, im.blur, im.zoom, im.pan.x, im.pan.y]);
+  }, [img, im.brightness, im.contrast, im.saturation, im.warmth, im.fade, im.blur, im.zoom, im.pan.x, im.pan.y]);
 
   const selectedLayer = selection?.kind === "layer" ? layers.find((l) => l.id === selection.id) : undefined;
 
@@ -101,9 +102,11 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
     if (im.brightness !== 0) list.push(Konva.Filters.Brighten);
     if (im.contrast !== 0) list.push(Konva.Filters.Contrast);
     if (im.saturation !== 0) list.push(Konva.Filters.HSL);
+    if (im.warmth !== 0) list.push(warmthFilter);
+    if (im.fade > 0) list.push(fadeFilter);
     if (im.blur > 0) list.push(Konva.Filters.Blur);
     return list;
-  }, [im.brightness, im.contrast, im.saturation, im.blur]);
+  }, [im.brightness, im.contrast, im.saturation, im.warmth, im.fade, im.blur]);
 
   const gradientStops = useMemo(() => {
     const c = hexToRgb(im.gradient.color);
@@ -124,7 +127,13 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
   const fontFamily = fontsReady ? konvaFontFamily(tx.fontFamily) : "sans-serif";
   const isTextSel = selection?.kind === "text";
   const trIsText = isTextSel;
-  const keepRatio = selectedLayer ? selectedLayer.kind === "cutout" || ((selectedLayer.kind === "icon" || stickerDef(selectedLayer.key).aspect !== null) && selectedLayer.height === undefined) : false;
+  const keepRatio = !selectedLayer
+    ? false
+    : selectedLayer.kind === "cutout" || selectedLayer.kind === "image"
+      ? true
+      : selectedLayer.kind === "text" || selectedLayer.kind === "shape"
+        ? false
+        : (selectedLayer.kind === "icon" || stickerDef(selectedLayer.key).aspect !== null) && selectedLayer.height === undefined;
 
   /** 드래그 중 중앙선 스냅 (레이어 중심 기준) */
   const snapCenter = (pos: { x: number; y: number }) => {
@@ -165,6 +174,8 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
               brightness={im.brightness}
               contrast={im.contrast}
               saturation={im.saturation}
+              warmth={im.warmth}
+              fade={im.fade}
               blurRadius={im.blur}
               draggable={editable && selection?.kind === "image"}
               dragBoundFunc={(pos) => {
@@ -184,6 +195,20 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
               }}
             />
           </Group>
+        )}
+        {im.vignette > 0 && (
+          <Rect
+            name="bg"
+            x={0}
+            y={0}
+            width={CANVAS_WIDTH}
+            height={H}
+            fillRadialGradientStartPoint={{ x: CANVAS_WIDTH / 2, y: H / 2 }}
+            fillRadialGradientStartRadius={Math.min(CANVAS_WIDTH, H) * 0.35}
+            fillRadialGradientEndPoint={{ x: CANVAS_WIDTH / 2, y: H / 2 }}
+            fillRadialGradientEndRadius={Math.hypot(CANVAS_WIDTH, H) / 2}
+            fillRadialGradientColorStops={[0, "rgba(0,0,0,0)", 1, `rgba(0,0,0,${(im.vignette / 100) * 0.8})`]}
+          />
         )}
         {im.overlay.opacity > 0 && (
           <Rect name="bg" x={0} y={0} width={CANVAS_WIDTH} height={H} fill={im.overlay.color} opacity={im.overlay.opacity} />
@@ -259,7 +284,7 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
               onChange={(patch) => onLayerChange?.(l.id, patch)}
               dragBound={snapCenter}
               onDragEnd={() => onGuides?.({ v: false, h: false })}
-              src={l.kind === "cutout" ? (resolveAsset?.(l.asset) ?? null) : null}
+              src={l.kind === "cutout" || l.kind === "image" ? (resolveAsset?.(l.asset) ?? null) : null}
             />
           ),
         )}
@@ -269,8 +294,17 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
             ref={trRef}
             rotateEnabled={!trIsText}
             keepRatio={keepRatio}
-            enabledAnchors={trIsText ? ["middle-left", "middle-right", "top-left", "top-right", "bottom-left", "bottom-right"] : ["top-left", "top-right", "bottom-left", "bottom-right"]}
-            boundBoxFunc={(_old, next) => (next.width < 40 * scale || next.height < 16 * scale ? _old : next)}
+            enabledAnchors={
+              trIsText || selectedLayer?.kind === "text"
+                ? ["middle-left", "middle-right", "top-left", "top-right", "bottom-left", "bottom-right"]
+                : selectedLayer?.kind === "shape"
+                  ? ["top-left", "top-center", "top-right", "middle-left", "middle-right", "bottom-left", "bottom-center", "bottom-right"]
+                  : ["top-left", "top-right", "bottom-left", "bottom-right"]
+            }
+            boundBoxFunc={(_old, next) => {
+              const shape = selectedLayer?.kind === "shape";
+              return next.width < (shape ? 6 : 40) * scale || next.height < (shape ? 2 : 16) * scale ? _old : next;
+            }}
             anchorSize={9}
             anchorCornerRadius={3}
             borderStroke="#0066FF"
@@ -284,7 +318,7 @@ export const SlideCanvas = forwardRef<Konva.Stage, CanvasProps>(function SlideCa
   );
 });
 
-/** 요소 레이어 하나 — Group(중심 기준) 안에 스티커/아이콘 */
+/** 요소 레이어 하나 — Group(중심 기준) 안에 스티커/아이콘/텍스트/사진/도형 */
 function LayerNode({
   layer: l,
   editable,
@@ -307,9 +341,22 @@ function LayerNode({
   src: string | null;
 }) {
   const def = l.kind === "sticker" ? stickerDef(l.key) : null;
+  const isText = l.kind === "text";
+  const textFont = fontsReady ? konvaFontFamily(l.fontFamily) : "sans-serif";
+  const textStyle = l.weight >= 600 ? "bold" : l.weight >= 500 ? "500" : "normal";
+  // 텍스트 박스 높이는 내용에서 자동 — 실제 Konva.Text 로 재서 중심 기준 Group 에 쓴다
+  const textHeight = useMemo(() => {
+    if (!isText) return 0;
+    const t = new Konva.Text({ text: l.text || " ", width: l.width, fontSize: l.fontSize, fontFamily: textFont, fontStyle: textStyle, lineHeight: l.lineHeight, letterSpacing: l.letterSpacing, align: l.align, wrap: "word" });
+    const h = t.height();
+    t.destroy();
+    return h;
+  }, [isText, l.text, l.width, l.fontSize, textFont, textStyle, l.lineHeight, l.letterSpacing, l.align]);
+
   const w = l.width;
-  const h = l.height ?? (def ? stickerHeight(def, w) : w);
+  const h = isText ? textHeight : (l.height ?? (def ? stickerHeight(def, w) : w));
   const colors = def ? stickerColors(def, l) : { bg: null, ink: l.color };
+  const shadowProps = l.shadow ? { shadowColor: "rgba(0,0,0,0.35)", shadowBlur: 24, shadowOffsetY: 8, shadowEnabled: true } : {};
 
   return (
     <Group
@@ -323,7 +370,7 @@ function LayerNode({
       height={h}
       rotation={l.rotation}
       opacity={l.opacity}
-      scaleX={l.flip ? -1 : 1}
+      scaleX={l.flip && !isText ? -1 : 1}
       draggable={editable && !l.locked}
       dragBoundFunc={dragBound}
       onMouseDown={(e) => {
@@ -332,28 +379,59 @@ function LayerNode({
         onSelect();
       }}
       onTap={() => editable && onSelect()}
+      onDblClick={() => {
+        // 텍스트 레이어는 더블클릭하면 오른쪽 패널의 입력칸으로 포커스
+        if (editable && isText) setTimeout(() => document.getElementById("layer-text-input")?.focus(), 30);
+      }}
       onDragEnd={(e) => {
         onDragEnd();
         onChange({ x: Math.round(e.target.x()), y: Math.round(e.target.y()) });
       }}
       onTransformEnd={(e) => {
         const node = e.target as Konva.Group;
-        const nw = Math.max(24, Math.round(w * node.scaleX() * (l.flip ? -1 : 1)));
-        const nh = Math.max(24, Math.round(h * node.scaleY()));
-        node.scaleX(l.flip ? -1 : 1);
+        const flipSign = l.flip && !isText ? -1 : 1;
+        const sx = Math.abs(node.scaleX());
+        const sy = node.scaleY();
+        node.scaleX(flipSign);
         node.scaleY(1);
-        const patch: Partial<SlideLayer> = { width: nw, rotation: Math.round(node.rotation()) };
-        // 고정 비율(아이콘·정사각 스티커)이 아니면 사용자가 정한 높이를 기억한다
-        const fixed = l.kind === "icon" || l.kind === "cutout" || (def?.aspect !== null && l.height === undefined);
+        const base: Partial<SlideLayer> = { rotation: Math.round(node.rotation()), x: Math.round(node.x()), y: Math.round(node.y()) };
+        if (isText) {
+          const patch: Partial<SlideLayer> = { ...base, width: Math.max(60, Math.round(w * sx)) };
+          if (Math.abs(sy - 1) > 0.01) patch.fontSize = clamp(Math.round(l.fontSize * sy), 8, 400);
+          onChange(patch);
+          return;
+        }
+        const nw = Math.max(l.kind === "shape" ? 6 : 24, Math.round(w * sx));
+        const nh = Math.max(l.kind === "shape" ? 2 : 24, Math.round(h * sy));
+        const patch: Partial<SlideLayer> = { ...base, width: nw };
+        // 고정 비율(아이콘·정사각 스티커·사진·누끼)이 아니면 사용자가 정한 높이를 기억한다
+        const fixed = l.kind === "icon" || l.kind === "cutout" || l.kind === "image" || (def?.aspect !== null && l.height === undefined);
         if (!fixed || Math.abs(nh / nw - h / w) > 0.02) patch.height = nh;
-        // 중심 좌표는 offset 으로 유지되므로 그대로 저장
-        patch.x = Math.round(node.x());
-        patch.y = Math.round(node.y());
+        if (l.kind === "image" || l.kind === "cutout") patch.height = Math.round((h * nw) / w);
         onChange(patch);
       }}
     >
       {l.kind === "cutout" ? (
         <CutoutImage src={src} width={w} height={h} />
+      ) : l.kind === "image" ? (
+        <PhotoLayer src={src} width={w} height={h} radius={l.radius} stroke={l.stroke} strokeWidth={l.strokeWidth} shadow={l.shadow} />
+      ) : l.kind === "shape" ? (
+        <ShapeNode shape={l.key} width={w} height={h} fill={l.color} stroke={l.stroke} strokeWidth={l.strokeWidth} radius={l.radius} shadow={shadowProps} />
+      ) : l.kind === "text" ? (
+        <KText
+          text={l.text}
+          width={w}
+          fontSize={l.fontSize}
+          fontFamily={textFont}
+          fontStyle={textStyle}
+          lineHeight={l.lineHeight}
+          letterSpacing={l.letterSpacing}
+          align={l.align}
+          fill={l.color}
+          wrap="word"
+          {...(l.stroke && l.strokeWidth > 0 ? { stroke: l.stroke, strokeWidth: l.strokeWidth, fillAfterStrokeEnabled: true } : {})}
+          {...shadowProps}
+        />
       ) : l.kind === "icon" ? (
         <IconImage iconKey={l.key} color={l.color} width={w} height={h} />
       ) : def ? (
@@ -397,6 +475,63 @@ function LayerNode({
       ) : null}
     </Group>
   );
+}
+
+/** 사진 레이어 — 박스를 꽉 채우게 중앙 크롭(cover), 모서리·외곽선 지원. same-origin 프록시 URL 이라 taint 없음 */
+function PhotoLayer({ src, width, height, radius, stroke, strokeWidth, shadow }: { src: string | null; width: number; height: number; radius: number; stroke: string | null; strokeWidth: number; shadow: boolean }) {
+  const [img] = useImage(src ?? "", "anonymous");
+  if (!img) return <Rect width={width} height={height} cornerRadius={radius} fill="rgba(255,255,255,0.12)" dash={[12, 10]} stroke="rgba(255,255,255,0.5)" strokeWidth={3} />;
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  const target = width / height;
+  let cw = iw;
+  let ch = ih;
+  let cx = 0;
+  let cy = 0;
+  if (iw / ih > target) {
+    cw = ih * target;
+    cx = (iw - cw) / 2;
+  } else {
+    ch = iw / target;
+    cy = (ih - ch) / 2;
+  }
+  return (
+    <KImage
+      image={img}
+      width={width}
+      height={height}
+      crop={{ x: cx, y: cy, width: cw, height: ch }}
+      cornerRadius={radius}
+      {...(stroke && strokeWidth > 0 ? { stroke, strokeWidth } : {})}
+      {...(shadow ? { shadowColor: "rgba(0,0,0,0.35)", shadowBlur: 24, shadowOffsetY: 8, shadowEnabled: true } : {})}
+    />
+  );
+}
+
+/** 도형 — 박스(width×height)에 맞춰 늘어난다 */
+function ShapeNode({ shape, width: w, height: h, fill, stroke, strokeWidth, radius, shadow }: { shape: string; width: number; height: number; fill: string; stroke: string | null; strokeWidth: number; radius: number; shadow: Record<string, unknown> }) {
+  const common = { fill, ...(stroke && strokeWidth > 0 ? { stroke, strokeWidth } : {}), ...shadow };
+  switch (shape) {
+    case "circle":
+      return <Ellipse x={w / 2} y={h / 2} radiusX={w / 2} radiusY={h / 2} {...common} />;
+    case "triangle":
+      return <Line closed points={[w / 2, 0, w, h, 0, h]} {...common} />;
+    case "diamond":
+      return <Line closed points={[w / 2, 0, w, h / 2, w / 2, h, 0, h / 2]} {...common} />;
+    case "star": {
+      const pts: number[] = [];
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 === 0 ? 1 : 0.4;
+        const a = (Math.PI * 2 * i) / 10 - Math.PI / 2;
+        pts.push(w / 2 + (Math.cos(a) * r * w) / 2, h / 2 + (Math.sin(a) * r * h) / 2);
+      }
+      return <Line closed points={pts} {...common} />;
+    }
+    case "line":
+      return <Rect width={w} height={h} cornerRadius={Math.min(h / 2, radius || h / 2)} {...common} />;
+    default:
+      return <Rect width={w} height={h} cornerRadius={Math.min(radius, Math.min(w, h) / 2)} {...common} />;
+  }
 }
 
 /** 누끼 PNG — same-origin 프록시 URL 이라 내보내기 taint 없음 */

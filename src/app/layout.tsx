@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Black_Han_Sans, Gaegu, Gowun_Dodum, Nanum_Myeongjo, Noto_Sans_KR, Noto_Serif_KR, Song_Myung } from "next/font/google";
+import {
+  Anton, Bebas_Neue, Black_Han_Sans, DM_Serif_Display, Do_Hyeon, Dongle, Gaegu, Gowun_Batang, Gowun_Dodum, IBM_Plex_Sans_KR, Jua,
+  Nanum_Myeongjo, Nanum_Pen_Script, Noto_Sans_KR, Noto_Serif_KR, Playfair_Display, Song_Myung, Space_Grotesk, Yeon_Sung,
+} from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/shell/providers";
 
@@ -24,7 +27,23 @@ const songMyung = Song_Myung({ variable: "--font-song-myung", weight: "400", dis
 const gowunDodum = Gowun_Dodum({ variable: "--font-gowun-dodum", weight: "400", display: "swap" });
 const blackHanSans = Black_Han_Sans({ variable: "--font-black-han-sans", weight: "400", display: "swap" });
 const gaegu = Gaegu({ variable: "--font-gaegu", weight: ["400", "700"], display: "swap" });
-const canvasFonts = [nanumMyeongjo, songMyung, gowunDodum, blackHanSans, gaegu].map((f) => f.variable).join(" ");
+const gowunBatang = Gowun_Batang({ variable: "--font-gowun-batang", weight: ["400", "700"], display: "swap" });
+const ibmPlexSansKr = IBM_Plex_Sans_KR({ variable: "--font-ibm-plex-sans-kr", weight: ["400", "500", "700"], display: "swap" });
+const doHyeon = Do_Hyeon({ variable: "--font-do-hyeon", weight: "400", display: "swap" });
+const jua = Jua({ variable: "--font-jua", weight: "400", display: "swap" });
+const yeonSung = Yeon_Sung({ variable: "--font-yeon-sung", weight: "400", display: "swap" });
+const dongle = Dongle({ variable: "--font-dongle", weight: ["300", "400", "700"], display: "swap" });
+const nanumPen = Nanum_Pen_Script({ variable: "--font-nanum-pen", weight: "400", display: "swap" });
+// 영문 디스플레이 폰트 — 한글은 폴백(산세리프)으로 떨어진다
+const playfair = Playfair_Display({ variable: "--font-playfair-display", subsets: ["latin"], display: "swap" });
+const dmSerifDisplay = DM_Serif_Display({ variable: "--font-dm-serif-display", subsets: ["latin"], weight: "400", display: "swap" });
+const bebasNeue = Bebas_Neue({ variable: "--font-bebas-neue", subsets: ["latin"], weight: "400", display: "swap" });
+const anton = Anton({ variable: "--font-anton", subsets: ["latin"], weight: "400", display: "swap" });
+const spaceGrotesk = Space_Grotesk({ variable: "--font-space-grotesk", subsets: ["latin"], display: "swap" });
+const canvasFonts = [
+  nanumMyeongjo, songMyung, gowunDodum, blackHanSans, gaegu, gowunBatang, ibmPlexSansKr, doHyeon, jua, yeonSung, dongle, nanumPen,
+  playfair, dmSerifDisplay, bebasNeue, anton, spaceGrotesk,
+].map((f) => f.variable).join(" ");
 
 export const metadata: Metadata = {
   title: process.env.NEXT_PUBLIC_APP_NAME ?? "Magazine Desk",

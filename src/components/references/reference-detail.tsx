@@ -49,7 +49,7 @@ export function ReferenceDetail({ reference: ref, onClose, onStep }: { reference
 
   const dirty = title !== ref.title || account !== ref.account || url !== ref.url || note !== ref.note || kind !== ref.kind || tags !== ref.tags.join(" ");
 
-  dirtyRef.current = dirty;
+  useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
 
   const save = async () => {
     if (!title.trim()) return;

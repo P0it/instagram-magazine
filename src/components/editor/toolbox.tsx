@@ -1,15 +1,17 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Image as ImageIcon, LayoutTemplate, Palette, Search, Shapes, Type, Upload } from "lucide-react";
+import { Image as ImageIcon, LayoutTemplate, Palette, Shapes, Type, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { CUTOUT_PREFIX, type PostBundle, type SlideDef, type StockPhoto, type StockSearchResult } from "@/types";
+import { CUTOUT_PREFIX, type PostBundle, type SlideDef, type StockPhoto } from "@/types";
 import { useEditorStore } from "@/stores/editor-store";
 import { api, driveFileUrl } from "@/lib/client/api";
 import { useInvalidatePosts } from "@/lib/client/queries";
 import { cssFontFamily } from "@/lib/render/export";
 import { OUTLINE_SHAPES, SHAPES, TEXT_STYLES, makeLayer, type ShapeDef } from "@/lib/render/layer-factory";
 import { COLOR_COMBOS, type ColorCombo } from "@/presets/palettes";
+import { PROVIDER_SHORT } from "@/presets/photo-moods";
+import { PhotoFinder, photoCredit } from "@/components/photos/photo-finder";
 import { PanelLabel, fieldClass } from "@/components/md/primitives";
 import { cn } from "@/lib/utils";
 import { ElementsTab } from "./panel-tabs";
@@ -259,26 +261,7 @@ function PhotosPanel({ slide, bundle }: { slide: SlideDef; bundle: PostBundle })
   const markSaved = useEditorStore((s) => s.markSaved);
   const addSource = useEditorStore((s) => s.addSource);
   const invalidate = useInvalidatePosts();
-  const [q, setQ] = useState("");
-  const [result, setResult] = useState<StockSearchResult | null>(null);
-  const [photos, setPhotos] = useState<StockPhoto[]>([]);
-  const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
-  const [provider, setProvider] = useState<"pexels" | "unsplash" | undefined>(undefined);
-
-  async function search(query: string, page = 1, prov = provider) {
-    if (!query.trim()) return;
-    setLoading(true);
-    try {
-      const r = await api.stockSearch(query.trim(), page, prov);
-      setResult(r);
-      setPhotos(page === 1 ? r.photos : (prev) => [...prev, ...r.photos]);
-    } catch (e) {
-      toast.error(`검색 실패: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function use(p: StockPhoto) {
     if (importing) return;
@@ -289,8 +272,8 @@ function PhotosPanel({ slide, bundle }: { slide: SlideDef; bundle: PostBundle })
       setSlideAsset(slide.id, res.uploaded);
       invalidate(bundle.metadata.post_id);
       // 출처 표기 — 스톡 사진 약관(Pexels/Unsplash)의 크레딧을 "참고 출처"에 남긴다
-      addSource({ title: `사진: ${p.author}`, url: p.pageUrl, publisher: p.provider === "pexels" ? "Pexels" : "Unsplash", source_type: "other", note: "스톡 사진" });
-      toast.success(`배경으로 적용했어요 · ${p.author} / ${p.provider === "pexels" ? "Pexels" : "Unsplash"}`);
+      addSource({ title: `사진: ${p.author}`, url: p.pageUrl, publisher: PROVIDER_SHORT[p.provider], source_type: "other", note: p.license ?? "스톡 사진" });
+      toast.success(`배경으로 적용했어요 · ${photoCredit(p)}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     } finally {
@@ -298,52 +281,10 @@ function PhotosPanel({ slide, bundle }: { slide: SlideDef; bundle: PostBundle })
     }
   }
 
-  const unconfigured = result && !result.configured;
-
   return (
     <div className="flex flex-col gap-3">
       <Heading>사진</Heading>
-      <form onSubmit={(e) => { e.preventDefault(); void search(q); }} className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 opacity-45" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="예: 카페, 디저트, 감성 인테리어" className={cn(fieldClass, "pl-9")} />
-      </form>
-      {result && result.providers.length > 1 && (
-        <div className="flex gap-1.5">
-          {result.providers.map((p) => (
-            <button key={p} type="button" onClick={() => { setProvider(p); void search(q, 1, p); }} className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", (provider ?? result.providers[0]) === p ? "bg-fill text-brand" : "bg-fill-alt text-label-alt")}>
-              {p === "pexels" ? "Pexels" : "Unsplash"}
-            </button>
-          ))}
-        </div>
-      )}
-      {unconfigured && (
-        <div className="rounded-xl bg-fill-alt p-3 text-[11px] leading-relaxed text-label-alt">
-          <b className="text-label-neutral">스톡 사진 검색 키가 없어요.</b>
-          <br />
-          무료 키를 발급해 <code>.env.local</code> 에 넣으면 이 탭에서 바로 검색돼요.
-          <br />· <code>PEXELS_API_KEY</code> — pexels.com/api
-          <br />· <code>UNSPLASH_ACCESS_KEY</code> — unsplash.com/developers
-          <br />서버를 다시 시작하면 적용돼요. 키는 서버에만 저장되고 브라우저로 내려가지 않아요.
-        </div>
-      )}
-      {!result && !loading && <span className="text-[11px] text-label-assistive">검색어를 입력하고 Enter. 고른 사진은 이 슬라이드의 배경이 되고, 출처가 &ldquo;참고 출처&rdquo;에 기록돼요.</span>}
-      {loading && photos.length === 0 && <span className="text-[11px] text-label-assistive">검색 중…</span>}
-      {result?.configured && photos.length === 0 && !loading && <span className="text-[11px] text-label-assistive">결과가 없어요. 다른 단어로 찾아보세요.</span>}
-      <div className="grid grid-cols-2 gap-2">
-        {photos.map((p) => (
-          <button key={p.id} type="button" title={`${p.author} · ${p.provider}`} disabled={!!importing} onClick={() => void use(p)} className="group relative aspect-[3/4] overflow-hidden rounded-[10px] bg-fill-alt hairline-neutral disabled:opacity-60">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.thumb} alt="" loading="lazy" className="size-full object-cover transition-transform group-hover:scale-[1.03]" />
-            <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/60 to-transparent px-1.5 pb-1 pt-4 text-left text-[10px] font-medium text-white">{importing === p.id ? "가져오는 중…" : p.author}</span>
-          </button>
-        ))}
-      </div>
-      {result?.hasMore && (
-        <button type="button" disabled={loading} onClick={() => void search(q, result.page + 1)} className="h-[34px] rounded-lg text-[13px] font-semibold text-label-neutral hairline hover:bg-fill-alt disabled:opacity-50">
-          {loading ? "불러오는 중…" : "더 보기"}
-        </button>
-      )}
-      <span className="text-[10px] leading-normal text-label-assistive">사진은 Pexels · Unsplash 에서 제공돼요. 상업 이용은 가능하지만 사진을 단독 파일로 재배포할 수 없어요.</span>
+      <PhotoFinder onPick={(p) => void use(p)} busyId={importing} gridClass="grid grid-cols-2 gap-2" inputClass={fieldClass} />
     </div>
   );
 }

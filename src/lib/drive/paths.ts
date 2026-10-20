@@ -31,6 +31,9 @@ async function ensureCached(drive: DriveClient, path: string[]): Promise<string>
 
 export const systemFolderId = (drive: DriveClient) => ensureCached(drive, ["_system"]);
 export const referenceFolderId = (drive: DriveClient, refId: string) => ensureCached(drive, ["_system", "references", refId]);
+/** 사용자가 직접 레퍼런스를 쌓는 폴더 — 하위 폴더 = 한 건(캐러셀), 낱장 이미지 = 한 건 */
+export const referenceInboxFolderId = (drive: DriveClient) => ensureCached(drive, ["references"]);
+export const photoLibraryFolderId = (drive: DriveClient) => ensureCached(drive, ["_system", "photos"]);
 export const stylePacksFolderId = (drive: DriveClient) => ensureCached(drive, ["_system", "style-packs"]);
 export const inboxFolderId = (drive: DriveClient, ch: AccountKey) => ensureCached(drive, ["inbox", ch]);
 export const channelFolderId = (drive: DriveClient, ch: AccountKey) => ensureCached(drive, [ch]);

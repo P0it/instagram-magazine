@@ -20,6 +20,18 @@ function fingerprint(files: { id: string; md5: string | null }[]): string {
 
 /** 모든 계정의 inbox 스캔 → 정규화 → index 재생성. 멱등(fingerprint). 계정 0개면 아무것도 안 한다. */
 export async function syncInbox(drive: DriveClient): Promise<SyncResponse> {
+  // 화면 여러 곳이 동시에 동기화를 요청해도 한 번에 하나만 돈다 (ingest-log.json 교체 경합 방지)
+  const key = `${drive.kind}:${drive.rootFolderId()}`;
+  const running = inflight.get(key);
+  if (running) return running;
+  const run = syncInboxOnce(drive).finally(() => inflight.delete(key));
+  inflight.set(key, run);
+  return run;
+}
+
+const inflight = new Map<string, Promise<SyncResponse>>();
+
+async function syncInboxOnce(drive: DriveClient): Promise<SyncResponse> {
   const now = new Date();
   const nowIso = now.toISOString();
   const log = await readIngestLog(drive);

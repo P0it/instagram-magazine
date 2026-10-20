@@ -428,3 +428,10 @@ UNSPLASH_ACCESS_KEY=           # 선택. 스톡 사진 검색(unsplash.com/devel
 
 ### 스톡 사진
 `GET /api/stock/search?q=&page=&provider=` · `POST /api/posts/[id]/assets/import`. 키는 `PEXELS_API_KEY` / `UNSPLASH_ACCESS_KEY`(서버 전용, 둘 다 없으면 UI 가 안내만 표시). 이미지 가져오기는 **호스트 허용 목록**(`images.pexels.com`, `images.unsplash.com`)만, Unsplash 는 약관대로 `download_location` 을 호출한다. 고른 사진은 포스트 assets 에 `source_NN` 으로 저장되고 출처가 `sources.json` 의 "참고 출처"에 남는다. 사업화 시에는 각 플랫폼 약관(재배포·경쟁 서비스 금지)을 원문으로 다시 확인할 것.
+
+### 레퍼런스 Drive 폴더 동기화
+사용자가 Drive 루트의 `references/` 폴더에 직접 쌓은 이미지를 레퍼런스 보드가 보여준다 (`syncDriveReferences`, `GET /api/references` 때 15초 TTL).
+- 하위 폴더 = 한 건(캐러셀). 이미지 이름순(숫자 인식)이 슬라이드 순서, `note.txt|md` 는 메모. 폴더 밖 낱장 이미지 = 한 건.
+- 파일은 복사하지 않고 원본 `fileId` 를 `Reference.images` 가 가리킨다. `Reference.source_id` 가 Drive 폴더/파일 id.
+- 제목·태그·메모 같은 메타는 `_system/references.json` 에 저장되고 동기화가 덮어쓰지 않는다. Drive 에서 지워지면 보드에서도 빠진다.
+- 보드에서 삭제 = `ignored_sources` 에 추가(숨김). Drive 원본은 지우지 않는다. 이미지 추가·삭제는 Drive 에서 한다.

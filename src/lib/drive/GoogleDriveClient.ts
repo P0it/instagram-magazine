@@ -199,7 +199,10 @@ export class GoogleDriveClient implements DriveClient {
     if (existing) {
       // 임시 이름으로 새 파일 업로드 → 기존 삭제 → 이름 교체 (원자성 근사)
       const created = await create(`.${name}.tmp-${Date.now()}`);
-      await withRetry(() => this.drive.files.delete({ fileId: existing.id, supportsAllDrives: true }));
+      // 동시 쓰기로 이미 지워졌으면(404) 그대로 진행한다
+      await withRetry(() => this.drive.files.delete({ fileId: existing.id, supportsAllDrives: true })).catch((e: unknown) => {
+        if ((e as { code?: number }).code !== 404) throw e;
+      });
       const renamed = await withRetry(() =>
         this.drive.files.update({ fileId: created.data.id ?? "", requestBody: { name }, fields: FIELDS, supportsAllDrives: true }),
       );

@@ -15,6 +15,7 @@ export const qk = {
   customPresets: ["custom-presets"] as const,
   templates: ["templates"] as const,
   references: ["references"] as const,
+  photos: ["photos"] as const,
   insights: (range: InsightsRange) => ["insights", range] as const,
 };
 
@@ -43,7 +44,11 @@ export function useTemplates() {
 }
 
 export function useReferences() {
-  return useQuery({ queryKey: qk.references, queryFn: api.references });
+  return useQuery({ queryKey: qk.references, queryFn: api.references, refetchOnWindowFocus: true, staleTime: 15_000 });
+}
+
+export function useLibraryPhotos() {
+  return useQuery({ queryKey: qk.photos, queryFn: api.photos, staleTime: 15_000 });
 }
 
 export function useCustomPresets() {

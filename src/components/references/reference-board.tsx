@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExternalLink, Plus, Search } from "lucide-react";
-import { REFERENCE_KINDS, REFERENCE_KIND_LABEL, type Reference, type ReferenceKind } from "@/types";
+import { BarChart3, ExternalLink, Plus, Search, X } from "lucide-react";
+import { HOOK_LABEL, REFERENCE_KINDS, REFERENCE_KIND_LABEL, type ReferenceKind } from "@/types";
+import { SORT_LABEL, sortRefs, type RefSort } from "@/lib/references/stats";
 import { useReferences } from "@/lib/client/queries";
 import { cn } from "@/lib/utils";
 import { AddReferenceDialog } from "./add-reference-dialog";
+import { PhotoBoard } from "@/components/photos/photo-board";
 import { ReferenceCard } from "./reference-card";
 import { ReferenceDetail } from "./reference-detail";
+import { ReferenceInsights } from "./reference-insights";
 import { REF_SOURCE_GROUPS } from "./sources";
 
 /** 레퍼런스 보드 — 잘 되는 피드·디자인을 모아 보고, 브레인스토밍하고, 템플릿으로 바꾼다 */
@@ -17,7 +20,12 @@ export function ReferenceBoard() {
   const [kind, setKind] = useState<ReferenceKind | "all">("all");
   const [tag, setTag] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [view, setView] = useState<"refs" | "photos">("refs");
+  const [sort, setSort] = useState<RefSort>("recent");
+  const [hook, setHook] = useState<string | null>(null);
+  const [insightsOpen, setInsightsOpen] = useState(false);
 
   const all = useMemo(() => refs.data?.references ?? [], [refs.data]);
   const tags = useMemo(() => {
@@ -28,13 +36,20 @@ export function ReferenceBoard() {
 
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return all.filter((r) => {
+    return sortRefs(all, sort).filter((r) => {
       if (kind !== "all" && r.kind !== kind) return false;
       if (tag && !r.tags.includes(tag)) return false;
+      if (hook && r.insight?.marketer.hook_type !== hook) return false;
       if (!needle) return true;
       return [r.title, r.account, r.note, ...r.tags].some((s) => s.toLowerCase().includes(needle));
     });
-  }, [all, q, kind, tag]);
+  }, [all, q, kind, tag, hook, sort]);
+
+  const hooks = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const r of all) if (r.insight) count.set(r.insight.marketer.hook_type, (count.get(r.insight.marketer.hook_type) ?? 0) + 1);
+    return [...count.entries()].sort((a, b) => b[1] - a[1]);
+  }, [all]);
 
   const open = all.find((r) => r.id === openId) ?? null;
   const step = (d: number) => {
@@ -44,15 +59,26 @@ export function ReferenceBoard() {
   };
 
   return (
-    <div className="mx-auto box-border flex w-full max-w-[1560px] flex-1 flex-col gap-6 overflow-auto px-6 pb-20 pt-8">
+    <div className="mx-auto box-border flex w-full max-w-[2200px] flex-1 flex-col gap-6 overflow-auto px-6 pb-16 pt-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="m-0 text-2xl font-bold leading-8 tracking-[-0.023em]">레퍼런스 보드</h1>
-          <span className="text-[13px] text-label-alt">잘 되는 피드·디자인을 모아 두고 아이디어를 얻는 곳. 마음에 드는 건 템플릿으로 바꿔 에디터에서 써요.</span>
+          
         </div>
-        <button type="button" onClick={() => setAdding(true)} className="flex h-10 items-center gap-1.5 rounded-[10px] bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-strong"><Plus className="size-4" />레퍼런스 추가</button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setSourcesOpen(true)} className="flex h-10 items-center gap-1.5 rounded-[10px] bg-fill-alt px-4 text-sm font-semibold text-label hover:bg-fill"><ExternalLink className="size-4" />레퍼런스 찾으러 가기</button>
+          <button type="button" onClick={() => setAdding(true)} className="flex h-10 items-center gap-1.5 rounded-[10px] bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-strong"><Plus className="size-4" />레퍼런스 추가</button>
+        </div>
       </div>
 
+      <div role="tablist" aria-label="보드 종류" className="flex w-fit items-center gap-1 rounded-xl bg-fill-alt p-1">
+        {([["refs", "레퍼런스"], ["photos", "사진"]] as const).map(([v, label]) => (
+          <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)} className={cn("h-8 rounded-lg px-4 text-[13px] font-semibold", view === v ? "bg-surface text-label shadow-e-xs" : "text-label-alt")}>{label}</button>
+        ))}
+      </div>
+
+      {view === "photos" ? <PhotoBoard /> : (
+      <>
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1 sm:max-w-[320px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 opacity-45" />
@@ -63,8 +89,21 @@ export function ReferenceBoard() {
             <button key={k} type="button" onClick={() => setKind(k)} className={cn("h-8 rounded-lg px-3 text-[13px] font-semibold", kind === k ? "bg-surface text-label shadow-e-xs" : "text-label-alt")}>{k === "all" ? "전체" : REFERENCE_KIND_LABEL[k]}</button>
           ))}
         </div>
+        <select value={sort} onChange={(e) => setSort(e.target.value as RefSort)} aria-label="정렬" className="h-10 rounded-[10px] bg-fill-alt px-3 text-[13px] font-semibold text-label outline-none">
+          {(Object.keys(SORT_LABEL) as RefSort[]).map((k) => <option key={k} value={k}>{SORT_LABEL[k]}</option>)}
+        </select>
+        <button type="button" onClick={() => setInsightsOpen(true)} className="flex h-10 items-center gap-1.5 rounded-[10px] bg-fill-alt px-3.5 text-[13px] font-semibold text-label hover:bg-fill"><BarChart3 className="size-4" />인사이트 요약</button>
         <span className="text-xs text-label-assistive">{list.length}건</span>
       </div>
+
+      {hooks.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-semibold text-label-assistive">표지 훅</span>
+          {hooks.map(([h, n]) => (
+            <button key={h} type="button" onClick={() => setHook(hook === h ? null : h)} className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", hook === h ? "bg-brand text-white" : "bg-fill-alt text-label-alt hover:bg-fill")}>{HOOK_LABEL[h as keyof typeof HOOK_LABEL] ?? h} {n}</button>
+          ))}
+        </div>
+      )}
 
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -77,7 +116,7 @@ export function ReferenceBoard() {
       {refs.isError ? (
         <div className="rounded-2xl bg-surface p-6 text-sm text-negative">레퍼런스를 불러오지 못했어요: {String(refs.error)}</div>
       ) : refs.isLoading ? (
-        <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]">
+        <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
           {Array.from({ length: 10 }).map((_, i) => <div key={i} className="aspect-[4/6] animate-pulse rounded-xl bg-fill-alt" />)}
         </div>
       ) : all.length === 0 ? (
@@ -89,17 +128,26 @@ export function ReferenceBoard() {
       ) : list.length === 0 ? (
         <div className="rounded-2xl bg-surface p-8 text-center text-[13px] text-label-alt">조건에 맞는 레퍼런스가 없어요.</div>
       ) : (
-        <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]">
+        <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
           {list.map((r) => <ReferenceCard key={r.id} reference={r} onOpen={() => setOpenId(r.id)} />)}
         </div>
       )}
 
-      <section className="flex flex-col gap-4 pt-4">
-        <div className="flex flex-col gap-0.5">
-          <h2 className="m-0 text-lg font-bold tracking-[-0.02em]">레퍼런스 찾으러 가기</h2>
-          <span className="text-[13px] text-label-alt">여기서 찾은 화면은 스크린샷으로 위 보드에 저장하세요. 링크는 새 탭에서 열려요.</span>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
+      </>
+      )}
+
+
+      {sourcesOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={() => setSourcesOpen(false)}>
+          <aside role="dialog" aria-label="레퍼런스 찾으러 가기" onClick={(e) => e.stopPropagation()} className="flex h-full w-[min(420px,100vw)] flex-col gap-4 overflow-auto bg-surface p-5 shadow-e-lg">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-0.5">
+                <h2 className="m-0 text-lg font-bold tracking-[-0.02em]">레퍼런스 찾으러 가기</h2>
+                <span className="text-[13px] text-label-alt">여기서 찾은 화면은 스크린샷으로 보드에 저장하세요. 링크는 새 탭에서 열려요.</span>
+              </div>
+              <button type="button" onClick={() => setSourcesOpen(false)} aria-label="닫기" className="grid size-8 shrink-0 place-items-center rounded-lg text-label-alt hover:bg-fill-alt"><X className="size-4" /></button>
+            </div>
+            <div className="flex flex-col gap-3">
           {REF_SOURCE_GROUPS.map((g) => (
             <div key={g.title} className="flex flex-col gap-2 rounded-2xl bg-surface p-4">
               <div className="flex flex-col">
@@ -119,8 +167,11 @@ export function ReferenceBoard() {
             </div>
           ))}
         </div>
-      </section>
+          </aside>
+        </div>
+      )}
 
+      {insightsOpen && <ReferenceInsights refs={all} onClose={() => setInsightsOpen(false)} onPickHook={(h) => { setHook(h); setInsightsOpen(false); }} />}
       <AddReferenceDialog open={adding} onClose={() => setAdding(false)} />
       {open && <ReferenceDetail key={open.id} reference={open} onClose={() => setOpenId(null)} onStep={step} />}
     </div>

@@ -15,7 +15,9 @@ import {
   PostBundleSchema,
   PublishResultSchema,
   ReferencesFileSchema,
+  ApplyResultSchema,
   StockSearchResultSchema,
+  LibraryPhotoSchema,
   TemplatesFileSchema,
   StylePackSchema,
   SyncResponseSchema,
@@ -115,6 +117,9 @@ export const api = {
     return request("/api/references", ReferencesFileSchema, { method: "POST", body: form });
   },
   patchReference: (id: string, patch: ReferencePatch) => request(`/api/references/${encodeURIComponent(id)}`, ReferencesFileSchema, jsonInit("PATCH", patch)),
+  analyzeReference: (id: string) => request(`/api/references/${encodeURIComponent(id)}/analyze`, ReferencesFileSchema, jsonInit("POST")),
+  applyReference: (id: string, topic: string) =>
+    request(`/api/references/${encodeURIComponent(id)}/apply`, ApplyResultSchema, jsonInit("POST", { topic })),
   deleteReference: (id: string) => request(`/api/references/${encodeURIComponent(id)}`, ReferencesFileSchema, jsonInit("DELETE")),
   addReferenceImages: (id: string, files: File[]) => {
     const form = new FormData();
@@ -126,11 +131,12 @@ export const api = {
 
   stockSearch: (q: string, page = 1, provider?: StockProvider) =>
     request(`/api/stock/search?${new URLSearchParams({ q, page: String(page), ...(provider ? { provider } : {}) })}`, StockSearchResultSchema),
+  photos: () => request("/api/photos", zod.object({ photos: zod.array(LibraryPhotoSchema) })),
   importStock: (id: string, photo: StockPhoto) =>
     request(
       `/api/posts/${encodeURIComponent(id)}/assets/import`,
       PostBundleSchema.extend({ uploaded: zod.string() }),
-      jsonInit("POST", { url: photo.full, provider: photo.provider, downloadLocation: photo.downloadLocation }),
+      jsonInit("POST", { url: photo.full, provider: photo.provider, downloadLocation: photo.downloadLocation, libraryId: photo.libraryId }),
     ),
   transition: (id: string, to: PostStatus, extra: { run_at?: string; account_key?: string } = {}) =>
     request(`/api/posts/${encodeURIComponent(id)}/transition`, PostBundleSchema, jsonInit("POST", { to, ...extra })),

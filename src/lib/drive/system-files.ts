@@ -7,10 +7,12 @@ import {
   ReferencesFileSchema,
   TemplatesFileSchema,
   IngestLogFileSchema,
+  PhotoLibraryFileSchema,
   type AccountsFile,
   type CustomPresetsFile,
   type IndexFile,
   type IngestLogFile,
+  type PhotoLibraryFile,
   type ReferencesFile,
   type TemplatesFile,
 } from "@/types";
@@ -95,6 +97,11 @@ export const writeTemplates = (drive: DriveClient, data: TemplatesFile, v?: stri
   writeSystemJson(drive, "templates.json", data, v);
 
 export const readReferences = (drive: DriveClient) =>
-  readSystemJson(drive, "references.json", ReferencesFileSchema, { references: [] });
+  readSystemJson(drive, "references.json", ReferencesFileSchema, { references: [], ignored_sources: [] });
 export const writeReferences = (drive: DriveClient, data: ReferencesFile, v?: string | null) =>
   writeSystemJson(drive, "references.json", data, v);
+
+export const readPhotoLibrary = (drive: DriveClient) =>
+  readSystemJson(drive, "photos.json", PhotoLibraryFileSchema, { photos: [] });
+export const writePhotoLibrary = (drive: DriveClient, data: PhotoLibraryFile, v?: string | null) =>
+  writeSystemJson(drive, "photos.json", data, v);

@@ -1,0 +1,11 @@
+{
+  "min_font_size": 28,
+  "min_font_size_source": "프로젝트 규칙: 휴대폰 화면(폭 1080 기준)에서 읽히는 하한",
+  "max_chars_per_slide": { "cover": 60, "info": 220, "quote": 140, "photo": 100, "screenshot": 100, "closing": 100 },
+  "max_chars_source": "프로젝트 규칙: 장당 글자 수 상한(텍스트가 화면을 덮지 않게)",
+  "first_role": "cover",
+  "closing_role_last_only": true,
+  "role_source": "프로젝트 규칙: 표지로 시작하고 마무리는 마지막 장에만",
+  "overflow_safety": 0.95,
+  "overflow_source": "글자 폭 추정이 브라우저 측정과 다를 수 있어 박스 폭의 95% 만 쓴다(보수적 추정)"
+}

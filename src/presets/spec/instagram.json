@@ -1,0 +1,18 @@
+{
+  "version": "2026-10-21",
+  "carousel": {
+    "min_slides": 2,
+    "max_slides": 10,
+    "source": "Instagram Graph API 콘텐츠 게시: 캐러셀은 최대 10개 항목, 모든 장은 같은 비율"
+  },
+  "caption_max": 2200,
+  "hashtag_max": 30,
+  "caption_source": "Instagram 캡션 2,200자·해시태그 30개 제한 (승인 게이트와 같은 값)",
+  "image": {
+    "format": "JPEG",
+    "max_bytes": 8388608,
+    "source": "Instagram Graph API: JPEG 만 지원, 8MB 이하"
+  },
+  "grid_note": "프로필 그리드는 3:4 로 가운데를 잘라 보여 준다. 표지의 핵심 글자는 가운데 안전 영역에 둔다.",
+  "grid_source": "Instagram 2025 프로필 그리드 3:4"
+}

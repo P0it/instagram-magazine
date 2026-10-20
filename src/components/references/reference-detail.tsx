@@ -11,6 +11,7 @@ import { resolvePreset } from "@/presets";
 import { slideStateFromPreset } from "@/lib/render/layout";
 import { readableOn } from "@/lib/render/palette";
 import { fieldClass } from "@/components/md/primitives";
+import { AiGenerateButton } from "@/components/ai/generate-dialog";
 import { cn } from "@/lib/utils";
 
 /** 레퍼런스 상세 — 캐러셀을 넘겨 보고, 메모·태그를 고치고, 템플릿으로 만든다 */
@@ -201,6 +202,7 @@ export function ReferenceDetail({ reference: ref, onClose }: { reference: Refere
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <button type="button" disabled={!dirty || busy === "save"} onClick={() => void save()} className="h-10 rounded-[10px] bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-strong disabled:opacity-40">{busy === "save" ? "저장 중…" : "변경 저장"}</button>
             <button type="button" disabled={!img || busy === "template"} onClick={() => void makeTemplate()} title="첫 이미지의 레이아웃·색을 읽어 내 템플릿으로 저장" className="flex h-10 items-center gap-1.5 rounded-[10px] px-4 text-sm font-semibold text-label-neutral hairline hover:bg-fill-alt disabled:opacity-40"><Wand2 className="size-4" />{busy === "template" ? "읽는 중…" : "템플릿으로 만들기"}</button>
+            <AiGenerateButton source={{ kind: "reference", id: ref.id, title: ref.title }} onStarted={onClose} />
             <button type="button" onClick={() => void remove()} className="ml-auto flex h-10 items-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-negative hover:bg-fill-alt"><Trash2 className="size-4" />삭제</button>
           </div>
         </div>

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useSync, useSystemStatus, usePosts } from "@/lib/client/queries";
 import { accountMeta, useAccountList, useChannel } from "@/lib/client/channel";
 import { GhostIcon } from "@/components/md/primitives";
+import { JobsIndicator } from "@/components/ai/jobs-indicator";
 
 function syncLabel(iso: string | null | undefined): string {
   if (!iso) return "동기화 기록 없음";
@@ -74,6 +75,7 @@ export function TopBar() {
         <GhostIcon title="Drive 새로고침" onClick={() => sync.mutate()} disabled={sync.isPending} className="rounded-full">
           <RefreshCw className={cn("size-[18px] opacity-70", sync.isPending && "animate-spin")} />
         </GhostIcon>
+        <JobsIndicator />
         <Link href="/references" title="레퍼런스 보드" className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold hover:bg-fill", inRefs ? "bg-fill text-label" : "text-label-alt")}>
           <Lightbulb className="size-[16px] opacity-70" />레퍼런스
         </Link>

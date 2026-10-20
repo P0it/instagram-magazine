@@ -78,3 +78,20 @@ test.describe("레퍼런스 보드", () => {
     await expect(page.getByRole("dialog", { name: "레퍼런스 상세" })).toHaveCount(0);
   });
 });
+
+test.describe("템플릿 화면", () => {
+  test("내장 템플릿을 격자로 보여주고 분류 칩으로 거른다", async ({ page }) => {
+    await page.goto("/templates");
+    await expect(page.getByRole("heading", { name: "템플릿" })).toBeVisible({ timeout: 30_000 });
+    const cards = page.getByTestId("template-card");
+    await expect(cards.first()).toBeVisible();
+    const total = await cards.count();
+    expect(total).toBeGreaterThan(3);
+    await page.getByRole("button", { name: "카페", exact: true }).click();
+    const cafe = await cards.count();
+    expect(cafe).toBeGreaterThan(0);
+    expect(cafe).toBeLessThan(total);
+    await page.getByRole("button", { name: "전체", exact: true }).click();
+    await expect(cards).toHaveCount(total);
+  });
+});

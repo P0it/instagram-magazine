@@ -34,6 +34,8 @@ export function isAccessExempt(pathname: string): boolean {
   return (
     pathname.startsWith("/api/public/") ||
     pathname.startsWith("/api/cron/") ||
+    // ChatGPT 로그인 콜백은 127.0.0.1 로 돌아와 접근 쿠키가 없다. 서버 메모리의 state 가 맞아야만 동작하므로 안전하다.
+    pathname === "/api/ai/oauth/chatgpt/callback" ||
     pathname.startsWith("/_next/") ||
     pathname === "/favicon.ico" ||
     pathname === "/robots.txt"

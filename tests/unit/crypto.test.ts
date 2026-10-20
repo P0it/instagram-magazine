@@ -53,6 +53,11 @@ describe("access key", () => {
     expect(isAccessExempt("/api/posts")).toBe(false);
     expect(isAccessExempt("/dashboard")).toBe(false);
   });
+  it("exempts only the ChatGPT login callback (it arrives on 127.0.0.1 without the access cookie)", () => {
+    expect(isAccessExempt("/api/ai/oauth/chatgpt/callback")).toBe(true);
+    expect(isAccessExempt("/api/ai/oauth/chatgpt/start")).toBe(false);
+    expect(isAccessExempt("/api/ai/jobs")).toBe(false);
+  });
 });
 
 describe("image dims", () => {

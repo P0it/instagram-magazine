@@ -1,18 +1,18 @@
 import "server-only";
-import { aiClientMode, env, resetEnvCache } from "@/lib/env";
-import { upsertEnvLine } from "@/lib/google/local-env";
+import { aiClientMode, env } from "@/lib/env";
 import { MockAiProvider } from "@/mocks/ai/MockAiProvider";
 import type { AiProviderId, AiProviderStatus } from "@/types";
-import { readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { createChatgptProvider } from "./chatgpt";
+import { createClaudeCliProvider } from "./cli";
+import { persistEnvVar } from "./env-file";
 import { AiError, type AiProvider } from "./types";
 
 let override: AiProvider[] | null = null;
 let built: AiProvider[] | null = null;
 
-/** 실제 제공자 목록. Task 5 에서 Claude·ChatGPT 구현이 여기에 등록된다. */
+/** 실제 제공자: Claude 는 로그인된 CLI, ChatGPT 는 앱이 받은 OAuth 토큰 */
 function buildRealProviders(): AiProvider[] {
-  return [];
+  return [createClaudeCliProvider(), createChatgptProvider()];
 }
 
 function providers(): AiProvider[] {
@@ -58,14 +58,6 @@ export async function getProvider(preferred?: AiProviderId): Promise<AiProvider>
 }
 
 /** 이 맥의 기본 제공자를 .env.local 에 저장한다 (Drive 에는 두지 않는다) */
-export async function setDefaultProvider(id: AiProviderId, file = path.join(process.cwd(), ".env.local")): Promise<void> {
-  let content = "";
-  try {
-    content = await readFile(file, "utf8");
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
-  }
-  await writeFile(file, upsertEnvLine(content, "AI_DEFAULT_PROVIDER", id), "utf8");
-  process.env.AI_DEFAULT_PROVIDER = id;
-  resetEnvCache();
+export function setDefaultProvider(id: AiProviderId, file?: string): Promise<void> {
+  return persistEnvVar("AI_DEFAULT_PROVIDER", id, file);
 }

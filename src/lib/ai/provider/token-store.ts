@@ -1,11 +1,7 @@
 import "server-only";
-import { readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { z } from "zod";
-import { isLocalDev, resetEnvCache } from "@/lib/env";
-import { upsertEnvLine } from "@/lib/google/local-env";
 import type { AiProviderId } from "@/types";
-import { AiError } from "./types";
+import { persistEnvVar, defaultEnvFile } from "./env-file";
 
 /**
  * AI 제공자 로그인 토큰. 메모리 캐시가 1차 출처이고 .env.local 은 재시작을 위한 보관용이다.
@@ -17,11 +13,14 @@ const AiTokensSchema = z.object({
   refresh: z.string().min(1),
   expires_at: z.string(),
   account: z.string().optional(),
+  /** ChatGPT: 첫 등록에서 발급된 `oaiapp_…`. 이후 요청·재인증에 쓴다 */
+  client_id: z.string().optional(),
+  /** ChatGPT: 직전 ID 토큰. 재인증 때 id_token_hint 로 보낸다 */
+  id_token: z.string().optional(),
 });
 export type AiTokens = z.infer<typeof AiTokensSchema>;
 
 const ENV_KEY: Record<AiProviderId, string> = { claude: "AI_CLAUDE_TOKENS", chatgpt: "AI_CHATGPT_TOKENS" };
-const defaultFile = () => path.join(process.cwd(), ".env.local");
 
 /** `.env.local` 한 줄에 안전하게 들어가도록 JSON 을 base64url 로 감싼다 (`#`·따옴표 문제 회피) */
 export function encodeTokenEnv(t: AiTokens): string {
@@ -57,36 +56,16 @@ function serialized<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
-async function writeEnvValue(id: AiProviderId, value: string, file: string): Promise<void> {
-  if (!isLocalDev()) throw new AiError("auth", "배포 환경에서는 로그인 토큰을 저장할 수 없어요");
-  try {
-    let content = "";
-    try {
-      content = await readFile(file, "utf8");
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
-    }
-    await writeFile(file, upsertEnvLine(content, ENV_KEY[id], value), "utf8");
-  } catch (e) {
-    throw new AiError("auth", `로그인 토큰을 .env.local 에 저장하지 못했어요: ${e instanceof Error ? e.message : String(e)}`);
-  }
-}
-
-export function setTokens(id: AiProviderId, t: AiTokens, file = defaultFile()): Promise<void> {
+export function setTokens(id: AiProviderId, t: AiTokens, file = defaultEnvFile()): Promise<void> {
   return serialized(async () => {
-    const value = encodeTokenEnv(AiTokensSchema.parse(t));
-    await writeEnvValue(id, value, file);
+    await persistEnvVar(ENV_KEY[id], encodeTokenEnv(AiTokensSchema.parse(t)), file);
     cache.set(id, t);
-    process.env[ENV_KEY[id]] = value;
-    resetEnvCache();
   });
 }
 
-export function clearTokens(id: AiProviderId, file = defaultFile()): Promise<void> {
+export function clearTokens(id: AiProviderId, file = defaultEnvFile()): Promise<void> {
   return serialized(async () => {
-    await writeEnvValue(id, "", file);
+    await persistEnvVar(ENV_KEY[id], "", file);
     cache.set(id, null);
-    delete process.env[ENV_KEY[id]];
-    resetEnvCache();
   });
 }

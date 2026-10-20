@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Magazine Desk · 목업 (버리는 용도)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Batang:wght@700&family=Do+Hyeon&family=Jua&family=Nanum+Pen+Script&family=Playfair+Display:ital,wght@1,700&family=Gaegu:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--surface:#121212;--elev:#1c1c1c;--line:#262626;--text:#f5f5f5;--sub:#a8a8a8;--blue:#0095f6;--blue2:#1877f2;--grad:linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--text);font-family:Pretendard Variable,Pretendard,system-ui,sans-serif;height:100dvh;display:flex;overflow:hidden;font-size:14px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* sidebar */
+aside{width:244px;border-right:1px solid var(--line);padding:20px 12px;display:flex;flex-direction:column;flex:none}
+.logo{padding:8px 12px 24px;font-size:20px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.logo i{width:28px;height:28px;border-radius:8px;background:var(--grad);display:block}
+.nav{display:flex;align-items:center;gap:16px;padding:12px;border-radius:10px;font-size:15px;width:100%;text-align:left;color:var(--text)}
+.nav:hover{background:var(--elev)}
+.nav.on{font-weight:700}
+.nav .tag{margin-left:auto;font-size:11px;background:var(--blue);padding:2px 7px;border-radius:99px;font-weight:600}
+.sp{flex:1}
+.acct{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--line)}
+.acct:hover{background:var(--elev)}
+.av{width:36px;height:36px;border-radius:50%;padding:2px;background:var(--grad);flex:none}
+.av b{display:block;width:100%;height:100%;border-radius:50%;background:#333;border:2px solid #000}
+.acct small{display:block;color:var(--sub);font-size:12px}
+.dot{width:7px;height:7px;border-radius:50%;background:#2ecc71;display:inline-block;margin-right:4px}
+/* main */
+main{flex:1;min-width:0;overflow:auto}
+.view{display:none;padding:28px 36px 60px}
+.view.on{display:block}
+h1{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.lead{color:var(--sub);margin-top:6px}
+.search{display:flex;align-items:center;gap:10px;background:var(--elev);border-radius:12px;padding:0 16px;height:46px;margin:22px 0 12px;max-width:760px}
+.search input{flex:1;background:none;border:0;color:var(--text);font:inherit;outline:0}
+.search button{background:var(--blue);padding:7px 16px;border-radius:8px;font-weight:600}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+.chip{background:var(--elev);padding:7px 14px;border-radius:99px;font-size:13px;white-space:nowrap}
+.chip.on{background:var(--text);color:#000;font-weight:600}
+.chip:hover:not(.on){background:#2a2a2a}
+.hint{font-size:12px;color:var(--sub);margin:-6px 0 18px}
+/* reference grid: 모든 카드 동일 크기 */
+.mas{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
+.ref{border-radius:12px;overflow:hidden;background:var(--surface);position:relative}
+.ref .vw{aspect-ratio:4/5;position:relative;overflow:hidden;background:#111}
+.ref .tr{display:flex;height:100%;transition:transform .25s ease}
+.ref .sl{flex:none;width:100%;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:18px;color:#fff;font-weight:800;line-height:1.2;font-size:21px}
+.ref .sl small{font-size:12px;font-weight:600;opacity:.8;margin-bottom:6px}
+.ref .meta{padding:10px 12px;font-size:12px;color:var(--sub);display:flex;justify-content:space-between;align-items:center;height:40px}
+.ref .hot{position:absolute;top:10px;left:10px;font-size:11px;font-weight:700;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);padding:4px 9px;border-radius:99px;z-index:2}
+.ref .cnt{position:absolute;top:10px;right:10px;font-size:11px;background:rgba(0,0,0,.6);padding:4px 9px;border-radius:99px;z-index:2}
+.ref .ar{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.92);color:#111;display:none;place-items:center;font-size:16px;z-index:3;line-height:1}
+.ref:hover .ar{display:grid}
+.ref .ar.l{left:8px}.ref .ar.r{right:8px}
+.ref .ar[hidden]{display:none!important}
+.ref .dots{position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:4px;z-index:2}
+.ref .dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4)}
+.ref .dots i.on{background:var(--blue)}
+.ref .mk{background:var(--text);color:#000;font-weight:700;font-size:12px;padding:5px 10px;border-radius:7px}
+.ref .mk.sv{background:var(--elev);color:var(--text)}
+/* detail modal */
+.md{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;z-index:50;padding:24px}
+.md.on{display:flex}
+.mb{display:grid;grid-template-columns:auto 380px;background:var(--surface);border-radius:14px;overflow:hidden;max-height:92dvh;max-width:96vw}
+.mv{position:relative;height:min(86dvh,760px);aspect-ratio:4/5;background:#000;overflow:hidden}
+.mv .tr{display:flex;height:100%;transition:transform .25s ease}
+.mv .sl{flex:none;width:100%;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:7%;color:#fff;font-weight:800;line-height:1.2;font-size:clamp(26px,3.6dvh,38px)}
+.mv .sl small{font-size:15px;font-weight:600;opacity:.8;margin-bottom:8px}
+.mv .ar{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.92);color:#111;display:grid;place-items:center;font-size:20px;z-index:3}
+.mv .ar.l{left:12px}.mv .ar.r{right:12px}.mv .ar[hidden]{display:none}
+.mv .dots{position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:center;gap:5px}
+.mv .dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.4)}.mv .dots i.on{background:var(--blue)}
+.mi{padding:20px;display:flex;flex-direction:column;gap:14px;overflow:auto;width:380px}
+.mi .hd{display:flex;align-items:center;gap:10px}
+.mi .hd .x{margin-left:auto;font-size:22px;color:var(--sub)}
+.mi .st{display:flex;gap:16px;color:var(--sub);font-size:13px}
+.mi .st b{color:var(--text)}
+.mi p{line-height:1.55;color:#ddd;font-size:14px}
+.mi .tg{color:#8ec8ff;font-size:13px;line-height:1.6}
+.mi .box{background:var(--elev);border-radius:10px;padding:12px;font-size:13px;color:var(--sub);line-height:1.5}
+.mi .box b{color:var(--text)}
+.pn{display:flex;justify-content:space-between;color:var(--sub);font-size:12px}
+.pn button{color:var(--sub)}.pn button:hover{color:var(--text)}
+/* templates */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
+.tpl{cursor:pointer}
+.tpl .im{aspect-ratio:4/5;border-radius:12px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:18px;color:#fff;border:1px solid var(--line)}
+.tpl:hover .im{outline:2px solid var(--blue)}
+.tpl .nm{margin-top:10px;font-weight:600}
+.tpl .sb{color:var(--sub);font-size:12px;margin-top:2px}
+.badge{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.6);padding:3px 8px;border-radius:99px;font-size:11px}
+.use{display:none;position:absolute;left:12px;right:12px;bottom:12px;background:var(--blue);padding:10px;border-radius:8px;font-weight:700;text-align:center}
+.tpl:hover .use{display:block}
+.tpl:hover .txt{display:none}
+/* editor */
+#v-make{padding:0}
+.ed{display:grid;grid-template-columns:120px 1fr 330px;height:100dvh}
+.ed>div{min-height:0}
+.strip{border-right:1px solid var(--line);padding:14px 12px;overflow:auto;display:flex;flex-direction:column;gap:10px;align-items:center}
+.th{width:84px;aspect-ratio:4/5;border-radius:6px;border:2px solid transparent;flex:none;font-size:10px;padding:6px;font-weight:800;color:#fff;overflow:hidden}
+.th.on{border-color:var(--blue)}
+.add{width:84px;height:40px;border:1px dashed #444;border-radius:8px;color:var(--sub)}
+.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0a0a0a;padding:20px;min-height:0}
+.tb{display:flex;gap:6px;background:var(--elev);padding:6px;border-radius:12px}
+.tb button{padding:7px 12px;border-radius:8px;font-size:13px;color:var(--sub)}
+.tb button.on,.tb button:hover{background:#2f2f2f;color:var(--text)}
+.canvas{height:min(72dvh,640px);aspect-ratio:4/5;position:relative;overflow:hidden;border-radius:4px;background:#1a1a2e;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.cv-bg{position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,#ff9a8b,transparent 55%),radial-gradient(circle at 80% 80%,#6a5acd,transparent 55%),#2b1b3d}
+.cv-t{position:absolute;left:8%;right:8%;top:14%;font-family:'Black Han Sans';font-size:54px;line-height:1.1;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.25)}
+.cv-t em{font-style:normal;background:#ffe44d;color:#111;padding:0 6px}
+.sel{outline:2px solid var(--blue);outline-offset:6px}
+.sel::after{content:"";position:absolute;right:-12px;bottom:-12px;width:10px;height:10px;background:#fff;border:2px solid var(--blue);border-radius:50%}
+.cv-s{position:absolute;right:9%;bottom:20%;width:34%;aspect-ratio:1;border-radius:50%;background:conic-gradient(#ffe44d,#ff7aa8,#7ad7ff,#ffe44d);transform:rotate(-8deg);display:grid;place-items:center;font-family:'Do Hyeon';font-size:30px;color:#111;border:4px solid #fff}
+.cv-m{position:absolute;left:6%;right:6%;bottom:7%;background:#fff;color:#111;border-radius:6px;padding:12px 14px;font-weight:800;font-size:17px}
+.cv-m small{display:block;font-weight:500;color:#777;font-size:11px;margin-top:2px}
+.bar{display:flex;gap:8px;align-items:center;color:var(--sub);font-size:12px}
+.panel{border-left:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;padding:14px 4px;color:var(--sub);font-size:13px;border-bottom:2px solid transparent}
+.tabs button.on{color:var(--text);border-color:var(--text);font-weight:700}
+.pp{display:none;padding:16px;overflow:auto;flex:1}
+.pp.on{display:block}
+.lbl{font-size:12px;color:var(--sub);margin:14px 0 8px}
+.lbl:first-child{margin-top:0}
+.fonts button{display:flex;justify-content:space-between;align-items:center;width:100%;padding:10px 12px;border-radius:8px;font-size:20px;text-align:left}
+.fonts button:hover,.fonts button.on{background:var(--elev)}
+.fonts small{font:12px Pretendard Variable,sans-serif;color:var(--sub)}
+.stk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stk div{aspect-ratio:1;border-radius:10px;background:var(--elev);display:grid;place-items:center;text-align:center;font-size:13px;font-weight:800;cursor:pointer;padding:6px}
+.stk div:hover{outline:2px solid var(--blue)}
+.pub{padding:14px 16px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+textarea{width:100%;background:var(--elev);border:0;border-radius:8px;color:var(--text);font:inherit;padding:10px;height:64px;resize:none;outline:0}
+.btn{background:var(--blue);padding:11px;border-radius:8px;font-weight:700;text-align:center;width:100%}
+.btn.ghost{background:var(--elev)}
+.row{display:flex;gap:8px}
+.sw{display:flex;gap:8px;flex-wrap:wrap}
+.sw i{width:26px;height:26px;border-radius:50%;border:2px solid #000;outline:1px solid #444;display:block}
+/* queue/settings */
+.list{max-width:760px;margin-top:20px;display:flex;flex-direction:column;gap:10px}
+.li{display:flex;align-items:center;gap:14px;background:var(--surface);padding:12px;border-radius:12px}
+.li .t{width:52px;aspect-ratio:4/5;border-radius:6px;flex:none}
+.li .s{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:99px;background:var(--elev)}
+.s.ok{color:#2ecc71}.s.wait{color:#feda75}
+.note{position:fixed;right:16px;bottom:16px;background:var(--elev);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--sub);z-index:9}
+</style>
+</head>
+<body>
+<svg style="display:none"><defs>
+<symbol id="i-ref" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-tpl" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="10" rx="2"/><rect x="13" y="3" width="8" height="6" rx="2"/><rect x="13" y="11" width="8" height="10" rx="2"/><rect x="3" y="15" width="8" height="6" rx="2"/></symbol>
+<symbol id="i-make" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/></symbol>
+<symbol id="i-q" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-set" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+</defs></svg>
+
+<aside>
+  <div class="logo"><i></i>Magazine Desk</div>
+  <button class="nav on" data-v="ref"><svg><use href="#i-ref"/></svg>레퍼런스</button>
+  <button class="nav" data-v="tpl"><svg><use href="#i-tpl"/></svg>템플릿</button>
+  <button class="nav" data-v="make"><svg><use href="#i-make"/></svg>콘텐츠 만들기</button>
+  <button class="nav" data-v="q"><svg><use href="#i-q"/></svg>게시 큐<span class="tag">2</span></button>
+  <button class="nav" data-v="set"><svg><use href="#i-set"/></svg>설정</button>
+  <div class="sp"></div>
+  <button class="acct" data-v="set"><span class="av"><b></b></span><span style="text-align:left"><span>@my_account</span><small><span class="dot"></span>Instagram 연결됨</small></span></button>
+</aside>
+
+<main>
+<!-- 레퍼런스 -->
+<section class="view on" id="v-ref">
+  <h1>레퍼런스</h1>
+  <p class="lead">요즘 뜨는 카드뉴스·캐러셀을 탐색하고 영감을 얻으세요. 템플릿으로 만들어진 것만 바로 쓸 수 있어요.</p>
+  <div class="search"><svg style="color:var(--sub)"><use href="#i-ref"/></svg><input value="여행 브이로그 감성 캐러셀"><button>조사</button></div>
+  <div class="hint">카드 위에 마우스를 올리고 ‹ › 또는 키보드 ← → 로 넘겨 보며 빠르게 훑을 수 있어요. 카드를 누르면 크게 열립니다. · 조사 목적을 적으면 해당 주제의 트렌드 포스트를 모아 보여줍니다 (직접 쓴 목적어 · 저장한 보드)</div>
+  <div class="chips"><span class="chip on">전체</span><span class="chip">급상승</span><span class="chip">밈</span><span class="chip">정보형 카드뉴스</span><span class="chip">사진 위주</span><span class="chip">타이포 위주</span><span class="chip">저장한 것</span></div>
+  <div class="mas" id="mas"></div>
+</section>
+
+<!-- 템플릿 -->
+<section class="view" id="v-tpl">
+  <h1>템플릿</h1>
+  <p class="lead">레퍼런스에서 뽑아낸 구성입니다. 고르면 바로 편집 화면으로 넘어가요.</p>
+  <div class="chips" style="margin-top:18px"><span class="chip on">전체</span><span class="chip">커버</span><span class="chip">캐러셀</span><span class="chip">밈</span><span class="chip">인용구</span><span class="chip">비포/애프터</span><span class="chip">내가 만든 것</span></div>
+  <div class="grid" id="tpls"></div>
+</section>
+
+<!-- 만들기 -->
+<section class="view" id="v-make">
+  <div class="ed">
+    <div class="strip" id="strip"></div>
+    <div class="stage">
+      <div class="tb"><button>↶</button><button>↷</button><button class="on">4:5</button><button>3:4</button><button>1:1</button><button>1.91:1</button><button>배경 제거</button></div>
+      <div class="canvas">
+        <div class="cv-bg"></div>
+        <div class="cv-t sel">오늘의<br><em>제주 3박 4일</em><br>이게 정답</div>
+        <div class="cv-s">실화?</div>
+        <div class="cv-m">"여기 안 가면 손해" <small>@my_account · 저장해두세요</small></div>
+      </div>
+      <div class="bar">슬라이드 1 / 5 · 1080 × 1350 · 템플릿: 여행 커버 <button style="color:var(--blue)">변경</button></div>
+    </div>
+    <div class="panel">
+      <div class="tabs" id="ptabs"><button class="on" data-p="font">글꼴</button><button data-p="stk">밈·스티커</button><button data-p="img">사진</button><button data-p="lay">레이어</button></div>
+      <div class="pp on" id="p-font">
+        <div class="lbl">선택한 텍스트</div>
+        <div class="fonts">
+          <button class="on" style="font-family:'Black Han Sans'">검은고딕 굵게 <small>임팩트</small></button>
+          <button style="font-family:'Do Hyeon'">도현체 <small>밈·자막</small></button>
+          <button style="font-family:'Jua'">주아체 <small>귀여움</small></button>
+          <button style="font-family:'Gowun Batang'">고운바탕 <small>감성</small></button>
+          <button style="font-family:'Nanum Pen Script'">손글씨 펜 <small>일기</small></button>
+          <button style="font-family:'Gaegu'">개구체 <small>낙서</small></button>
+          <button style="font-family:'Playfair Display';font-style:italic">Playfair Italic <small>매거진</small></button>
+          <button style="font-family:Pretendard Variable;font-weight:800">Pretendard <small>기본</small></button>
+        </div>
+        <div class="lbl">색</div>
+        <div class="sw"><i style="background:#fff"></i><i style="background:#ffe44d"></i><i style="background:#ff4d6d"></i><i style="background:#7ad7ff"></i><i style="background:#111"></i><i style="background:var(--grad)"></i></div>
+        <div class="lbl">효과</div>
+        <div class="row"><span class="chip on">그림자</span><span class="chip">외곽선</span><span class="chip">형광펜</span><span class="chip">자막 박스</span></div>
+      </div>
+      <div class="pp" id="p-stk">
+        <div class="lbl">요즘 유행하는 밈 · 스티커</div>
+        <div class="stk">
+          <div style="font-family:'Do Hyeon';font-size:20px;color:#ffe44d">실화?</div>
+          <div style="background:#fff;color:#111">POV:</div>
+          <div style="background:#ff4d6d">저장 필수</div>
+          <div style="background:#222">😮 반응 짤</div>
+          <div style="background:#7ad7ff;color:#111">트윗 말풍선</div>
+          <div style="background:#ffe44d;color:#111">카톡 대화</div>
+          <div style="background:#fff;color:#111">▶ 재생바</div>
+          <div style="background:#962fbf">NEW</div>
+          <div style="background:#222">화살표 낙서</div>
+        </div>
+        <div class="lbl">밈 이미지 + 자막</div>
+        <div class="btn ghost">사진 위에 자막 얹기 (임팩트체 흰 글씨 + 검정 테두리)</div>
+      </div>
+      <div class="pp" id="p-img">
+        <div class="lbl">내 사진 · 스톡 검색</div>
+        <div class="search" style="margin:0 0 12px;height:38px"><input value="제주 바다"><svg style="width:18px"><use href="#i-ref"/></svg></div>
+        <div class="stk">
+          <div style="background:linear-gradient(135deg,#2193b0,#6dd5ed)"></div><div style="background:linear-gradient(135deg,#ee9ca7,#ffdde1)"></div><div style="background:linear-gradient(135deg,#134e5e,#71b280)"></div>
+          <div style="background:linear-gradient(135deg,#f12711,#f5af19)"></div><div style="background:linear-gradient(135deg,#654ea3,#eaafc8)"></div><div style="background:linear-gradient(135deg,#232526,#414345)"></div>
+        </div>
+        <div class="lbl">Pexels · Unsplash</div>
+      </div>
+      <div class="pp" id="p-lay">
+        <div class="fonts"><button style="font-size:14px">T 오늘의 제주 3박 4일 <small>텍스트</small></button><button style="font-size:14px">◉ 실화? <small>스티커</small></button><button style="font-size:14px">▭ 말풍선 <small>도형</small></button><button style="font-size:14px">▨ 배경 <small>이미지</small></button></div>
+      </div>
+      <div class="sp"></div>
+      <div class="pub">
+        <textarea>제주 3박 4일 코스 정리 🌊 저장해두고 가세요 #제주여행</textarea>
+        <div class="row"><button class="btn ghost">예약 게시</button><button class="btn">Instagram에 게시</button></div>
+        <div style="font-size:11px;color:var(--sub);text-align:center">@my_account · 사용자가 누를 때만 게시됩니다</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 게시 큐 -->
+<section class="view" id="v-q">
+  <h1>게시 큐</h1>
+  <p class="lead">내가 만든 콘텐츠의 게시 상태입니다.</p>
+  <div class="list">
+    <div class="li"><div class="t" style="background:linear-gradient(135deg,#ff9a8b,#6a5acd)"></div><div><b>제주 3박 4일 코스</b><div style="color:var(--sub);font-size:12px">5장 · 4:5 · @my_account</div></div><span class="s wait">오늘 20:00 예약</span></div>
+    <div class="li"><div class="t" style="background:linear-gradient(135deg,#134e5e,#71b280)"></div><div><b>카페 투어 모음</b><div style="color:var(--sub);font-size:12px">3장 · 1:1</div></div><span class="s wait">내일 12:00 예약</span></div>
+    <div class="li"><div class="t" style="background:linear-gradient(135deg,#f12711,#f5af19)"></div><div><b>이번 주 밈 정리</b><div style="color:var(--sub);font-size:12px">1장 · 4:5</div></div><span class="s ok">게시 완료</span></div>
+  </div>
+</section>
+
+<!-- 설정 -->
+<section class="view" id="v-set">
+  <h1>설정</h1>
+  <p class="lead">Instagram 계정 연동은 그대로 유지됩니다. 로그인으로 계정을 바꿀 수 있어요.</p>
+  <div class="list">
+    <div class="li"><span class="av"><b></b></span><div><b>@my_account</b><div style="color:var(--sub);font-size:12px"><span class="dot"></span>연결됨 · 토큰 만료 58일 남음</div></div><button class="s">계정 전환</button></div>
+    <button class="btn" style="max-width:320px">+ Instagram 계정 추가 연결</button>
+    <div class="li"><div><b>Google Drive</b><div style="color:var(--sub);font-size:12px">콘텐츠 저장소 · 연결됨</div></div><span class="s ok">정상</span></div>
+  </div>
+</section>
+</main>
+<div class="md" id="md"><div class="mb">
+  <div class="mv"><div class="tr" id="mtr"></div><button class="ar l" id="mal">‹</button><button class="ar r" id="mar">›</button><div class="dots" id="mdots"></div></div>
+  <div class="mi">
+    <div class="hd"><span class="av"><b></b></span><div><b id="mh">@trend_account</b><div style="color:var(--sub);font-size:12px" id="mk">급상승</div></div><button class="x" id="mx">✕</button></div>
+    <div class="st"><span>♥ <b id="ml">12.4만</b></span><span>💬 <b>1,284</b></span><span>저장 <b>3.1만</b></span></div>
+    <p id="mc"></p>
+    <div class="tg">#제주여행 #카드뉴스 #여행코스 #저장필수</div>
+    <div class="box"><b>구성 분석</b><br>슬라이드 <span id="mn"></span>장 · 4:5 · 커버는 큰 타이포 + 형광 강조, 본문은 번호 + 한 줄 요약. 폰트: 검은고딕 계열 · 강조색 노랑</div>
+    <div class="row"><button class="btn" id="mt">이 템플릿으로 만들기</button><button class="btn ghost" style="width:auto;padding:11px 14px">보드에 저장</button></div>
+    <div style="font-size:12px;color:var(--blue)">원본 게시물 열기 ↗</div>
+    <div class="pn"><button id="mp">← 이전 포스트</button><button id="mnx">다음 포스트 →</button></div>
+  </div></div></div>
+<div class="note">목업 · 저장되지 않는 임시 화면 · 사이드바를 눌러 이동</div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const go=v=>{$$('.view').forEach(e=>e.classList.toggle('on',e.id==='v-'+v));$$('.nav').forEach(e=>e.classList.toggle('on',e.dataset.v===v))};
+$$('[data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
+const G=['linear-gradient(160deg,#ff9a8b,#6a5acd)','linear-gradient(160deg,#134e5e,#71b280)','linear-gradient(160deg,#232526,#555)','linear-gradient(160deg,#f12711,#f5af19)','linear-gradient(160deg,#654ea3,#eaafc8)','linear-gradient(160deg,#2193b0,#6dd5ed)','linear-gradient(160deg,#614385,#516395)','linear-gradient(160deg,#ee0979,#ff6a00)'];
+const R=[['제주 3박4일 이게 정답',5,'급상승','12.4만',1],['POV: 월요일 아침',2,'밈','8.1만',0],['카페 투어 BEST 7',7,'정보형','5.7만',1],['"나만 몰랐어?"',1,'밈','21만',1],['2026 다이어리 꾸미기',6,'타이포','3.2만',0],['퇴사 후 100일',8,'스토리','9.9만',0],['이번 주 읽은 책',4,'사진','2.4만',1],['자취방 전/후',3,'비포/애프터','7.3만',1],['오늘의 문장',1,'인용구','4.8만',0],['성수 팝업 정리',6,'정보형','6.6만',0]];
+const body=['핵심 한 줄 요약','첫 번째 포인트','두 번째 포인트','꼭 알아둘 것','비용·시간 정리','마지막 한마디','저장하고 공유하기'];
+$('#mas').innerHTML=R.map((r,i)=>{const sl=Array.from({length:r[1]},(_,k)=>`<div class="sl" style="background:${G[(i+k*3)%8]}">${k===0?r[0]:`<small>${String(k+1).padStart(2,'0')} / ${String(r[1]).padStart(2,'0')}</small>${body[(k-1)%7]}`}</div>`).join('');
+return `<div class="ref" data-n="${r[1]}" data-i="0"><div class="vw"><div class="tr">${sl}</div>${r[2]==='급상승'?'<span class="hot">🔥 급상승</span>':''}${r[1]>1?`<span class="cnt">1/${r[1]}</span><button class="ar l" hidden>‹</button><button class="ar r">›</button><div class="dots">${Array.from({length:r[1]},(_,k)=>`<i class="${k?'':'on'}"></i>`).join('')}</div>`:''}</div><div class="meta"><span>${r[2]} · ♥ ${r[3]}</span>${r[4]?'<button class="mk">템플릿으로 만들기</button>':'<button class="mk sv">보드에 저장</button>'}</div></div>`}).join('');
+function flip(c,d){const n=+c.dataset.n,i=Math.max(0,Math.min(n-1,+c.dataset.i+d));c.dataset.i=i;$('.tr',c).style.transform=`translateX(-${i*100}%)`;const ct=$('.cnt',c);if(ct)ct.textContent=`${i+1}/${n}`;$$('.dots i',c).forEach((x,k)=>x.classList.toggle('on',k===i));const l=$('.ar.l',c),r=$('.ar.r',c);if(l){l.hidden=i===0;r.hidden=i===n-1}}
+$$('.ref').forEach(c=>{const l=$('.ar.l',c),r=$('.ar.r',c);if(l){l.onclick=e=>{e.stopPropagation();flip(c,-1)};r.onclick=e=>{e.stopPropagation();flip(c,1)}}});
+let hov=null;$$('.ref').forEach(c=>{c.onmouseenter=()=>hov=c;c.onmouseleave=()=>hov=null});
+addEventListener('keydown',e=>{if(!hov||$('#md').classList.contains('on'))return;if(e.key==='ArrowRight'){flip(hov,1);e.preventDefault()}if(e.key==='ArrowLeft'){flip(hov,-1);e.preventDefault()}});
+const T=[['여행 커버','커버','Black Han Sans'],['밈 자막 사진','밈','Do Hyeon'],['정보 카드 5장','캐러셀','Pretendard Variable'],['인용구 미니멀','인용구','Gowun Batang'],['전/후 비교','비포/애프터','Jua'],['손글씨 일기','캐러셀','Nanum Pen Script'],['POV 장면','밈','Black Han Sans'],['매거진 커버','커버','Playfair Display']];
+$('#tpls').innerHTML=T.map((t,i)=>`<div class="tpl" onclick="go('make')"><div class="im" style="background:${G[(i+3)%8]};font-family:'${t[2]}'"><span class="badge">${t[1]}</span><div class="txt" style="font-size:26px;line-height:1.15">${t[0]}</div><div class="use">이 템플릿으로 만들기</div></div><div class="nm">${t[0]}</div><div class="sb">4:5 · ${t[1]}</div></div>`).join('');
+$('#strip').innerHTML=[0,1,2,3,4].map(i=>`<div class="th ${i?'':'on'}" style="background:${G[(i*2)%8]}">${i+1}</div>`).join('')+'<button class="add">＋</button>';
+$$('#ptabs button').forEach(b=>b.onclick=()=>{$$('#ptabs button').forEach(x=>x.classList.toggle('on',x===b));$$('.pp').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p))});
+
+let cur=0,mi=0;
+function mrender(){const r=R[cur],n=r[1];
+$('#mtr').innerHTML=Array.from({length:n},(_,k)=>`<div class="sl" style="background:${G[(cur+k*3)%8]}">${k===0?r[0]:`<small>${String(k+1).padStart(2,'0')} / ${String(n).padStart(2,'0')}</small>${body[(k-1)%7]}`}</div>`).join('');
+$('#mdots').innerHTML=n>1?Array.from({length:n},(_,k)=>`<i></i>`).join(''):'';
+$('#mh').textContent='@trend_'+(cur+1);$('#mk').textContent=r[2];$('#ml').textContent=r[3];$('#mn').textContent=n;
+$('#mc').textContent=r[0]+' — 저장해두고 따라 해보세요. 코스·비용·팁을 한 번에 정리했어요.';
+$('#mt').textContent=r[4]?'이 템플릿으로 만들기':'비슷한 템플릿 찾기';
+mflip(0,true)}
+function mflip(d,reset){const n=R[cur][1];mi=reset?0:Math.max(0,Math.min(n-1,mi+d));$('#mtr').style.transform=`translateX(-${mi*100}%)`;$$('#mdots i').forEach((x,k)=>x.classList.toggle('on',k===mi));$('#mal').hidden=mi===0;$('#mar').hidden=mi>=n-1}
+function mopen(i){cur=(i+R.length)%R.length;mrender();$('#md').classList.add('on')}
+$$('.ref').forEach((c,i)=>c.onclick=e=>{if(e.target.closest('.ar,.mk'))return;mopen(i)});
+$('#mal').onclick=()=>mflip(-1);$('#mar').onclick=()=>mflip(1);
+$('#mx').onclick=()=>$('#md').classList.remove('on');
+$('#md').onclick=e=>{if(e.target.id==='md')$('#md').classList.remove('on')};
+$('#mp').onclick=()=>mopen(cur-1);$('#mnx').onclick=()=>mopen(cur+1);
+$('#mt').onclick=()=>{$('#md').classList.remove('on');go('make')};
+$$('.ref .mk').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();if(!b.classList.contains('sv')){go('make')}}));
+addEventListener('keydown',e=>{if(!$('#md').classList.contains('on'))return;if(e.key==='Escape')$('#md').classList.remove('on');if(e.key==='ArrowRight')mflip(1);if(e.key==='ArrowLeft')mflip(-1);if(e.key==='ArrowDown')mopen(cur+1);if(e.key==='ArrowUp')mopen(cur-1)});
+</script>
+</body>
+</html>

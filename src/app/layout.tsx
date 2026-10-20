@@ -52,15 +52,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f5f7" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
-  ],
+  themeColor: "#000000",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko" className={`${sansKr.variable} ${serifKr.variable} ${canvasFonts} h-full antialiased`} suppressHydrationWarning>
+    <html lang="ko" className={`dark ${sansKr.variable} ${serifKr.variable} ${canvasFonts} h-full antialiased`} suppressHydrationWarning>
       <head>
         {/* Montage(Wanted DS) UI 폰트 — Pretendard Variable(본문) + Wanted Sans Variable(디스플레이) */}
         <link rel="preconnect" href="https://static.wanted.co.kr" crossOrigin="anonymous" />

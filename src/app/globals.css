@@ -165,19 +165,19 @@
 /* ---------- Montage semantic 토큰 (dark) ---------- */
 .dark,
 [data-theme="dark"] {
-  --semantic-primary-normal: #3385FF;
-  --semantic-primary-strong: #1A75FF;
-  --semantic-primary-heavy: #0066FF;
-  --semantic-label-normal: #F7F7F8;
+  --semantic-primary-normal: #0095F6;
+  --semantic-primary-strong: #1877F2;
+  --semantic-primary-heavy: #0064E0;
+  --semantic-label-normal: #F5F5F5;
   --semantic-label-strong: #ffffff;
   --semantic-label-neutral: #C2C4C8E0;
-  --semantic-label-alternative: #AEB0B69C;
+  --semantic-label-alternative: #A8A8A8;
   --semantic-label-assistive: #AEB0B647;
   --semantic-label-disable: #989BA229;
-  --semantic-background-normal-normal: #1B1C1E;
-  --semantic-background-normal-alternative: #0F0F10;
-  --semantic-background-elevated-normal: #212225;
-  --semantic-background-elevated-alternative: #141415;
+  --semantic-background-normal-normal: #121212;
+  --semantic-background-normal-alternative: #000000;
+  --semantic-background-elevated-normal: #1C1C1C;
+  --semantic-background-elevated-alternative: #121212;
   --semantic-background-status-negative: #FF636314;
   --semantic-background-status-cautionary: #FFA93814;
   --semantic-background-status-positive: #1ED45A14;
@@ -186,9 +186,9 @@
   --semantic-line-normal-normal: #70737C52;
   --semantic-line-normal-neutral: #70737C47;
   --semantic-line-normal-alternative: #70737C38;
-  --semantic-line-solid-normal: #37383C;
-  --semantic-line-solid-neutral: #333438;
-  --semantic-line-solid-alternative: #2E2F33;
+  --semantic-line-solid-normal: #262626;
+  --semantic-line-solid-neutral: #262626;
+  --semantic-line-solid-alternative: #1F1F1F;
   --semantic-status-positive: #1ED45A;
   --semantic-status-cautionary: #FFA938;
   --semantic-status-negative: #FF6363;

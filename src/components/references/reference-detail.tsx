@@ -138,7 +138,7 @@ export function ReferenceDetail({ reference: ref, onClose, onStep }: { reference
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6">
       <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 bg-black/80" />
-      <aside role="dialog" aria-label="레퍼런스 상세" className="relative grid max-h-[94dvh] w-full max-w-[1120px] overflow-hidden rounded-2xl bg-surface shadow-e-md md:grid-cols-[minmax(0,1fr)_400px]">
+      <aside role="dialog" aria-label="레퍼런스 상세" className="relative grid max-h-[94dvh] w-full max-w-[1120px] overflow-hidden rounded-2xl border border-line bg-surface shadow-e-md md:grid-cols-[minmax(0,1fr)_400px]">
         <div className="flex min-h-0 min-w-0 flex-col overflow-auto bg-black">
           <div className="relative grid min-h-[320px] flex-1 place-items-center p-4">
             {img ? (
@@ -155,7 +155,7 @@ export function ReferenceDetail({ reference: ref, onClose, onStep }: { reference
               </>
             )}
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto px-4 pb-4">
+          <div className="flex items-center justify-center gap-2 overflow-x-auto px-4 pb-4">
             {ref.images.map((im, i) => (
               <button key={im.fileId} type="button" onClick={() => setIdx(i)} className="size-[58px] shrink-0 overflow-hidden rounded-lg hairline-neutral" style={{ boxShadow: i === cur ? "0 0 0 2px var(--semantic-primary-normal)" : undefined }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}

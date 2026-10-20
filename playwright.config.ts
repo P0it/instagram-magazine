@@ -8,7 +8,8 @@ export default defineConfig({
   webServer: {
     command: "NEXT_DIST_DIR=.next-e2e DRIVE_CLIENT=mock npm run dev -- --port 3210",
     url: "http://localhost:3210",
-    reuseExistingServer: true,
+    // 이미 떠 있는 서버를 재사용하면 Mock 이 아닐 수 있다 — 항상 직접 띄운다
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

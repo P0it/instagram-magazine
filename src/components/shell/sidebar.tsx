@@ -34,7 +34,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const active = activeNavKey(pathname);
   const [channel, setChannel] = useChannel();
-  const { accounts } = useAccountList();
+  const { accounts, isLoading: accountsLoading } = useAccountList();
   const status = useSystemStatus();
   const sync = useSync();
   const posts = usePosts({});
@@ -110,7 +110,7 @@ export function Sidebar() {
               <span className="hidden min-w-0 flex-1 lg:block">
                 <span className="block truncate text-sm font-semibold">@{meta.handle}</span>
                 <span className="block text-xs text-label-alt">
-                  <span className="mr-1 inline-block size-[7px] rounded-full bg-positive" />
+                  <span className={cn("mr-1 inline-block size-[7px] rounded-full", current?.status === "connected" ? "bg-positive" : "bg-cautionary")} />
                   {current?.status === "connected" ? "Instagram 연결됨" : "확인 필요"}
                 </span>
               </span>
@@ -128,6 +128,8 @@ export function Sidebar() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      ) : accountsLoading ? (
+        <div className="h-[58px]" aria-hidden />
       ) : (
         <Link href="/settings/accounts" className="flex items-center justify-center rounded-[10px] bg-brand px-3 py-2.5 text-sm font-semibold text-white hover:opacity-90" title="계정 연결">
           <span className="lg:hidden">+</span>

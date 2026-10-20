@@ -38,6 +38,13 @@ export function ReferenceCard({ reference: r, onOpen }: { reference: Reference; 
     e.stopPropagation();
     setIdx((i) => stepSlide(i, d, n));
   };
+  // 키보드로 카드 안에 포커스가 있을 때도 ← → 로 넘긴다 (마우스를 올리지 않아도)
+  const onCardKey = (e: React.KeyboardEvent) => {
+    if (n <= 1 || isTyping(e.target as Element)) return;
+    if (e.key === "ArrowRight") { setIdx((i) => stepSlide(i, 1, n)); e.preventDefault(); }
+    else if (e.key === "ArrowLeft") { setIdx((i) => stepSlide(i, -1, n)); e.preventDefault(); }
+  };
+  const open = () => { setHover(false); onOpen(); };
 
   return (
     <div
@@ -45,9 +52,10 @@ export function ReferenceCard({ reference: r, onOpen }: { reference: Reference; 
       data-testid="reference-card"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onKeyDown={onCardKey}
       className="group overflow-hidden rounded-xl bg-surface"
     >
-      <div role="button" tabIndex={0} aria-label={`${r.title} 열기`} onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) onOpen(); }} className="relative block aspect-[4/5] w-full cursor-pointer overflow-hidden bg-fill-alt">
+      <div className="relative block aspect-[4/5] w-full overflow-hidden bg-fill-alt">
         {n > 0 ? (
           <div className="flex h-full transition-transform duration-200 ease-out" style={{ transform: `translateX(-${cur * 100}%)` }}>
             {r.images.map((im, i) => (
@@ -58,15 +66,16 @@ export function ReferenceCard({ reference: r, onOpen }: { reference: Reference; 
         ) : (
           <div className="grid size-full place-items-center text-xs text-label-assistive">이미지 없음</div>
         )}
+        <button type="button" aria-label={`${r.title} 열기`} onClick={open} className="absolute inset-0 z-[1] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--semantic-primary-normal)]" />
         <span className="absolute left-2.5 top-2.5 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100">{REFERENCE_KIND_LABEL[r.kind]}</span>
         {n > 1 && (
           <>
-            <span data-testid="slide-count" className="absolute right-2.5 top-2.5 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur">{cur + 1}/{n}</span>
+            <span data-testid="slide-count" className="absolute right-2.5 top-2.5 z-[2] rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur">{cur + 1}/{n}</span>
             {cur > 0 && (
-              <button type="button" aria-label="이전 슬라이드" onClick={flip(-1)} className="absolute left-2 top-1/2 hidden size-[30px] -translate-y-1/2 place-items-center rounded-full bg-white/90 text-black group-hover:grid"><ChevronLeft className="size-4" /></button>
+              <button type="button" aria-label="이전 슬라이드" onClick={flip(-1)} className="absolute left-2 top-1/2 z-[2] hidden size-[30px] -translate-y-1/2 place-items-center rounded-full bg-white/90 text-black group-focus-within:grid group-hover:grid"><ChevronLeft className="size-4" /></button>
             )}
             {cur < n - 1 && (
-              <button type="button" aria-label="다음 슬라이드" onClick={flip(1)} className="absolute right-2 top-1/2 hidden size-[30px] -translate-y-1/2 place-items-center rounded-full bg-white/90 text-black group-hover:grid"><ChevronRight className="size-4" /></button>
+              <button type="button" aria-label="다음 슬라이드" onClick={flip(1)} className="absolute right-2 top-1/2 z-[2] hidden size-[30px] -translate-y-1/2 place-items-center rounded-full bg-white/90 text-black group-focus-within:grid group-hover:grid"><ChevronRight className="size-4" /></button>
             )}
             <span className="pointer-events-none absolute inset-x-0 bottom-2.5 flex justify-center gap-1">
               {r.images.map((im, i) => <i key={im.fileId} className={cn("size-1.5 rounded-full", i === cur ? "bg-brand" : "bg-white/40")} />)}

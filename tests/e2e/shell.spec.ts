@@ -65,6 +65,18 @@ test.describe("레퍼런스 보드", () => {
     await expect(multi.getByTestId("slide-count")).toHaveText("2/3");
   });
 
+  test("카드에 키보드로 포커스해도 ← → 로 넘길 수 있고, 열고 나면 뒤 카드는 반응하지 않는다", async ({ page }) => {
+    const multi = page.getByTestId("reference-card").filter({ hasText: "e2e 캐러셀" }).first();
+    await expect(multi).toBeVisible({ timeout: 30_000 });
+    await multi.getByRole("button", { name: /열기/ }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(multi.getByTestId("slide-count")).toHaveText("2/3");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("dialog", { name: "레퍼런스 상세" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(multi.getByTestId("slide-count")).toHaveText("2/3");
+  });
+
   test("검색창에서 방향키는 슬라이드를 넘기지 않고, 카드를 누르면 상세가 열리고 Esc 로 닫힌다", async ({ page }) => {
     const multi = page.getByTestId("reference-card").filter({ hasText: "e2e 캐러셀" }).first();
     await expect(multi).toBeVisible({ timeout: 30_000 });
@@ -117,4 +129,12 @@ test("레퍼런스 상세에서 고치던 내용이 있으면 ↓ 키로 다른 
   await dialog.getByText(/인스타 피드/).first().click(); // 입력창 밖으로 포커스 이동
   await page.keyboard.press("ArrowDown");
   await expect(dialog.getByLabel("메모")).toHaveValue("지우면 안 되는 메모");
+});
+
+test("계정 상태 점은 연결 상태를 따른다", async ({ page }) => {
+  await page.goto("/home");
+  const trigger = page.locator('aside button[title^="@"]');
+  await expect(trigger).toBeVisible({ timeout: 30_000 });
+  await expect(trigger.getByText("Instagram 연결됨")).toBeVisible();
+  await expect(trigger.locator("span.bg-positive")).toHaveCount(1);
 });

@@ -5,7 +5,7 @@ import type { AiConnectionKind, AiJobErrorKind, AiProviderId, AiProviderStatus }
 /** 제공자 호출 실패. kind 는 작업 실패 이유(`AiJobErrorKind`)와 같은 분류를 쓴다. */
 export class AiError extends Error {
   constructor(
-    public kind: Extract<AiJobErrorKind, "auth" | "quota" | "invalid_output" | "internal">,
+    public kind: AiJobErrorKind,
     message: string,
   ) {
     super(message);

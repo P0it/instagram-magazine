@@ -2,6 +2,8 @@ import "server-only";
 import type { z } from "zod";
 import {
   AccountsFileSchema,
+  AiJobsFileSchema,
+  type AiJobsFile,
   CustomPresetsFileSchema,
   IndexFileSchema,
   ReferencesFileSchema,
@@ -98,3 +100,8 @@ export const readReferences = (drive: DriveClient) =>
   readSystemJson(drive, "references.json", ReferencesFileSchema, { references: [] });
 export const writeReferences = (drive: DriveClient, data: ReferencesFile, v?: string | null) =>
   writeSystemJson(drive, "references.json", data, v);
+
+export const readAiJobs = (drive: DriveClient) =>
+  readSystemJson(drive, "ai-jobs.json", AiJobsFileSchema, { jobs: [] });
+export const writeAiJobs = (drive: DriveClient, data: AiJobsFile, v?: string | null) =>
+  writeSystemJson(drive, "ai-jobs.json", data, v);

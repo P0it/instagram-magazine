@@ -27,7 +27,7 @@ export const MOCK_ANALYSIS = {
   suggested_presets: ["cover-center", "info-dark", "closing-slide"],
 };
 
-type Handler = (req: AiRequest<z.ZodTypeAny>) => unknown;
+type Handler = (req: AiRequest<z.ZodTypeAny>) => unknown | Promise<unknown>;
 
 export interface MockAiOptions {
   id?: AiProviderId;
@@ -61,7 +61,7 @@ export class MockAiProvider implements AiProvider {
     if (!this.connected) throw new AiError("auth", "Mock 제공자가 로그인되어 있지 않아요");
     this.calls.push({ system: req.system, user: req.user, images: req.images?.length ?? 0 });
     let raw: unknown;
-    if (typeof this.replies === "function") raw = this.replies(req);
+    if (typeof this.replies === "function") raw = await this.replies(req);
     else if (Array.isArray(this.replies)) {
       if (this.cursor >= this.replies.length) throw new AiError("internal", "Mock 응답이 더 없어요");
       raw = this.replies[this.cursor++];

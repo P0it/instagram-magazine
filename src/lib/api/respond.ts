@@ -7,6 +7,7 @@ import { VersionConflictError } from "@/lib/drive/system-files";
 import { ConflictError, InvalidTransitionError, PostNotFoundError } from "@/lib/metadata/post-repo";
 import { PublishPreconditionError } from "@/lib/publish/publish-post";
 import { InstagramApiError } from "@/lib/instagram/client";
+import { AttachmentsGoneError, JobNotFoundError, JobStateError } from "@/lib/ai/jobs/errors";
 import type { ApiError } from "@/types";
 
 export function json<T>(data: T, init?: ResponseInit): NextResponse<T> {
@@ -29,6 +30,9 @@ export async function handle(fn: () => Promise<NextResponse<unknown>>): Promise<
     if (e instanceof InvalidTransitionError) return error(422, e.message, "invalid_transition");
     if (e instanceof PublishPreconditionError) return error(422, e.message, "publish_precondition");
     if (e instanceof InstagramApiError) return error(502, e.message, "instagram", { code: e.code, subcode: e.subcode });
+    if (e instanceof JobNotFoundError) return error(404, e.message, "not_found");
+    if (e instanceof AttachmentsGoneError) return error(400, e.message, "attachments_gone");
+    if (e instanceof JobStateError) return error(409, e.message, "job_state");
     console.error("[api]", e);
     return error(500, e instanceof Error ? e.message : "Internal error", "internal");
   }

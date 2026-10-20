@@ -15,6 +15,8 @@ const EnvSchema = z.object({
   META_APP_ID: z.string().default(""),
   META_APP_SECRET: z.string().default(""),
   META_REDIRECT_URI: z.string().default(""),
+  AI_CLIENT: z.enum(["mock", "real"]).optional(),
+  AI_DEFAULT_PROVIDER: z.enum(["claude", "chatgpt"]).optional().catch(undefined),
 });
 export type Env = z.infer<typeof EnvSchema>;
 
@@ -36,8 +38,15 @@ export function env(): Env {
     META_APP_ID: process.env.META_APP_ID,
     META_APP_SECRET: process.env.META_APP_SECRET,
     META_REDIRECT_URI: process.env.META_REDIRECT_URI,
+    AI_CLIENT: process.env.AI_CLIENT || undefined,
+    AI_DEFAULT_PROVIDER: process.env.AI_DEFAULT_PROVIDER || undefined,
   });
   return cached;
+}
+
+/** AI 제공자: mock(고정 응답) 또는 real(구독 로그인). 미설정이면 Drive 클라이언트를 따른다. */
+export function aiClientMode(e: Env = env()): "mock" | "real" {
+  return e.AI_CLIENT ?? (e.DRIVE_CLIENT === "mock" ? "mock" : "real");
 }
 
 /** process.env 가 바뀐 뒤(로컬 .env.local 자동 저장) 다시 읽게 한다 */

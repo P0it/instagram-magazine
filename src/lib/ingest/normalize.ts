@@ -11,7 +11,7 @@ import {
   type SlideDef,
 } from "@/types";
 import type { DriveClient } from "@/lib/drive/types";
-import { statusFolderId } from "@/lib/drive/paths";
+import { createPostFolders, writePostFiles } from "./write-post";
 import { defaultPresetForRole, getStylePack, resolvePreset } from "@/presets";
 import { slideStateFromPreset } from "@/lib/render/layout";
 import { parseDraft } from "./parse-draft";
@@ -62,17 +62,7 @@ export async function normalizeGroup(
   // 2. post_id / 폴더명
   const date = group.date ?? nowIso.slice(0, 10);
   const slug = slugify(group.slug || fm.topic || fm.headline || "untitled");
-  let postId = `${date}_${slug}`;
-
-  const draftFolderId = await statusFolderId(drive, channel, "draft");
-  let suffix = 2;
-  while (await drive.findChild(draftFolderId, postId)) {
-    postId = `${date}_${slug}-${suffix++}`;
-  }
-  const postFolder = await drive.createFolder(draftFolderId, postId);
-  const assetsFolder = await drive.createFolder(postFolder.id, "assets");
-  await drive.createFolder(postFolder.id, "renders");
-  const originalFolder = await drive.createFolder(postFolder.id, "_inbox_original");
+  const { postId, folder: postFolder, assets: assetsFolder, original: originalFolder } = await createPostFolders(drive, channel, `${date}_${slug}`);
 
   // 3. 이미지 → assets/source_0N.ext (복사본을 assets 에, 원본은 _inbox_original 로 이동)
   const assetNames: string[] = [];
@@ -134,13 +124,11 @@ export async function normalizeGroup(
     created_at: nowIso,
     updated_at: nowIso,
   });
-  await drive.writeText(postFolder.id, "metadata.json", JSON.stringify(metadata, null, 2), "application/json");
 
   const sources = SourcesFileSchema.parse({
     fact_check_status: "pending",
     items: (fm.sources ?? []).map((s) => ({ ...s })),
   });
-  await drive.writeText(postFolder.id, "sources.json", JSON.stringify(sources, null, 2), "application/json");
 
   const brief = VisualBriefSchema.parse(
     fm.visual_direction
@@ -152,10 +140,9 @@ export async function normalizeGroup(
           from_channel_default: true,
         },
   );
-  await drive.writeText(postFolder.id, "visual-brief.json", JSON.stringify(brief, null, 2), "application/json");
 
   const editorState = EditorStateSchema.parse({ slides: editorSlides, updated_at: nowIso });
-  await drive.writeText(postFolder.id, "editor-state.json", JSON.stringify(editorState, null, 2), "application/json");
+  await writePostFiles(drive, postFolder.id, { metadata, sources, visualBrief: brief, editorState });
 
   // 6. 원본 이동
   const toMove = [

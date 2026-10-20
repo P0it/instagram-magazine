@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { REFERENCE_KINDS, REFERENCE_KIND_LABEL, type Reference, type ReferenceKind } from "@/types";
 import { api, driveFileUrl } from "@/lib/client/api";
 import { qk } from "@/lib/client/queries";
+import { stepSlide } from "@/lib/client/slide-index";
 import { resolvePreset } from "@/presets";
 import { slideStateFromPreset } from "@/lib/render/layout";
 import { readableOn } from "@/lib/render/palette";
@@ -14,7 +15,7 @@ import { fieldClass } from "@/components/md/primitives";
 import { cn } from "@/lib/utils";
 
 /** 레퍼런스 상세 — 캐러셀을 넘겨 보고, 메모·태그를 고치고, 템플릿으로 만든다 */
-export function ReferenceDetail({ reference: ref, onClose }: { reference: Reference; onClose: () => void }) {
+export function ReferenceDetail({ reference: ref, onClose, onStep }: { reference: Reference; onClose: () => void; /** ↑ ↓ 로 이전/다음 레퍼런스로 */ onStep?: (delta: number) => void }) {
   const qc = useQueryClient();
   const addRef = useRef<HTMLInputElement>(null);
   const [idx, setIdx] = useState(0);
@@ -36,12 +37,14 @@ export function ReferenceDetail({ reference: ref, onClose }: { reference: Refere
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
       if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft") setIdx((i) => Math.max(0, i - 1));
-      else if (e.key === "ArrowRight") setIdx((i) => Math.min(Math.max(0, n - 1), i + 1));
+      else if (e.key === "ArrowLeft") setIdx((i) => stepSlide(i, -1, n));
+      else if (e.key === "ArrowRight") setIdx((i) => stepSlide(i, 1, n));
+      else if (e.key === "ArrowUp" && onStep) { e.preventDefault(); onStep(-1); }
+      else if (e.key === "ArrowDown" && onStep) { e.preventDefault(); onStep(1); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [n, onClose]);
+  }, [n, onClose, onStep]);
 
   const dirty = title !== ref.title || account !== ref.account || url !== ref.url || note !== ref.note || kind !== ref.kind || tags !== ref.tags.join(" ");
 
@@ -59,7 +62,7 @@ export function ReferenceDetail({ reference: ref, onClose }: { reference: Refere
   };
 
   const remove = async () => {
-    if (!window.confirm("이 레퍼런스를 삭제할까요? 이미지도 함께 지워져요.")) return;
+    if (!window.confirm(`이 레퍼런스를 삭제할까요?${ref.source_id ? " (Drive 파일은 그대로 두고 보드에서만 숨겨요)" : " 이미지도 함께 지워져요."}`)) return;
     try {
       qc.setQueryData(qk.references, await api.deleteReference(ref.id));
       onClose();
@@ -133,18 +136,14 @@ export function ReferenceDetail({ reference: ref, onClose }: { reference: Refere
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
-      <aside role="dialog" aria-label="레퍼런스 상세" className="relative flex h-full w-full max-w-[560px] flex-col overflow-hidden bg-surface shadow-e-md">
-        <div className="flex items-center justify-between px-5 py-3.5" style={{ boxShadow: "inset 0 -1px 0 var(--semantic-line-solid-neutral)" }}>
-          <span className="text-sm font-semibold">{REFERENCE_KIND_LABEL[ref.kind]}{n > 1 ? ` · ${n}장 캐러셀` : ""}</span>
-          <button type="button" onClick={onClose} className="grid size-8 place-items-center rounded-full hover:bg-fill"><X className="size-4 opacity-60" /></button>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-5 pb-8 pt-4 [&>*]:shrink-0">
-          <div className="relative grid min-h-[320px] place-items-center rounded-xl bg-fill-alt p-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6">
+      <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 bg-black/80" />
+      <aside role="dialog" aria-label="레퍼런스 상세" className="relative grid max-h-[94dvh] w-full max-w-[1120px] overflow-hidden rounded-2xl bg-surface shadow-e-md md:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="flex min-h-0 min-w-0 flex-col overflow-auto bg-black">
+          <div className="relative grid min-h-[320px] flex-1 place-items-center p-4">
             {img ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={driveFileUrl(img.fileId)} alt={ref.title} className="max-h-[58dvh] w-auto max-w-full rounded-lg object-contain shadow-e-sm" />
+              <img src={driveFileUrl(img.fileId)} alt={ref.title} className="max-h-[68dvh] w-auto max-w-full rounded-lg object-contain shadow-e-sm" />
             ) : (
               <span className="text-xs text-label-assistive">이미지가 없어요. 아래에서 추가하세요.</span>
             )}
@@ -156,17 +155,26 @@ export function ReferenceDetail({ reference: ref, onClose }: { reference: Refere
               </>
             )}
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="flex items-center gap-2 overflow-x-auto px-4 pb-4">
             {ref.images.map((im, i) => (
               <button key={im.fileId} type="button" onClick={() => setIdx(i)} className="size-[58px] shrink-0 overflow-hidden rounded-lg hairline-neutral" style={{ boxShadow: i === cur ? "0 0 0 2px var(--semantic-primary-normal)" : undefined }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={driveFileUrl(im.fileId)} alt="" className="size-full object-cover" />
               </button>
             ))}
-            <button type="button" disabled={busy === "images"} onClick={() => addRef.current?.click()} title="슬라이드 추가" className="grid size-[58px] shrink-0 place-items-center rounded-lg border border-dashed border-line text-label-alt hover:bg-fill-alt disabled:opacity-50"><ImagePlus className="size-4" /></button>
-            {img && <button type="button" onClick={() => void removeImage()} title="이 슬라이드 삭제" className="grid size-[58px] shrink-0 place-items-center rounded-lg text-negative hover:bg-fill-alt"><Trash2 className="size-4" /></button>}
+            {!ref.source_id && <button type="button" disabled={busy === "images"} onClick={() => addRef.current?.click()} title="슬라이드 추가" className="grid size-[58px] shrink-0 place-items-center rounded-lg border border-dashed border-line text-label-alt hover:bg-fill-alt disabled:opacity-50"><ImagePlus className="size-4" /></button>}
+            {img && !ref.source_id && <button type="button" onClick={() => void removeImage()} title="이 슬라이드 삭제" className="grid size-[58px] shrink-0 place-items-center rounded-lg text-negative hover:bg-fill-alt"><Trash2 className="size-4" /></button>}
             <input ref={addRef} type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { if (e.target.files?.length) void addImages(e.target.files); e.target.value = ""; }} />
           </div>
+
+        </div>
+        <div className="flex min-h-0 flex-col">
+          <div className="flex items-center justify-between px-5 py-3.5" style={{ boxShadow: "inset 0 -1px 0 var(--semantic-line-solid-neutral)" }}>
+            <span className="text-sm font-semibold">{REFERENCE_KIND_LABEL[ref.kind]}{n > 1 ? ` · ${n}장 캐러셀` : ""}</span>
+            <button type="button" onClick={onClose} aria-label="상세 닫기" className="grid size-8 place-items-center rounded-full hover:bg-fill"><X className="size-4 opacity-60" /></button>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-5 pb-8 pt-4 [&>*]:shrink-0">
+          {ref.source_id && <p className="text-caption text-label-alt">Drive 의 references 폴더에서 가져온 레퍼런스예요. 이미지는 Drive 에서 추가·삭제하고, 여기서 삭제하면 보드에서만 숨겨져요.</p>}
 
           {ref.palette.length > 0 && (
             <div className="flex flex-col gap-1.5">
@@ -204,6 +212,7 @@ export function ReferenceDetail({ reference: ref, onClose }: { reference: Refere
             <button type="button" onClick={() => void remove()} className="ml-auto flex h-10 items-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-negative hover:bg-fill-alt"><Trash2 className="size-4" />삭제</button>
           </div>
         </div>
+      </div>
       </aside>
     </div>
   );

@@ -30,6 +30,8 @@ export const ReferenceSchema = z.object({
   /** 이미지에서 뽑은 주요 색 (#RRGGBB, 비중 순) */
   palette: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).max(8).default([]),
   images: z.array(ReferenceImageSchema).default([]),
+  /** Drive `references/` 폴더에서 자동으로 가져온 건이면 그 폴더(또는 이미지 파일) id. 이미지는 Drive 가 원본이다. */
+  source_id: z.string().max(100).optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -37,6 +39,8 @@ export type Reference = z.infer<typeof ReferenceSchema>;
 
 export const ReferencesFileSchema = z.object({
   references: z.array(ReferenceSchema).default([]),
+  /** 보드에서 숨긴 Drive 항목 id — 다시 가져오지 않는다 (Drive 파일은 건드리지 않음) */
+  ignored_sources: z.array(z.string()).default([]),
 });
 export type ReferencesFile = z.infer<typeof ReferencesFileSchema>;
 

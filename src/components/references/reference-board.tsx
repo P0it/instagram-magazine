@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExternalLink, Layers, Plus, Search } from "lucide-react";
+import { ExternalLink, Plus, Search } from "lucide-react";
 import { REFERENCE_KINDS, REFERENCE_KIND_LABEL, type Reference, type ReferenceKind } from "@/types";
-import { driveFileUrl } from "@/lib/client/api";
 import { useReferences } from "@/lib/client/queries";
 import { cn } from "@/lib/utils";
 import { AddReferenceDialog } from "./add-reference-dialog";
+import { ReferenceCard } from "./reference-card";
 import { ReferenceDetail } from "./reference-detail";
 import { REF_SOURCE_GROUPS } from "./sources";
 
@@ -37,9 +37,14 @@ export function ReferenceBoard() {
   }, [all, q, kind, tag]);
 
   const open = all.find((r) => r.id === openId) ?? null;
+  const step = (d: number) => {
+    const i = list.findIndex((r) => r.id === openId);
+    if (i < 0 || list.length < 2) return;
+    setOpenId(list[(i + d + list.length) % list.length].id);
+  };
 
   return (
-    <div className="mx-auto box-border flex w-full max-w-[1280px] flex-1 flex-col gap-6 overflow-auto px-6 pb-20 pt-8">
+    <div className="mx-auto box-border flex w-full max-w-[1560px] flex-1 flex-col gap-6 overflow-auto px-6 pb-20 pt-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="m-0 text-2xl font-bold leading-8 tracking-[-0.023em]">레퍼런스 보드</h1>
@@ -72,8 +77,8 @@ export function ReferenceBoard() {
       {refs.isError ? (
         <div className="rounded-2xl bg-surface p-6 text-sm text-negative">레퍼런스를 불러오지 못했어요: {String(refs.error)}</div>
       ) : refs.isLoading ? (
-        <div className="columns-2 gap-4 md:columns-3 xl:columns-5">
-          {Array.from({ length: 10 }).map((_, i) => <div key={i} className="mb-4 animate-pulse rounded-xl bg-fill-alt" style={{ height: 180 + ((i * 53) % 120) }} />)}
+        <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]">
+          {Array.from({ length: 10 }).map((_, i) => <div key={i} className="aspect-[4/6] animate-pulse rounded-xl bg-fill-alt" />)}
         </div>
       ) : all.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface px-6 py-14 text-center">
@@ -84,7 +89,7 @@ export function ReferenceBoard() {
       ) : list.length === 0 ? (
         <div className="rounded-2xl bg-surface p-8 text-center text-[13px] text-label-alt">조건에 맞는 레퍼런스가 없어요.</div>
       ) : (
-        <div className="columns-2 gap-4 md:columns-3 xl:columns-5">
+        <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]">
           {list.map((r) => <ReferenceCard key={r.id} reference={r} onOpen={() => setOpenId(r.id)} />)}
         </div>
       )}
@@ -117,32 +122,7 @@ export function ReferenceBoard() {
       </section>
 
       <AddReferenceDialog open={adding} onClose={() => setAdding(false)} />
-      {open && <ReferenceDetail key={open.id} reference={open} onClose={() => setOpenId(null)} />}
+      {open && <ReferenceDetail key={open.id} reference={open} onClose={() => setOpenId(null)} onStep={step} />}
     </div>
-  );
-}
-
-function ReferenceCard({ reference: r, onOpen }: { reference: Reference; onOpen: () => void }) {
-  const first = r.images[0];
-  return (
-    <button type="button" onClick={onOpen} className="group mb-4 block w-full break-inside-avoid overflow-hidden rounded-xl bg-surface text-left shadow-e-xs transition-shadow hover:shadow-e-md">
-      <div className="relative bg-fill-alt">
-        {first ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={driveFileUrl(first.fileId)} alt={r.title} loading="lazy" className="block w-full object-cover" />
-        ) : (
-          <div className="grid aspect-[4/5] place-items-center text-xs text-label-assistive">이미지 없음</div>
-        )}
-        {r.images.length > 1 && <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white"><Layers className="size-3" />{r.images.length}</span>}
-        <span className="absolute left-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">{REFERENCE_KIND_LABEL[r.kind]}</span>
-      </div>
-      <div className="flex flex-col gap-1.5 px-3 pb-3 pt-2.5">
-        <span className="line-clamp-2 text-[13px] font-semibold leading-snug">{r.title}</span>
-        {r.account && <span className="text-[11px] text-label-alt">@{r.account}</span>}
-        {r.palette.length > 0 && (
-          <span className="flex gap-1">{r.palette.slice(0, 5).map((c) => <span key={c} className="size-3.5 rounded-full" style={{ background: c, boxShadow: "inset 0 0 0 1px rgba(23,23,25,0.15)" }} />)}</span>
-        )}
-      </div>
-    </button>
   );
 }

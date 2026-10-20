@@ -54,11 +54,12 @@ export function Sidebar() {
   const current = accounts.find((a) => a.key === channel) ?? null;
   const meta = current ? accountMeta(current) : null;
 
-  const hrefFor = (key: NavKey, href: string) => (channel && (key === "create" || key === "queue") ? `${href}?ch=${channel}` : href);
+  // 선택한 계정은 모든 메뉴에서 유지한다 (사이드바 하단에 항상 보이므로)
+  const hrefFor = (href: string) => (channel ? `${href}?ch=${channel}` : href);
 
   return (
     <aside className="flex w-[72px] shrink-0 flex-col border-r border-line bg-surface-alt px-3 py-5 lg:w-[244px]" aria-label="주 메뉴">
-      <Link href={hrefFor("create", "/home")} className="mb-6 flex items-center gap-2.5 px-3 py-2">
+      <Link href={hrefFor("/home")} className="mb-6 flex items-center gap-2.5 px-3 py-2">
         <span className="size-7 shrink-0 rounded-lg" style={{ background: IG_RING }} />
         <span className="hidden text-xl font-extrabold tracking-[-0.02em] lg:inline">Magazine Desk</span>
       </Link>
@@ -70,7 +71,7 @@ export function Sidebar() {
           return (
             <Link
               key={item.key}
-              href={hrefFor(item.key, item.href)}
+              href={hrefFor(item.href)}
               title={item.label}
               aria-current={on ? "page" : undefined}
               className={cn("relative flex items-center gap-4 rounded-[10px] px-3 py-3 text-[15px] hover:bg-elevated", on ? "font-bold text-label" : "text-label")}

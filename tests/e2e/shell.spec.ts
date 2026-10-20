@@ -95,3 +95,26 @@ test.describe("템플릿 화면", () => {
     await expect(cards).toHaveCount(total);
   });
 });
+
+test("선택한 계정은 레퍼런스·템플릿·설정으로 옮겨 가도 유지된다", async ({ page }) => {
+  await page.goto("/home?ch=trend.magazine");
+  await expect(page.locator('aside button[title^="@"]')).toHaveAttribute("title", "@trend.magazine", { timeout: 30_000 });
+  await page.getByRole("link", { name: "레퍼런스" }).click();
+  await expect(page).toHaveURL(/ch=trend\.magazine/);
+  await expect(page.locator('aside button[title^="@"]')).toHaveAttribute("title", "@trend.magazine");
+  await page.getByRole("link", { name: "콘텐츠 만들기" }).click();
+  await expect(page.getByRole("heading", { name: /@trend\.magazine/ })).toBeVisible({ timeout: 30_000 });
+});
+
+test("레퍼런스 상세에서 고치던 내용이 있으면 ↓ 키로 다른 레퍼런스로 넘어가지 않는다", async ({ page }) => {
+  await addRef(page, `e2e 편집 A ${Date.now()}`, 1);
+  await addRef(page, `e2e 편집 B ${Date.now()}`, 1);
+  await page.goto("/references");
+  await page.getByTestId("reference-card").first().click({ position: { x: 20, y: 120 } });
+  const dialog = page.getByRole("dialog", { name: "레퍼런스 상세" });
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+  await dialog.getByLabel("메모").fill("지우면 안 되는 메모");
+  await dialog.getByText(/인스타 피드/).first().click(); // 입력창 밖으로 포커스 이동
+  await page.keyboard.press("ArrowDown");
+  await expect(dialog.getByLabel("메모")).toHaveValue("지우면 안 되는 메모");
+});

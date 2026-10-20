@@ -27,6 +27,7 @@ export function ReferenceDetail({ reference: ref, onClose, onStep }: { reference
   const [kind, setKind] = useState<ReferenceKind>(ref.kind);
   const [busy, setBusy] = useState<null | "save" | "template" | "images">(null);
 
+  const dirtyRef = useRef(false); // 고치던 내용이 있으면 ↑ ↓ 로 다른 레퍼런스로 넘어가지 않는다
   const n = ref.images.length;
   const cur = Math.min(idx, Math.max(0, n - 1));
   const img = ref.images[cur];
@@ -39,14 +40,16 @@ export function ReferenceDetail({ reference: ref, onClose, onStep }: { reference
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft") setIdx((i) => stepSlide(i, -1, n));
       else if (e.key === "ArrowRight") setIdx((i) => stepSlide(i, 1, n));
-      else if (e.key === "ArrowUp" && onStep) { e.preventDefault(); onStep(-1); }
-      else if (e.key === "ArrowDown" && onStep) { e.preventDefault(); onStep(1); }
+      else if (e.key === "ArrowUp" && onStep && !dirtyRef.current) { e.preventDefault(); onStep(-1); }
+      else if (e.key === "ArrowDown" && onStep && !dirtyRef.current) { e.preventDefault(); onStep(1); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [n, onClose, onStep]);
 
   const dirty = title !== ref.title || account !== ref.account || url !== ref.url || note !== ref.note || kind !== ref.kind || tags !== ref.tags.join(" ");
+
+  dirtyRef.current = dirty;
 
   const save = async () => {
     if (!title.trim()) return;

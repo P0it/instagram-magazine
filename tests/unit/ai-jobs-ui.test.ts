@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeJobCount, errorHint, jobProgress, STAGE_LABEL } from "@/components/ai/job-progress";
+import { activeJobCount, canRetry, errorHint, jobProgress, STAGE_LABEL } from "@/components/ai/job-progress";
 import type { AiJob } from "@/types";
 
 const job = (over: Partial<AiJob>): AiJob => ({
@@ -30,6 +30,17 @@ describe("jobProgress", () => {
 describe("activeJobCount", () => {
   it("counts queued and running jobs only", () => {
     expect(activeJobCount([job({ status: "queued" }), job({ status: "running" }), job({ status: "done" }), job({ status: "failed" })])).toBe(2);
+  });
+});
+
+describe("canRetry", () => {
+  const withFiles = (n: number) => ({ input: { account_key: "a", brief: "b", format: "4:5" as const, attachment_count: n } });
+  it("offers retry only for failed or canceled jobs that had no attachments (those are deleted when a job ends)", () => {
+    expect(canRetry(job({ status: "failed" }))).toBe(true);
+    expect(canRetry(job({ status: "canceled" }))).toBe(true);
+    expect(canRetry(job({ status: "failed", ...withFiles(2) }))).toBe(false);
+    expect(canRetry(job({ status: "done" }))).toBe(false);
+    expect(canRetry(job({ status: "running" }))).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/metadata/approval-gate";
 import { estimateLines, loadSpec, specPromptBlock, validateAgainstSpec } from "@/lib/ai/spec";
-import type { GeneratedCarousel, GeneratedSlide } from "@/types";
+import { CAROUSEL_MAX_SLIDES, CAROUSEL_MIN_SLIDES, type GeneratedCarousel, type GeneratedSlide } from "@/types";
 
 const info = (text: string, preset: GeneratedSlide["preset"] = "info-dark"): GeneratedSlide => ({ role: "info", text, preset });
 const good = (over: Partial<GeneratedCarousel> = {}): GeneratedCarousel => ({
@@ -23,6 +23,11 @@ describe("ai spec", () => {
     const s = loadSpec();
     expect(s.instagram.caption_max).toBe(CAPTION_MAX);
     expect(s.instagram.hashtag_max).toBe(HASHTAG_MAX);
+  });
+
+  it("keeps the schema's slide bounds equal to the spec's carousel range", () => {
+    const { min_slides, max_slides } = loadSpec().instagram.carousel;
+    expect([CAROUSEL_MIN_SLIDES, CAROUSEL_MAX_SLIDES]).toEqual([min_slides, max_slides]);
   });
 
   it("accepts a well-formed 3 slide carousel", () => {

@@ -117,13 +117,19 @@ export async function runGeneration(
     return provider.complete({ ...prompt, schema, images, signal: hooks.signal });
   };
 
-  // 1. 분석 — 레퍼런스 이미지를 읽을 수 있는 제공자일 때만
+  // 1. 분석 — 레퍼런스 이미지를 읽을 수 있는 제공자일 때만. 분석은 선택 단계라 응답이 깨져도 없이 진행한다.
   let analysis: AnalystOutput | undefined;
+  const warnings: string[] = [];
   if (reference && provider.supportsImages && reference.images.length > 0) {
     const images = await loadReferenceImages(drive, reference);
     if (images.length > 0) {
       await hooks.onStage("analyze");
-      analysis = await ask(buildAnalystPrompt(reference, images.length), AnalystOutputSchema, images);
+      try {
+        analysis = await ask(buildAnalystPrompt(reference, images.length), AnalystOutputSchema, images);
+      } catch (e) {
+        if (!(e instanceof AiError) || e.kind !== "invalid_output") throw e;
+        warnings.push("레퍼런스 이미지 분석 응답을 읽지 못해 분석 없이 만들었어요");
+      }
     }
   }
 
@@ -164,7 +170,7 @@ export async function runGeneration(
   const { postId } = await saveGeneratedPost(drive, account, dropMissingAttachments(carousel, attachments.length), {
     format: input.format,
     attachments,
-    warnings: violations.map((v) => v.message),
+    warnings: [...warnings, ...violations.map((v) => v.message)],
     generation: {
       ...(reference ? { reference_id: reference.id } : {}),
       ...(template ? { template_id: template.id } : {}),

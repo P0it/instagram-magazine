@@ -22,14 +22,18 @@ const state = (): RunnerState => (g.__magazineDeskAiRunner ??= { owner: `runner-
 
 const now = () => new Date().toISOString();
 
-/** 이 러너가 잡고 있는 running 작업만 고친다. 이미 취소·중단 처리된 작업을 덮어쓰지 않는다. */
-function patchRunning(drive: DriveClient, id: string, fn: (j: AiJob) => AiJob): Promise<void> {
+/**
+ * 이 러너가 잡고 있는 running 작업만 고친다. 이미 취소·중단 처리된 작업을 덮어쓰지 않는다.
+ * 반영했으면 true. false 는 "이 작업은 더 이상 내 것이 아니다"(취소·중단됨)는 뜻이라
+ * 단계·호출 훅은 이걸 보고 CanceledError 로 파이프라인을 멈춘다.
+ */
+function patchRunning(drive: DriveClient, id: string, fn: (j: AiJob) => AiJob): Promise<boolean> {
   return updateJobs(drive, (jobs) => {
     const i = jobs.findIndex((j) => j.id === id && j.status === "running" && j.owner === state().owner);
-    if (i < 0) return { jobs, result: undefined };
+    if (i < 0) return { jobs, result: false };
     const next = jobs.slice();
     next[i] = { ...fn(jobs[i]!), updated_at: now() };
-    return { jobs: next, result: undefined };
+    return { jobs: next, result: true };
   });
 }
 
@@ -58,9 +62,11 @@ async function runOne(drive: DriveClient, job: AiJob): Promise<void> {
         signal: ac.signal,
         onStage: async (s) => {
           stage = s;
-          await patchRunning(drive, job.id, (j) => ({ ...j, stage: s }));
+          if (!(await patchRunning(drive, job.id, (j) => ({ ...j, stage: s })))) throw new CanceledError();
         },
-        onCall: () => patchRunning(drive, job.id, (j) => ({ ...j, calls: j.calls + 1 })),
+        onCall: async () => {
+          if (!(await patchRunning(drive, job.id, (j) => ({ ...j, calls: j.calls + 1 })))) throw new CanceledError();
+        },
       },
       { drive },
     );

@@ -1,6 +1,7 @@
 import "server-only";
 import { readAiJobs, VersionConflictError, writeAiJobs } from "@/lib/drive/system-files";
 import type { DriveClient } from "@/lib/drive/types";
+import { globalState } from "@/lib/ai/global-state";
 import type { AiJob } from "@/types";
 
 export const HEARTBEAT_MS = 15_000;
@@ -25,7 +26,7 @@ function prune(jobs: AiJob[]): AiJob[] {
   return jobs.filter((j) => !drop.has(j.id));
 }
 
-let lock: Promise<unknown> = Promise.resolve();
+const lock = globalState("jobsLock", () => ({ chain: Promise.resolve() as Promise<unknown> }));
 
 /**
  * 읽기-수정-쓰기. 이 프로세스 안에서는 잠금으로 직렬화하고, Drive 쪽 버전 충돌은 다시 읽어 재시도한다.
@@ -45,8 +46,8 @@ export function updateJobs<T>(drive: DriveClient, fn: (jobs: AiJob[]) => { jobs:
       }
     }
   };
-  const next = lock.then(run, run);
-  lock = next.catch(() => undefined);
+  const next = lock.chain.then(run, run);
+  lock.chain = next.catch(() => undefined);
   return next;
 }
 

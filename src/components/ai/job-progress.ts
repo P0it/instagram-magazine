@@ -27,6 +27,14 @@ export function jobProgress(job: Pick<AiJob, "status" | "stage">): { index: numb
   }
 }
 
+/**
+ * 다시 시도할 수 있는가. 첨부 사진은 작업이 끝나면 지워지므로 첨부가 있던 작업은 같은 입력으로 다시 돌릴 수 없다
+ * (서버도 400 으로 거절한다 — 버튼을 아예 보여 주지 않는다).
+ */
+export function canRetry(job: Pick<AiJob, "status" | "input">): boolean {
+  return (job.status === "failed" || job.status === "canceled") && job.input.attachment_count === 0;
+}
+
 export function activeJobCount(jobs: Pick<AiJob, "status">[]): number {
   return jobs.filter((j) => j.status === "queued" || j.status === "running").length;
 }

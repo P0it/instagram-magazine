@@ -109,6 +109,49 @@ describe("ai jobs", () => {
     expect(await tmpJobFolders()).toEqual([]);
   });
 
+  it("a cancel that lands right after the runner claimed the job stops it before any AI call", async () => {
+    let calls = 0;
+    setProviders([new MockAiProvider({ replies: () => { calls++; return MOCK_CAROUSEL; } })]);
+    // 러너가 작업을 running 으로 쓰는 바로 그 순간(컨트롤러가 아직 등록되기 전)에 취소를 건다
+    const write = drive.writeText.bind(drive);
+    let fired = false;
+    drive.writeText = async (folderId, name, text, mime) => {
+      const res = await write(folderId, name, text, mime);
+      if (!fired && name === "ai-jobs.json") {
+        const running = (JSON.parse(text) as { jobs: { id: string; status: string }[] }).jobs.find((j) => j.status === "running");
+        if (running) {
+          fired = true;
+          void cancelJob(running.id);
+        }
+      }
+      return res;
+    };
+    const job = await enqueueJob(input(), [png()]);
+    await whenIdle();
+    expect(fired).toBe(true);
+    expect((await getJob(job.id)).status).toBe("canceled");
+    expect(calls).toBe(0);
+    expect(await drafts()).toEqual([]);
+    expect(await tmpJobFolders()).toEqual([]);
+  });
+
+  it("keeps one job-file lock across module reloads (Next reloads modules when .env.local changes)", async () => {
+    // Drive 읽기를 살짝 늦춰 읽기-쓰기 사이에 다른 갱신이 끼어들 틈을 만든다
+    const find = drive.findChild.bind(drive);
+    drive.findChild = async (folderId, name) => {
+      const f = await find(folderId, name);
+      await new Promise((r) => setTimeout(r, 1));
+      return f;
+    };
+    vi.resetModules();
+    const a = await import("@/lib/ai/jobs/store");
+    vi.resetModules();
+    const b = await import("@/lib/ai/jobs/store");
+    const mk = (i: number) => ({ id: `job-r${i}`, status: "done" as const, stage: "save" as const, calls: 0, input: { ...input(), attachment_count: 0 }, created_at: iso, updated_at: iso });
+    await Promise.all(Array.from({ length: 12 }, (_, i) => (i % 2 ? a : b).updateJobs(drive, (jobs) => ({ jobs: [...jobs, mk(i)], result: undefined }))));
+    expect((await readAiJobs(drive)).data.jobs).toHaveLength(12);
+  });
+
   it("cancels a queued job without running it", async () => {
     let releaseFirst!: () => void;
     const gate = new Promise<void>((r) => (releaseFirst = r));

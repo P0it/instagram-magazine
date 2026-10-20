@@ -5,7 +5,7 @@ import { Check, Loader2, RotateCcw, X } from "lucide-react";
 import type { AiJob } from "@/types";
 import { useCancelAiJob, useRetryAiJob } from "@/lib/client/queries";
 import { cn } from "@/lib/utils";
-import { errorHint, jobProgress } from "./job-progress";
+import { canRetry, errorHint, jobProgress } from "./job-progress";
 
 function ProgressBar({ job }: { job: AiJob }) {
   const { index, total } = jobProgress(job);
@@ -50,8 +50,11 @@ function JobRow({ job }: { job: AiJob }) {
         {active && (
           <button type="button" disabled={cancel.isPending} onClick={() => cancel.mutate(job.id)} className="flex items-center gap-1 text-xs font-semibold text-label-alt hover:text-label"><X className="size-3" />취소</button>
         )}
-        {(job.status === "failed" || job.status === "canceled") && (
+        {canRetry(job) && (
           <button type="button" disabled={retry.isPending} onClick={() => retry.mutate(job.id)} className="flex items-center gap-1 text-xs font-semibold text-brand hover:underline"><RotateCcw className="size-3" />다시 시도</button>
+        )}
+        {(job.status === "failed" || job.status === "canceled") && !canRetry(job) && (
+          <span className="text-[11px] text-label-assistive">첨부 사진이 지워져서 다시 시도할 수 없어요. 새로 생성해 주세요.</span>
         )}
       </div>
     </li>

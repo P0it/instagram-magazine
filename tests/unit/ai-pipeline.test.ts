@@ -129,6 +129,28 @@ describe("runGeneration", () => {
     expect(provider.calls[1]!.user).toContain("숫자로 시작");
   });
 
+  it("continues without the analysis when the analyst reply is unusable, and says so in the warnings", async () => {
+    const refId = await addReference(1);
+    const provider = new MockAiProvider({ replies: ["not an object", good] });
+    const { postId } = await runGeneration(input({ reference_id: refId }), [], hooks(), { provider, drive });
+    expect(provider.calls).toHaveLength(2);
+    expect(stages).toEqual(["analyze", "copy", "layout", "review", "save"]);
+    expect((await readMeta(postId)).warnings.join(" ")).toContain("분석");
+  });
+
+  it("treats a reply with no slides or more than ten as unparseable: repaired once, then invalid_output", async () => {
+    const none = { ...good, slides: [] };
+    const eleven = { ...good, slides: Array.from({ length: 11 }, () => good.slides[1]!) };
+    const repaired = new MockAiProvider({ replies: [none, good] });
+    await runGeneration(input(), [], hooks(), { provider: repaired, drive });
+    expect(repaired.calls).toHaveLength(2);
+    expect(repaired.calls[1]!.user).toContain("스키마");
+
+    const stillBad = new MockAiProvider({ replies: [eleven, none, eleven] });
+    await expect(runGeneration(input(), [], hooks(), { provider: stillBad, drive })).rejects.toMatchObject({ kind: "invalid_output" });
+    expect(await drafts()).toHaveLength(1); // 위에서 저장된 한 건뿐
+  });
+
   it("stops before saving when the signal aborts", async () => {
     const ac = new AbortController();
     const provider = new MockAiProvider({ replies: [good] });

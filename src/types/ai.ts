@@ -89,13 +89,18 @@ export const GeneratedSlideSchema = z.object({
 });
 export type GeneratedSlide = z.infer<typeof GeneratedSlideSchema>;
 
+/** Instagram 캐러셀 장수 범위 — `src/presets/spec/instagram.json` 의 carousel.min/max_slides 와 같아야 한다(테스트로 고정) */
+export const CAROUSEL_MIN_SLIDES = 2;
+export const CAROUSEL_MAX_SLIDES = 10;
+
 export const GeneratedCarouselSchema = z.object({
   headline: z.string(),
   topic: z.string(),
   caption: z.string(),
   hashtags: z.array(z.string()).default([]),
   alt_text: z.string().optional(),
-  slides: z.array(GeneratedSlideSchema),
+  /** 범위를 벗어나면 스키마 실패 — 빈 포스트나 게시할 수 없는 포스트가 draft 로 저장되지 않게 한다 */
+  slides: z.array(GeneratedSlideSchema).min(CAROUSEL_MIN_SLIDES).max(CAROUSEL_MAX_SLIDES),
 });
 export type GeneratedCarousel = z.infer<typeof GeneratedCarouselSchema>;
 

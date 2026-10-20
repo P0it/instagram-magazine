@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { AiProviderId } from "@/types";
+import { globalState } from "@/lib/ai/global-state";
 import { persistEnvVar, defaultEnvFile } from "./env-file";
 
 /**
@@ -37,12 +38,12 @@ export function parseTokenEnv(raw: string): AiTokens | null {
   }
 }
 
-const cache = new Map<AiProviderId, AiTokens | null>();
-let lock: Promise<unknown> = Promise.resolve();
+const cache = globalState("tokenCache", () => new Map<AiProviderId, AiTokens | null>());
+const lock = globalState("tokenLock", () => ({ chain: Promise.resolve() as Promise<unknown> }));
 
 export function resetTokenCacheForTests(): void {
   cache.clear();
-  lock = Promise.resolve();
+  lock.chain = Promise.resolve();
 }
 
 export function getTokens(id: AiProviderId): AiTokens | null {
@@ -51,8 +52,8 @@ export function getTokens(id: AiProviderId): AiTokens | null {
 }
 
 function serialized<T>(fn: () => Promise<T>): Promise<T> {
-  const run = lock.then(fn, fn);
-  lock = run.catch(() => undefined);
+  const run = lock.chain.then(fn, fn);
+  lock.chain = run.catch(() => undefined);
   return run;
 }
 

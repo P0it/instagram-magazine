@@ -1,5 +1,6 @@
 import "server-only";
 import { aiClientMode, env } from "@/lib/env";
+import { globalState } from "@/lib/ai/global-state";
 import { MockAiProvider } from "@/mocks/ai/MockAiProvider";
 import type { AiProviderId, AiProviderStatus } from "@/types";
 import { createChatgptProvider } from "./chatgpt";
@@ -7,8 +8,8 @@ import { createClaudeCliProvider } from "./cli";
 import { persistEnvVar } from "./env-file";
 import { AiError, type AiProvider } from "./types";
 
-let override: AiProvider[] | null = null;
-let built: AiProvider[] | null = null;
+/** 제공자 인스턴스(갱신 중인 토큰 상태를 들고 있다)가 모듈 재로드로 갈라지지 않게 globalThis 에 둔다 */
+const state = globalState("providers", () => ({ override: null as AiProvider[] | null, built: null as AiProvider[] | null }));
 
 /** 실제 제공자: Claude 는 로그인된 CLI, ChatGPT 는 앱이 받은 OAuth 토큰 */
 function buildRealProviders(): AiProvider[] {
@@ -16,19 +17,19 @@ function buildRealProviders(): AiProvider[] {
 }
 
 function providers(): AiProvider[] {
-  if (override) return override;
-  if (!built) built = aiClientMode() === "mock" ? [new MockAiProvider({ id: "claude" })] : buildRealProviders();
-  return built;
+  if (state.override) return state.override;
+  state.built ??= aiClientMode() === "mock" ? [new MockAiProvider({ id: "claude" })] : buildRealProviders();
+  return state.built;
 }
 
 /** 테스트·Mock 모드에서 제공자 목록을 직접 정한다 */
 export function setProviders(list: AiProvider[]): void {
-  override = list;
+  state.override = list;
 }
 
 export function resetProviders(): void {
-  override = null;
-  built = null;
+  state.override = null;
+  state.built = null;
 }
 
 export async function listProviderStatus(): Promise<AiProviderStatus[]> {

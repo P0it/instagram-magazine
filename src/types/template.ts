@@ -1,12 +1,15 @@
 import { z } from "zod";
 import { SlideEditorStateSchema } from "./editor-state";
 
-export const TEMPLATE_CATEGORIES = ["photo", "color", "cafe", "food", "notice", "quote", "info"] as const;
+export const TEMPLATE_CATEGORIES = ["cover", "photo", "color", "quote", "list", "closing", "info", "cafe", "food", "notice"] as const;
 export const TemplateCategorySchema = z.enum(TEMPLATE_CATEGORIES);
 export type TemplateCategory = z.infer<typeof TemplateCategorySchema>;
 
 export const TEMPLATE_CATEGORY_LABEL: Record<TemplateCategory, string> = {
+  cover: "표지",
   photo: "사진 위에",
+  list: "리스트·숫자",
+  closing: "마무리",
   color: "색 조합",
   cafe: "카페",
   food: "음식",

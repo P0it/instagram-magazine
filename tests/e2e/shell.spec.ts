@@ -99,7 +99,7 @@ test.describe("템플릿 화면", () => {
     await expect(cards.first()).toBeVisible();
     const total = await cards.count();
     expect(total).toBeGreaterThan(3);
-    await page.getByRole("button", { name: "카페", exact: true }).click();
+    await page.getByRole("button", { name: "인용", exact: true }).click();
     const cafe = await cards.count();
     expect(cafe).toBeGreaterThan(0);
     expect(cafe).toBeLessThan(total);

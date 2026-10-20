@@ -2,7 +2,7 @@ import { SlideEditorStateSchema, TemplateSchema, type Template, type TemplateCat
 import type { FontFamily } from "@/types";
 
 /**
- * 내장 템플릿 — 4:5(1080×1350) 기준. 본문(headline)은 슬라이드의 글이 들어가고,
+ * 내장 템플릿 — 4:5(1080×1350) 기준. 바깥 여백 90, 한 장에 포인트 색은 하나, 글자 크기 대비는 크게. 본문(headline)은 슬라이드의 글이 들어가고,
  * 아래 layers 의 문구는 자리표시자(라벨·가격·번호 등)다.
  */
 
@@ -66,169 +66,134 @@ function build(d: Def): Template {
   return TemplateSchema.parse({ id: d.id, name: d.name, category: d.category, tags: d.tags, design, sample_text: d.sample, photo: d.photo ?? false, source: "builtin" });
 }
 
+/** 모든 템플릿 공통: 위쪽 메타 줄(라벨 · 쪽수)의 y */
+const META_Y = 96;
+
 const DEFS: Def[] = [
   {
-    id: "navy-mint-headline", name: "네이비 × 민트 헤드라인", category: "color", tags: ["강렬", "모던"], sample: "이번 주\n신메뉴 안내", bg: "#0B1F3A",
-    main: { x: 90, y: 470, width: 900, fontSize: 124, fontFamily: "sans", color: "#5EEAD4", letterSpacing: -3, lineHeight: 1.15 },
+    id: "bold-paper", name: "볼드 페이퍼", category: "cover", tags: ["정보", "트렌드"], sample: "요즘 뜨는\n릴스 문법\n5가지", bg: "#F2F0EA",
+    main: { x: 90, y: 400, width: 900, fontSize: 156, fontFamily: "sans", color: "#111111", weight: 900, letterSpacing: -7, lineHeight: 1.1 },
     layers: [
-      txt("NEW MENU", 90, 150, 600, 44, "bebas-neue", "#FFFFFF", { weight: 400, letterSpacing: 10 }),
-      shp("line", 300, 214, 420, 6, { fill: "#5EEAD4" }),
-      txt("@mycafe · 오늘도 맛있게", 90, 1230, 900, 34, "sans", "#FFFFFF", { weight: 400 }),
+      shp("dot", 104, META_Y + 18, 22, 22, { fill: "#FF4B2B", radius: 11 }),
+      txt("TREND NOTE", 140, META_Y, 600, 30, "space-grotesk", "#111111", { weight: 700, letterSpacing: 4 }),
+      txt("01 / 07", 990, META_Y, 300, 30, "space-grotesk", "#111111", { weight: 500, align: "right", letterSpacing: 2 }),
+      shp("rule", 540, 1190, 900, 2, { fill: "#111111" }),
+      txt("@yourhandle", 90, 1222, 500, 32, "space-grotesk", "#111111", { weight: 500 }),
+      txt("넘겨서 보기", 990, 1222, 400, 32, "sans", "#111111", { weight: 500, align: "right" }),
     ],
   },
   {
-    id: "black-lime-impact", name: "블랙 × 라임 임팩트", category: "color", tags: ["강렬", "트렌디"], sample: "오늘만\n특별 할인", bg: "#0A0A0A",
-    main: { x: 80, y: 430, width: 920, fontSize: 168, fontFamily: "black-han-sans", color: "#C6FF00", weight: 400, align: "center", lineHeight: 1.1 },
+    id: "night-lime", name: "나이트 라임", category: "cover", tags: ["다크", "임팩트"], sample: "알고리즘이\n좋아하는\n첫 문장", bg: "#0C0C0C",
+    main: { x: 90, y: 420, width: 900, fontSize: 156, fontFamily: "sans", color: "#D4FF3A", weight: 900, letterSpacing: -6, lineHeight: 1.1 },
     layers: [
-      shp("circle", 880, 220, 300, 300, { stroke: "#C6FF00", strokeWidth: 6 }),
-      txt("SALE", 880, 172, 300, 78, "anton", "#FFFFFF", { weight: 400, align: "center", letterSpacing: 4 }),
-      txt("~ 10.31 까지", 540, 1160, 800, 40, "sans", "#FFFFFF", { weight: 500, align: "center" }),
+      txt("CONTENT LAB", 90, META_Y, 600, 30, "space-grotesk", "#8C8C8C", { weight: 700, letterSpacing: 5 }),
+      txt("01 / 07", 990, META_Y, 300, 30, "space-grotesk", "#8C8C8C", { weight: 500, align: "right", letterSpacing: 2 }),
+      shp("pill", 215, 1236, 250, 76, { stroke: "#3A3A3A", strokeWidth: 2, radius: 38 }),
+      txt("@yourhandle", 215, 1216, 250, 30, "space-grotesk", "#FFFFFF", { weight: 500, align: "center" }),
     ],
   },
   {
-    id: "cream-serif-morning", name: "크림 세리프 모닝", category: "cafe", tags: ["내추럴", "에디토리얼"], sample: "Morning\nCoffee", bg: "#F5F0E1",
-    main: { x: 90, y: 440, width: 900, fontSize: 168, fontFamily: "playfair-display", color: "#1F4D3A", weight: 400, letterSpacing: -4, lineHeight: 1.02 },
+    id: "serif-issue", name: "에디토리얼 이슈", category: "cover", tags: ["에디토리얼", "차분"], sample: "느리게 사는\n법을 배웠다", bg: "#EDE6DA",
+    main: { x: 90, y: 430, width: 900, fontSize: 118, fontFamily: "serif", color: "#2B1D14", weight: 700, letterSpacing: -4, lineHeight: 1.22 },
     layers: [
-      txt("COFFEE & DESSERT", 90, 170, 800, 40, "bebas-neue", "#C46A2B", { weight: 400, letterSpacing: 9 }),
-      shp("line", 540, 1130, 900, 3, { fill: "#1F4D3A" }),
-      txt("매일 아침 8시 오픈", 90, 1190, 900, 38, "sans", "#1F4D3A", { weight: 500 }),
+      txt("ISSUE 07", 90, META_Y, 500, 28, "space-grotesk", "#2B1D14", { weight: 700, letterSpacing: 6 }),
+      txt("AUTUMN", 990, META_Y, 400, 28, "space-grotesk", "#2B1D14", { weight: 500, align: "right", letterSpacing: 6 }),
+      shp("rule1", 540, 168, 900, 2, { fill: "#2B1D14" }),
+      shp("rule2", 540, 1130, 900, 2, { fill: "#2B1D14" }),
+      txt("에디터의 노트", 90, 1166, 600, 34, "serif", "#2B1D14", { weight: 600 }),
+      txt("by @yourhandle", 990, 1170, 400, 28, "space-grotesk", "#2B1D14", { weight: 500, align: "right" }),
     ],
   },
   {
-    id: "photo-black-label", name: "블랙 라벨 에디토리얼", category: "photo", tags: ["에디토리얼", "카페"], sample: "시그니처 라떼", bg: "#2A2623", photo: true, overlay: 0.12, gradient: "bottom",
-    main: { x: 90, y: 1040, width: 900, fontSize: 92, fontFamily: "sans", color: "#FFFFFF", letterSpacing: -2, lineHeight: 1.15 },
+    id: "photo-bottom-left", name: "포토 바텀레프트", category: "photo", tags: ["사진", "신상"], sample: "이번 주\n가장 많이 저장된\n한 장", bg: "#2A2623", photo: true, overlay: 0.08, gradient: "bottom",
+    main: { x: 90, y: 880, width: 900, fontSize: 104, fontFamily: "sans", color: "#FFFFFF", weight: 900, letterSpacing: -4, lineHeight: 1.12 },
     layers: [
-      shp("rect", 290, 960, 400, 86, { fill: "#111111", radius: 4 }),
-      txt("오늘의 추천", 290, 935, 400, 40, "sans", "#FFFFFF", { weight: 600, align: "center" }),
+      shp("tag", 190, META_Y + 18, 200, 56, { fill: "#FFFFFF", radius: 28 }),
+      txt("NEW DROP", 190, META_Y + 4, 200, 26, "space-grotesk", "#111111", { weight: 700, align: "center", letterSpacing: 2 }),
+      txt("01 / 07", 990, META_Y + 4, 300, 28, "space-grotesk", "#FFFFFF", { weight: 500, align: "right", letterSpacing: 2 }),
     ],
   },
   {
-    id: "photo-center-serif", name: "센터 세리프 무드", category: "photo", tags: ["미니멀", "무드"], sample: "Hello\nAutumn", bg: "#2A2623", photo: true, overlay: 0.34,
-    main: { x: 90, y: 540, width: 900, fontSize: 150, fontFamily: "playfair-display", color: "#FFFFFF", weight: 400, align: "center", letterSpacing: -3, lineHeight: 1.05 },
+    id: "photo-center-bold", name: "포토 센터 볼드", category: "photo", tags: ["사진", "임팩트"], sample: "저장각\n인 장소", bg: "#2A2623", photo: true, overlay: 0.38,
+    main: { x: 90, y: 520, width: 900, fontSize: 170, fontFamily: "black-han-sans", color: "#FFFFFF", weight: 400, align: "center", letterSpacing: -2, lineHeight: 1.08 },
     layers: [
-      shp("line", 540, 470, 120, 3, { fill: "#FFFFFF" }),
-      shp("line", 540, 880, 120, 3, { fill: "#FFFFFF" }),
-      txt("SEASON MENU", 540, 1140, 800, 36, "bebas-neue", "#FFFFFF", { weight: 400, align: "center", letterSpacing: 10 }),
+      txt("SAVE FOR LATER", 540, META_Y, 800, 28, "space-grotesk", "#FFFFFF", { weight: 700, align: "center", letterSpacing: 8 }),
+      txt("@yourhandle", 540, 1214, 800, 30, "space-grotesk", "#FFFFFF", { weight: 500, align: "center", letterSpacing: 2 }),
     ],
   },
   {
-    id: "photo-white-frame", name: "화이트 프레임", category: "photo", tags: ["미니멀", "갤러리"], sample: "오늘의 디저트", bg: "#2A2623", photo: true, overlay: 0.1, gradient: "bottom",
-    main: { x: 120, y: 1090, width: 840, fontSize: 64, fontFamily: "nanum-myeongjo", color: "#FFFFFF", weight: 700, align: "center", lineHeight: 1.2 },
+    id: "blue-poster", name: "블루 포스터", category: "color", tags: ["포스터", "비비드"], sample: "지금 바로\n써먹는\n글쓰기 팁", bg: "#2438FF",
+    main: { x: 90, y: 380, width: 900, fontSize: 164, fontFamily: "sans", color: "#FFFFFF", weight: 900, letterSpacing: -8, lineHeight: 1.06 },
     layers: [
-      shp("rect", 540, 675, 940, 1230, { stroke: "#FFFFFF", strokeWidth: 5 }),
-      txt("DESSERT", 540, 110, 600, 36, "bebas-neue", "#FFFFFF", { weight: 400, align: "center", letterSpacing: 12 }),
+      txt("TIPS", 90, META_Y, 400, 30, "space-grotesk", "#FFFFFF", { weight: 700, letterSpacing: 8 }),
+      txt("01 / 07", 990, META_Y, 300, 30, "space-grotesk", "#FFFFFF", { weight: 500, align: "right", letterSpacing: 2 }),
+      shp("pill", 290, 1230, 400, 84, { fill: "#FFFFFF", radius: 42 }),
+      txt("저장해두고 보기", 290, 1206, 400, 36, "sans", "#2438FF", { weight: 700, align: "center" }),
     ],
   },
   {
-    id: "menu-board", name: "메뉴판", category: "food", tags: ["메뉴", "가격"], sample: "오늘의 메뉴", bg: "#F3EBDD",
-    main: { x: 90, y: 150, width: 900, fontSize: 120, fontFamily: "bebas-neue", color: "#4A2E1F", weight: 400, align: "center", letterSpacing: 6, lineHeight: 1 },
+    id: "pink-sticker", name: "핑크 스티커", category: "color", tags: ["키치", "귀여움"], sample: "오늘의\n소소한\n행복", bg: "#FFD3E4",
+    main: { x: 90, y: 440, width: 900, fontSize: 150, fontFamily: "jua", color: "#E5185F", weight: 400, align: "center", letterSpacing: -3, lineHeight: 1.1 },
     layers: [
-      shp("line", 540, 330, 900, 3, { fill: "#4A2E1F" }),
-      txt("아메리카노\n카페라떼\n바닐라 라떼\n크루아상\n티라미수", 110, 400, 560, 56, "sans", "#4A2E1F", { weight: 500, lineHeight: 1.9 }),
-      txt("4,500\n5,000\n5,500\n4,800\n6,500", 930, 400, 260, 56, "sans", "#B8793F", { weight: 700, align: "right", lineHeight: 1.9 }),
-      shp("line", 540, 1010, 900, 3, { fill: "#4A2E1F" }),
-      txt("※ 모든 메뉴 ICE · HOT 선택 가능", 540, 1080, 900, 32, "sans", "#4A2E1F", { weight: 400, align: "center" }),
+      shp("sticker", 880, 230, 210, 210, { fill: "#E5185F", radius: 105, rotation: 12 }),
+      txt("NEW", 880, 190, 210, 64, "anton", "#FFFFFF", { weight: 400, align: "center", letterSpacing: 3, rotation: 12 }),
+      txt("@yourhandle", 540, 1214, 800, 32, "space-grotesk", "#E5185F", { weight: 700, align: "center", letterSpacing: 2 }),
     ],
   },
   {
-    id: "notice-yellow", name: "공지 옐로", category: "notice", tags: ["공지", "밝음"], sample: "휴무 안내", bg: "#FFE680",
-    main: { x: 90, y: 480, width: 900, fontSize: 150, fontFamily: "jua", color: "#151515", weight: 400, lineHeight: 1.1 },
+    id: "memo-card", name: "메모장 카드", category: "quote", tags: ["메모", "감성"], sample: "하루에 한 번은\n아무것도 안 하는\n시간이 필요해", bg: "#FFFFFF",
+    main: { x: 150, y: 470, width: 780, fontSize: 76, fontFamily: "sans", color: "#1A1A1A", weight: 700, letterSpacing: -2, lineHeight: 1.5 },
     layers: [
-      shp("rect", 250, 220, 330, 90, { fill: "#151515", radius: 45 }),
-      txt("NOTICE", 250, 196, 330, 42, "bebas-neue", "#FFE680", { weight: 400, align: "center", letterSpacing: 8 }),
-      txt("10월 31일(금)은\n내부 정비로 쉬어요.\n불편을 드려 죄송합니다.", 90, 830, 900, 48, "sans", "#151515", { weight: 500, lineHeight: 1.55 }),
-      shp("circle", 880, 1130, 280, 280, { fill: "#FF5A36" }),
-      txt("꼭\n확인!", 880, 1053, 280, 70, "jua", "#FFFFFF", { weight: 400, align: "center", lineHeight: 1.1, rotation: -8 }),
+      shp("frame-t", 540, 30, 1080, 60, { fill: "#E8E4DB" }),
+      shp("frame-b", 540, 1320, 1080, 60, { fill: "#E8E4DB" }),
+      shp("frame-l", 30, 675, 60, 1350, { fill: "#E8E4DB" }),
+      shp("frame-r", 1050, 675, 60, 1350, { fill: "#E8E4DB" }),
+      shp("accent", 160, 262, 18, 18, { fill: "#FF5F57", radius: 9 }),
+      shp("accent2", 196, 262, 18, 18, { fill: "#FEBC2E", radius: 9 }),
+      shp("accent3", 232, 262, 18, 18, { fill: "#28C840", radius: 9 }),
+      txt("메모", 920, 244, 200, 34, "sans", "#9A9A9A", { weight: 500, align: "right" }),
+      shp("rule", 540, 330, 760, 2, { fill: "#EDEDED" }),
+      txt("2026.10.21", 160, 1086, 400, 30, "space-grotesk", "#9A9A9A", { weight: 500 }),
     ],
   },
   {
-    id: "event-pink", name: "이벤트 핑크", category: "notice", tags: ["이벤트", "키치"], sample: "EVENT\n오픈 기념", bg: "#FF3D9A",
-    main: { x: 80, y: 440, width: 920, fontSize: 156, fontFamily: "black-han-sans", color: "#111111", weight: 400, align: "center", lineHeight: 1.08 },
+    id: "big-quote", name: "빅 쿼트", category: "quote", tags: ["인용", "다크"], sample: "작게 시작해도\n멈추지만 않으면\n닿는다", bg: "#17171B",
+    main: { x: 90, y: 560, width: 900, fontSize: 92, fontFamily: "serif", color: "#FFFFFF", weight: 700, letterSpacing: -2, lineHeight: 1.4 },
     layers: [
-      shp("star", 880, 250, 320, 320, { fill: "#FFFFFF", rotation: 12 }),
-      txt("50%", 880, 196, 320, 86, "anton", "#FF3D9A", { weight: 400, align: "center", rotation: 12 }),
-      txt("선착순 100명에게 드려요", 540, 1110, 900, 44, "sans", "#111111", { weight: 700, align: "center" }),
+      txt("\u201C", 80, 180, 400, 400, "playfair-display", "#FF6B4A", { weight: 700, lineHeight: 1 }),
+      shp("rule", 150, 1136, 120, 4, { fill: "#FF6B4A" }),
+      txt("— 이름 · 직함", 90, 1168, 800, 32, "sans", "#A5A5AD", { weight: 500 }),
     ],
   },
   {
-    id: "quote-offwhite", name: "에디토리얼 인용", category: "quote", tags: ["인용", "미니멀"], sample: "느리게 마시는 커피가\n하루를 바꿔요", bg: "#F5F5F2",
-    main: { x: 110, y: 520, width: 860, fontSize: 78, fontFamily: "nanum-myeongjo", color: "#111111", weight: 700, lineHeight: 1.5 },
+    id: "number-step", name: "넘버 스텝", category: "list", tags: ["리스트", "정보"], sample: "첫 3초에\n승부를 건다", bg: "#F7F7F5",
+    main: { x: 90, y: 700, width: 900, fontSize: 104, fontFamily: "sans", color: "#111111", weight: 900, letterSpacing: -4, lineHeight: 1.14 },
     layers: [
-      txt("“", 100, 140, 300, 360, "playfair-display", "#FF4D2E", { weight: 400 }),
-      shp("line", 200, 1010, 180, 4, { fill: "#111111" }),
-      txt("오늘의 한 줄", 110, 1060, 500, 36, "sans", "#111111", { weight: 500 }),
+      txt("01", 80, 140, 700, 400, "anton", "#E3E1DA", { weight: 400, letterSpacing: -4, lineHeight: 1 }),
+      txt("STEP", 90, META_Y, 300, 30, "space-grotesk", "#111111", { weight: 700, letterSpacing: 8 }),
+      shp("dot", 940, 1230, 100, 100, { fill: "#111111", radius: 50 }),
+      txt("NEXT", 940, 1216, 100, 22, "space-grotesk", "#FFFFFF", { weight: 700, align: "center", letterSpacing: 1 }),
     ],
   },
   {
-    id: "cobalt-pink-bold", name: "코발트 × 핑크", category: "color", tags: ["키치", "트렌디"], sample: "오늘의\n신상 디저트", bg: "#1E3AFF",
-    main: { x: 80, y: 470, width: 920, fontSize: 150, fontFamily: "do-hyeon", color: "#FFB3E6", weight: 400, align: "center", lineHeight: 1.1 },
+    id: "stat-card", name: "숫자 카드", category: "list", tags: ["데이터", "정보"], sample: "응답자 10명 중 8명이\n첫 장만 보고 넘겨요", bg: "#EFEFEA",
+    main: { x: 90, y: 800, width: 900, fontSize: 62, fontFamily: "sans", color: "#111111", weight: 700, letterSpacing: -2, lineHeight: 1.35 },
     layers: [
-      shp("circle", 180, 230, 220, 220, { stroke: "#FFB3E6", strokeWidth: 6 }),
-      shp("circle", 920, 1150, 300, 300, { stroke: "#FFB3E6", strokeWidth: 6 }),
-      txt("SWEET", 540, 1110, 700, 60, "bebas-neue", "#FFFFFF", { weight: 400, align: "center", letterSpacing: 14 }),
+      txt("DATA", 90, META_Y, 300, 30, "space-grotesk", "#111111", { weight: 700, letterSpacing: 8 }),
+      txt("87%", 80, 220, 920, 400, "anton", "#111111", { weight: 400, letterSpacing: -6, lineHeight: 1 }),
+      shp("bar", 540, 740, 900, 14, { fill: "#D8D8D0", radius: 7 }),
+      shp("fill", 90 + 783 / 2, 740, 783, 14, { fill: "#FF4B2B", radius: 7 }),
+      txt("출처 · 자체 설문 (2026)", 90, 1230, 700, 28, "sans", "#8A8A84", { weight: 500 }),
     ],
   },
   {
-    id: "burgundy-cream", name: "버건디 클래식", category: "color", tags: ["클래식", "무드"], sample: "Wine &\nCheese Night", bg: "#5A1A25",
-    main: { x: 80, y: 500, width: 920, fontSize: 132, fontFamily: "dm-serif-display", color: "#F6E7D4", weight: 400, align: "center", lineHeight: 1.1 },
+    id: "closing-save", name: "마무리 · 저장", category: "closing", tags: ["클로징", "CTA"], sample: "도움이 됐다면\n저장해두세요", bg: "#0C0C0C",
+    main: { x: 90, y: 470, width: 900, fontSize: 112, fontFamily: "sans", color: "#FFFFFF", weight: 900, align: "center", letterSpacing: -5, lineHeight: 1.16 },
     layers: [
-      shp("line", 540, 340, 700, 3, { fill: "#E8A87C" }),
-      shp("line", 540, 380, 700, 3, { fill: "#E8A87C" }),
-      shp("line", 540, 1000, 700, 3, { fill: "#E8A87C" }),
-      txt("FRIDAY · 7PM", 540, 1040, 800, 40, "bebas-neue", "#E8A87C", { weight: 400, align: "center", letterSpacing: 12 }),
-    ],
-  },
-  {
-    id: "forest-lime-list", name: "포레스트 리스트", category: "info", tags: ["정보", "리스트"], sample: "오늘의 포인트", bg: "#12372A",
-    main: { x: 90, y: 160, width: 900, fontSize: 96, fontFamily: "sans", color: "#E4F27A", letterSpacing: -2, lineHeight: 1.15 },
-    layers: [
-      txt("01", 90, 560, 160, 90, "anton", "#E4F27A", { weight: 400 }),
-      txt("첫 번째 포인트를 적어요", 270, 580, 720, 48, "sans", "#FFFFFF", { weight: 500 }),
-      txt("02", 90, 780, 160, 90, "anton", "#E4F27A", { weight: 400 }),
-      txt("두 번째 포인트를 적어요", 270, 800, 720, 48, "sans", "#FFFFFF", { weight: 500 }),
-      txt("03", 90, 1000, 160, 90, "anton", "#E4F27A", { weight: 400 }),
-      txt("세 번째 포인트를 적어요", 270, 1020, 720, 48, "sans", "#FFFFFF", { weight: 500 }),
-    ],
-  },
-  {
-    id: "photo-top-label", name: "상단 라벨 + 사진", category: "photo", tags: ["신상", "라벨"], sample: "가을 한정\n밤 라떼", bg: "#2A2623", photo: true, overlay: 0.1, gradient: "top",
-    main: { x: 90, y: 230, width: 900, fontSize: 104, fontFamily: "sans", color: "#FFFFFF", letterSpacing: -3, lineHeight: 1.12 },
-    layers: [
-      shp("rect", 190, 130, 200, 64, { fill: "#FFFFFF", radius: 32 }),
-      txt("NEW", 190, 109, 200, 34, "bebas-neue", "#111111", { weight: 400, align: "center", letterSpacing: 6 }),
-    ],
-  },
-  {
-    id: "sage-circle", name: "세이지 서클", category: "cafe", tags: ["내추럴", "차분"], sample: "오늘도\n수고했어요", bg: "#A8B5A0",
-    main: { x: 160, y: 560, width: 760, fontSize: 92, fontFamily: "nanum-myeongjo", color: "#1B2A1E", weight: 700, align: "center", lineHeight: 1.35 },
-    layers: [
-      shp("circle", 540, 675, 800, 800, { fill: "#F5F0E1" }),
-      txt("slow café", 540, 1160, 800, 40, "playfair-display", "#1B2A1E", { weight: 400, align: "center", letterSpacing: 2 }),
-    ],
-  },
-  {
-    id: "terracotta-sticker", name: "테라코타 스티커", category: "food", tags: ["웜", "프로모션"], sample: "오늘의\n브런치", bg: "#C65D3B",
-    main: { x: 90, y: 430, width: 900, fontSize: 150, fontFamily: "gowun-batang", color: "#FFF1E0", weight: 700, lineHeight: 1.12 },
-    layers: [
-      shp("rect", 330, 1000, 520, 120, { fill: "#FFF1E0", radius: 60, rotation: -4 }),
-      txt("오늘만 10% 할인", 330, 971, 520, 46, "jua", "#C65D3B", { weight: 400, align: "center", rotation: -4 }),
-      shp("circle", 900, 230, 200, 200, { stroke: "#FFF1E0", strokeWidth: 5 }),
-    ],
-  },
-  {
-    id: "purple-lime-bold", name: "퍼플 × 라임", category: "color", tags: ["강렬", "트렌디"], sample: "THIS\nWEEKEND", bg: "#5B2BFF",
-    main: { x: 80, y: 360, width: 920, fontSize: 250, fontFamily: "anton", color: "#D7FF3A", weight: 400, lineHeight: 0.95, letterSpacing: 2 },
-    layers: [
-      shp("line", 540, 1000, 900, 8, { fill: "#D7FF3A" }),
-      txt("놓치지 마세요!", 120, 1060, 700, 90, "nanum-pen", "#FFFFFF", { weight: 400, rotation: -5 }),
-    ],
-  },
-  {
-    id: "closing-follow", name: "마무리 · 팔로우", category: "info", tags: ["클로징", "CTA"], sample: "저장하고\n나중에 보기", bg: "#0A0A0A",
-    main: { x: 80, y: 470, width: 920, fontSize: 124, fontFamily: "sans", color: "#FFFFFF", letterSpacing: -3, align: "center", lineHeight: 1.18 },
-    layers: [
-      shp("rect", 540, 1010, 560, 110, { stroke: "#C6FF00", strokeWidth: 5, radius: 55 }),
-      txt("FOLLOW  @mycafe", 540, 985, 560, 40, "bebas-neue", "#C6FF00", { weight: 400, align: "center", letterSpacing: 6 }),
+      txt("THANKS FOR READING", 540, META_Y, 800, 28, "space-grotesk", "#8C8C8C", { weight: 700, align: "center", letterSpacing: 8 }),
+      shp("pill", 540, 1040, 560, 100, { fill: "#D4FF3A", radius: 50 }),
+      txt("팔로우하고 다음 글 받기", 540, 1016, 560, 36, "sans", "#0C0C0C", { weight: 700, align: "center" }),
+      txt("@yourhandle", 540, 1150, 560, 30, "space-grotesk", "#8C8C8C", { weight: 500, align: "center", letterSpacing: 2 }),
     ],
   },
 ];

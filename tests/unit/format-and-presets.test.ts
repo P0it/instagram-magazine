@@ -130,7 +130,7 @@ describe("레퍼런스 · 템플릿 · 팔레트", () => {
 
   it("내장 템플릿은 모두 스키마를 통과하고 id 가 겹치지 않는다", async () => {
     const { BUILTIN_TEMPLATES } = await import("@/presets/templates");
-    expect(BUILTIN_TEMPLATES.length).toBeGreaterThanOrEqual(15);
+    expect(BUILTIN_TEMPLATES.length).toBeGreaterThanOrEqual(10);
     expect(new Set(BUILTIN_TEMPLATES.map((t) => t.id)).size).toBe(BUILTIN_TEMPLATES.length);
     for (const t of BUILTIN_TEMPLATES) {
       // 텍스트 레이어는 캔버스(1080) 안에 있어야 한다

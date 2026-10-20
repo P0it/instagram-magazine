@@ -23,7 +23,7 @@ export function TemplateGallery() {
 
   const chips: { id: Filter; label: string }[] = [
     { id: "all", label: "전체" },
-    ...TEMPLATE_CATEGORIES.map((c) => ({ id: c as Filter, label: TEMPLATE_CATEGORY_LABEL[c] })),
+    ...TEMPLATE_CATEGORIES.filter((c) => [...mine, ...BUILTIN_TEMPLATES].some((t) => t.category === c)).map((c) => ({ id: c as Filter, label: TEMPLATE_CATEGORY_LABEL[c] })),
     { id: "mine", label: `내가 만든 것 ${mine.length}` },
   ];
 

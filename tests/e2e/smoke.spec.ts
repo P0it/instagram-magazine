@@ -190,7 +190,7 @@ test("post format 1:1 → export 1080x1080, fonts and element library are presen
   await page.getByRole("button", { name: "배경", exact: true }).click();
   await page.getByRole("button", { name: /^가나다 Aa/ }).first().click();
   await page.getByRole("button", { name: "템플릿", exact: true }).click();
-  await page.getByRole("button", { name: /네이비 × 민트 헤드라인/ }).click();
+  await page.getByRole("button", { name: /볼드 페이퍼/ }).click();
   await expect(page.getByText(/저장됨 · 방금/)).toBeVisible({ timeout: 10_000 });
   // 오른쪽 패널 레이아웃 탭: 스크린샷 분석 진입점
   await page.getByRole("tab", { name: "레이아웃" }).click();

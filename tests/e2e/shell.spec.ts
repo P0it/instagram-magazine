@@ -17,3 +17,9 @@ test("사이드바에 5개 메뉴가 있고 채널 구분 탭은 없다", async 
   await page.getByRole("link", { name: "레퍼런스" }).click();
   await expect(page).toHaveURL(/\/references/);
 });
+
+test("어느 화면에도 라이프·마인드·트렌드 구분이 보이지 않는다", async ({ page }) => {
+  await page.goto("/home");
+  await expect(page.getByRole("heading", { name: /@life\.magazine/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/라이프|마인드|트렌드/)).toHaveCount(0);
+});

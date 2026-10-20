@@ -8,7 +8,7 @@ test("home 3-stage board → builder → preset switch → sticker → export 10
 
   await page.goto("/home");
   // 계정 목록은 system status 에서 오므로 콜드 스타트 땐 조금 기다린다
-  await expect(page.getByRole("heading", { name: /@life\.magazine — 라이프/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: /@life\.magazine — 내 계정/ })).toBeVisible({ timeout: 30_000 });
   // 3단계 세그먼트
   await expect(page.getByRole("tab", { name: /^초안 \d+/ })).toBeVisible();
   await expect(page.getByRole("tab", { name: /^편집 중 \d+/ })).toBeVisible();
@@ -82,8 +82,10 @@ test("mock connect adds a channel tab and an inbox folder; disconnect removes th
   await page.getByLabel("Mock 계정 username").fill("@New.Channel");
   await page.getByRole("button", { name: "가짜 연결" }).click();
   await expect(page.getByText(/inbox\/new\.channel\//)).toBeVisible();
-  // 상단바에 채널 탭이 생기고 홈이 빈 보드로 열린다
-  await expect(page.getByRole("navigation").getByRole("button", { name: "new.channel" })).toBeVisible();
+  // 사이드바 계정 메뉴에 새 계정이 생기고 홈이 빈 보드로 열린다
+  await page.locator('aside button[title^="@"]').click();
+  await expect(page.getByRole("menuitem", { name: "@new.channel" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.goto("/home?ch=new.channel");
   await expect(page.getByRole("heading", { name: /@new\.channel/ })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("tab", { name: /^초안 0/ })).toBeVisible();
@@ -91,10 +93,12 @@ test("mock connect adds a channel tab and an inbox folder; disconnect removes th
   await page.goto("/settings/accounts");
   await page.getByTestId("account-card-new.channel").getByRole("button", { name: "연결 해제" }).click();
   await expect(page.getByTestId("account-card-new.channel")).toHaveCount(0);
-  await expect(page.getByRole("navigation").getByRole("button", { name: "new.channel" })).toHaveCount(0);
+  await page.locator('aside button[title^="@"]').click();
+  await expect(page.getByRole("menuitem", { name: "@new.channel" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
 });
 
-test("settings and queue render under the top bar", async ({ page }) => {
+test("settings and queue render next to the sidebar", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "설정" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "계정 · 채널" })).toBeVisible();

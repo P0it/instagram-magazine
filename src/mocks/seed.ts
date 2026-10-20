@@ -54,13 +54,13 @@ interface SeedAccount {
 }
 const SEED_ACCOUNTS: SeedAccount[] = [
   {
-    key: "life.magazine", name: "라이프", color: "#FF5E00", stylePack: "life-quiet-editorial",
+    key: "life.magazine", name: "내 계정", color: "#FF5E00", stylePack: "life-quiet-editorial",
     hashtags: ["생활정보", "청년"], factCheck: true,
     palette: [{ r: 40, g: 44, b: 52 }, { r: 12, g: 12, b: 14 }],
     insights: { followers: 4200, reach: 1800, growth: 6 },
   },
   {
-    key: "trend.magazine", name: "트렌드", color: "#F553DA", stylePack: "trend-hotspot",
+    key: "trend.magazine", name: "서브 계정", color: "#F553DA", stylePack: "trend-hotspot",
     hashtags: ["핫플", "트렌드"], factCheck: false,
     palette: [{ r: 80, g: 20, b: 70 }, { r: 12, g: 8, b: 14 }],
     insights: { followers: 1500, reach: 2600, growth: 14 },

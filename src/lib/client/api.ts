@@ -3,6 +3,12 @@
 import type { z } from "zod";
 import {
   AccountsResponseSchema,
+  AiJobResponseSchema,
+  AiJobsResponseSchema,
+  AiProviderIdSchema,
+  AiProvidersResponseSchema,
+  type AiJobInput,
+  type AiProviderId,
   AnalyzeResponseSchema,
   CustomPresetsFileSchema,
   type CustomPreset,
@@ -151,6 +157,19 @@ export const api = {
 
   insights: (range: InsightsRange) => request(`/api/insights?range=${range}`, InsightsResponseSchema),
   collectInsights: () => request("/api/insights/collect", CollectResultSchema, jsonInit("POST")),
+
+  aiProviders: () => request("/api/ai/providers", AiProvidersResponseSchema),
+  aiLogout: (id: AiProviderId) => request(`/api/ai/providers/${id}`, zod.object({ ok: zod.literal(true) }), jsonInit("DELETE")),
+  aiSetDefault: (id: AiProviderId) => request(`/api/ai/providers/${id}`, zod.object({ default: AiProviderIdSchema }), jsonInit("PATCH", { default: true })),
+  aiJobs: () => request("/api/ai/jobs", AiJobsResponseSchema),
+  aiCreateJob: (meta: Omit<AiJobInput, "attachment_count" | "format"> & { format?: AiJobInput["format"] }, files: File[]) => {
+    const form = new FormData();
+    form.append("meta", JSON.stringify(meta));
+    for (const f of files) form.append("files", f);
+    return request("/api/ai/jobs", AiJobResponseSchema, { method: "POST", body: form });
+  },
+  aiCancelJob: (id: string) => request(`/api/ai/jobs/${encodeURIComponent(id)}/cancel`, AiJobResponseSchema, jsonInit("POST")),
+  aiRetryJob: (id: string) => request(`/api/ai/jobs/${encodeURIComponent(id)}/retry`, AiJobResponseSchema, jsonInit("POST")),
 
   accounts: () => request("/api/instagram/accounts", AccountsResponseSchema),
   disconnectAccount: (key: string) => request("/api/instagram/accounts", AccountsResponseSchema, jsonInit("DELETE", { key })),

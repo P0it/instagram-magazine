@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, type PostsQuery } from "./api";
-import type { InsightsRange, PostSaveRequest, PostStatus, PublishRequest } from "@/types";
+import type { AiProviderId, InsightsRange, PostSaveRequest, PostStatus, PublishRequest } from "@/types";
 
 export const qk = {
   status: ["system-status"] as const,
@@ -16,6 +16,8 @@ export const qk = {
   templates: ["templates"] as const,
   references: ["references"] as const,
   insights: (range: InsightsRange) => ["insights", range] as const,
+  aiProviders: ["ai-providers"] as const,
+  aiJobs: ["ai-jobs"] as const,
 };
 
 export function useSystemStatus() {
@@ -159,5 +161,70 @@ export function useRetry(id: string) {
       invalidate(id);
       toast.error(e instanceof Error ? e.message : String(e));
     },
+  });
+}
+
+// ---------- AI 생성기 ----------
+export function useAiProviders() {
+  return useQuery({ queryKey: qk.aiProviders, queryFn: api.aiProviders, staleTime: 15_000 });
+}
+
+export function useAiLogout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: AiProviderId) => api.aiLogout(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.aiProviders });
+      toast.success("로그아웃했어요");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+}
+
+export function useAiSetDefault() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: AiProviderId) => api.aiSetDefault(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: qk.aiProviders }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+}
+
+/** 대기·실행 중인 작업이 있으면 2초, 없으면 15초마다 새로 읽는다 */
+export function useAiJobs() {
+  return useQuery({
+    queryKey: qk.aiJobs,
+    queryFn: api.aiJobs,
+    refetchInterval: (q) => (q.state.data?.jobs.some((j) => j.status === "queued" || j.status === "running") ? 2_000 : 15_000),
+  });
+}
+
+export function useCreateAiJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { meta: Parameters<typeof api.aiCreateJob>[0]; files: File[] }) => api.aiCreateJob(args.meta, args.files),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.aiJobs });
+      toast.success("생성을 시작했어요. 끝나면 콘텐츠 만들기에 초안으로 나타나요.");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+}
+
+export function useCancelAiJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.aiCancelJob(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: qk.aiJobs }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+}
+
+export function useRetryAiJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.aiRetryJob(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: qk.aiJobs }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 }

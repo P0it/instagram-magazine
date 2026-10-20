@@ -109,3 +109,13 @@ export const GenerationInfoSchema = z.object({
   generated_at: z.string(),
 });
 export type GenerationInfo = z.infer<typeof GenerationInfoSchema>;
+
+// ---------- API 응답 ----------
+export const AiProvidersResponseSchema = z.object({
+  providers: z.array(AiProviderStatusSchema),
+  default: AiProviderIdSchema.nullable(),
+});
+export type AiProvidersResponse = z.infer<typeof AiProvidersResponseSchema>;
+
+export const AiJobResponseSchema = z.object({ job: AiJobSchema });
+export const AiJobsResponseSchema = z.object({ jobs: z.array(AiJobSchema) });

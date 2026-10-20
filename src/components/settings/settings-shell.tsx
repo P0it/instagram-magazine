@@ -10,6 +10,7 @@ import { GoogleDriveLogo, InstagramLogo } from "@/components/brand/logos";
 const TABS = [
   { href: "/settings/accounts", label: <span className="flex items-center gap-1.5"><InstagramLogo size={14} />계정 · 채널</span>, text: "계정 · 채널" },
   { href: "/settings/drive", label: <span className="flex items-center gap-1.5"><GoogleDriveLogo size={14} />Google Drive</span>, text: "Google Drive" },
+  { href: "/settings/ai", label: "AI", text: "AI" },
   { href: "/settings/style-packs", label: "스타일팩", text: "스타일팩" },
 ] as const;
 

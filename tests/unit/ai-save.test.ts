@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { MockDriveClient } from "@/mocks/drive/MockDriveClient";
 import { invalidateFolderCache, statusFolderId } from "@/lib/drive/paths";
+import { readIndexFile } from "@/lib/drive/system-files";
 import { saveGeneratedPost } from "@/lib/ai/generate/save";
 import { MOCK_CAROUSEL } from "@/mocks/ai/MockAiProvider";
 import { AccountSchema, EditorStateSchema, GeneratedCarouselSchema, PostMetadataSchema, type GenerationInfo } from "@/types";
@@ -65,6 +66,13 @@ describe("saveGeneratedPost", () => {
     const state = EditorStateSchema.parse(await readJson(folderId, "editor-state.json"));
     expect(state.canvas.height).toBe(1440);
     expect(PostMetadataSchema.parse(await readJson(folderId, "metadata.json")).format).toBe("3:4");
+  });
+
+  it("adds the post to index.json so the home board lists it", async () => {
+    const { postId } = await saveGeneratedPost(drive, account, carousel, base);
+    const index = (await readIndexFile(drive)).data;
+    expect(index.posts.map((p) => p.post_id)).toContain(postId);
+    expect(index.posts.find((p) => p.post_id === postId)).toMatchObject({ channel: "cafe.log", status: "draft", headline: carousel.headline, slide_count: 3 });
   });
 
   it("records spec warnings on the post", async () => {

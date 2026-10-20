@@ -15,6 +15,8 @@ import {
 import type { DriveClient } from "@/lib/drive/types";
 import { slugify } from "@/lib/ingest/group";
 import { createPostFolders, writePostFiles } from "@/lib/ingest/write-post";
+import { upsertIndexEntry } from "@/lib/metadata/index-builder";
+import { loadPostFromFolder } from "@/lib/metadata/post-repo";
 import { getStylePack, resolvePreset } from "@/presets";
 import { slideStateFromPreset } from "@/lib/render/layout";
 
@@ -106,6 +108,9 @@ export async function saveGeneratedPost(
     }),
     editorState: EditorStateSchema.parse({ canvas: { width: 1080, height }, slides: editorSlides, updated_at: nowIso }),
   });
+
+  // 홈 보드는 index.json 을 읽는다 — 이 포스트가 바로 보이게 인덱스에 올린다
+  await upsertIndexEntry(drive, await loadPostFromFolder(drive, { channel: account.key, folderStatus: "draft", folder }));
 
   return { postId, folderId: folder.id };
 }

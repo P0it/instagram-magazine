@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { Clock3, Lightbulb, LayoutTemplate, PlusSquare, RefreshCw, Settings, type LucideIcon } from "lucide-react";
+import { Check, Clock3, Lightbulb, LayoutTemplate, PlusSquare, RefreshCw, Settings, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSync, useSystemStatus, usePosts } from "@/lib/client/queries";
 import { accountMeta, useAccountList, useChannel } from "@/lib/client/channel";
+import { nextChannel } from "@/lib/client/channel-pick";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { NAV_ITEMS, activeNavKey, type NavKey } from "./nav-items";
 
@@ -48,6 +49,21 @@ export function Sidebar() {
       sync.mutate();
     }
   }, [status.data, sync]);
+
+  // Alt+↑/↓ 로 계정을 바로 넘긴다 (입력 중에는 무시)
+  useEffect(() => {
+    const keys = accounts.map((a) => a.key);
+    if (keys.length < 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+      const el = document.activeElement;
+      if (el instanceof HTMLElement && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      const to = nextChannel(keys, channel, e.key === "ArrowDown" ? 1 : -1);
+      if (to && to !== channel) { e.preventDefault(); setChannel(to); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [accounts, channel, setChannel]);
 
   const queued = (posts.data?.posts ?? []).filter((p) => p.status === "scheduled" || p.status === "failed" || p.status === "publishing").length;
   const expiring = status.data?.accounts.filter((a) => a.status !== "connected" && a.status !== "unlinked").length ?? 0;
@@ -117,15 +133,30 @@ export function Sidebar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-60">
-            {accounts.map((a) => (
-              <DropdownMenuItem key={a.key} onSelect={() => setChannel(a.key)} className={cn(a.key === channel && "font-semibold")}>
-                @{a.username}
-              </DropdownMenuItem>
-            ))}
+            {accounts.map((a) => {
+              const m = accountMeta(a);
+              const ok = a.status === "connected";
+              return (
+                <DropdownMenuItem key={a.key} onSelect={() => setChannel(a.key)} className="gap-2.5 py-2">
+                  <span className="size-7 shrink-0 rounded-full p-[1.5px]" style={{ background: a.key === channel ? IG_RING : "var(--semantic-line-solid-normal)" }}>
+                    <span className="block size-full rounded-full border-2 border-black bg-fill-strong" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={cn("block truncate text-sm", a.key === channel && "font-semibold")}>@{m.handle}</span>
+                    <span className="block truncate text-[11px] text-label-alt">
+                      <span className={cn("mr-1 inline-block size-[6px] rounded-full", ok ? "bg-positive" : "bg-cautionary")} />
+                      {a.status === "unlinked" ? "연결 안 됨" : ok ? "연결됨" : "확인 필요"}
+                    </span>
+                  </span>
+                  {a.key === channel && <Check className="size-4 shrink-0" />}
+                </DropdownMenuItem>
+              );
+            })}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/settings/accounts">계정 추가 · 관리</Link>
             </DropdownMenuItem>
+            {accounts.length > 1 && <p className="px-2 py-1.5 text-[11px] text-label-alt">Alt + ↑ ↓ 로 바로 전환</p>}
           </DropdownMenuContent>
         </DropdownMenu>
       ) : accountsLoading ? (

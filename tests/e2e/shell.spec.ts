@@ -138,3 +138,24 @@ test("계정 상태 점은 연결 상태를 따른다", async ({ page }) => {
   await expect(trigger.getByText("Instagram 연결됨")).toBeVisible();
   await expect(trigger.locator("span.bg-positive")).toHaveCount(1);
 });
+
+test("마지막으로 고른 계정은 ?ch= 없이 다시 열어도 기억된다", async ({ page }) => {
+  const trigger = page.locator('aside button[title^="@"]');
+  await page.goto("/home?ch=trend.magazine");
+  await expect(trigger).toHaveAttribute("title", "@trend.magazine", { timeout: 30_000 });
+  await page.goto("/home");
+  await expect(trigger).toHaveAttribute("title", "@trend.magazine", { timeout: 30_000 });
+});
+
+test("계정 목록에서 고르거나 Alt+방향키로 바로 전환한다", async ({ page }) => {
+  const trigger = page.locator('aside button[title^="@"]');
+  await page.goto("/home?ch=life.magazine");
+  await expect(trigger).toHaveAttribute("title", "@life.magazine", { timeout: 30_000 });
+  await page.keyboard.press("Alt+ArrowDown");
+  await expect(trigger).toHaveAttribute("title", "@trend.magazine");
+  await page.keyboard.press("Alt+ArrowUp");
+  await expect(trigger).toHaveAttribute("title", "@life.magazine");
+  await trigger.click();
+  await page.getByRole("menuitem", { name: /@trend\.magazine/ }).click();
+  await expect(trigger).toHaveAttribute("title", "@trend.magazine");
+});

@@ -14,3 +14,4 @@ export * from "./custom-preset";
 export * from "./stock";
 export * from "./template";
 export * from "./reference";
+export * from "./ai";

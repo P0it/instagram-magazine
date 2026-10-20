@@ -3,6 +3,7 @@ import { AccountKeySchema } from "./account";
 import { SlideRoleSchema } from "./slide-role";
 import { LayoutPresetOverridesSchema, PresetIdSchema } from "./preset";
 import { PostFormatSchema } from "./editor-state";
+import { GenerationInfoSchema } from "./ai";
 
 export const POST_STATUSES = [
   "needs_repair",
@@ -72,6 +73,8 @@ export const PostMetadataSchema = z.object({
   scheduled_at: z.string().nullable().default(null),
   publish: PublishBlockSchema.optional(),
   warnings: z.array(z.string()).default([]),
+  /** AI 생성기로 만든 포스트의 생성 근거 (클라이언트 PUT 으로는 못 바꾼다) */
+  generation: GenerationInfoSchema.optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });

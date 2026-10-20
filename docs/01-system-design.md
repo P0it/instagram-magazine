@@ -428,3 +428,12 @@ UNSPLASH_ACCESS_KEY=           # 선택. 스톡 사진 검색(unsplash.com/devel
 
 ### 스톡 사진
 `GET /api/stock/search?q=&page=&provider=` · `POST /api/posts/[id]/assets/import`. 키는 `PEXELS_API_KEY` / `UNSPLASH_ACCESS_KEY`(서버 전용, 둘 다 없으면 UI 가 안내만 표시). 이미지 가져오기는 **호스트 허용 목록**(`images.pexels.com`, `images.unsplash.com`)만, Unsplash 는 약관대로 `download_location` 을 호출한다. 고른 사진은 포스트 assets 에 `source_NN` 으로 저장되고 출처가 `sources.json` 의 "참고 출처"에 남는다. 사업화 시에는 각 플랫폼 약관(재배포·경쟁 서비스 금지)을 원문으로 다시 확인할 것.
+
+### AI 생성기 (v1.4)
+레퍼런스를 보고 "이걸로 만들어 줘" 하면 완성 수준의 캐러셀을 비동기로 만들어 계정의 `draft` 포스트로 저장한다. 상세 설계·결정: `docs/superpowers/specs/2026-10-21-ai-generator-design.md`, 제공자 조사: `docs/superpowers/notes/2026-10-21-ai-provider-spike.md`.
+- **제공자(`AiProvider`)**: Claude = 이 PC 에 로그인된 `claude` CLI(앱은 토큰을 받지 않는다), ChatGPT = 구독 OAuth("Sign in with ChatGPT" 로컬 앱 계약, 콜백은 `127.0.0.1`). 토큰은 `.env.local`(`AI_CHATGPT_TOKENS`, `AI_CHATGPT_HOST_ID`)과 메모리에만. 기본 제공자는 `AI_DEFAULT_PROVIDER`. `AI_CLIENT=mock|real`(미설정이면 `DRIVE_CLIENT` 를 따른다).
+- **규약**: `src/presets/spec/{instagram,design}.json` — 캐러셀 장수, 캡션·해시태그 한도, 글자 크기 하한, 역할 순서, 장당 글자 수. 프롬프트(`specPromptBlock`)와 검증기(`validateAgainstSpec`)가 같은 데이터를 쓴다.
+- **파이프라인**: 분석(제공자가 이미지를 읽을 때만) → 카피+프리셋 선택 → 규약 검증(위반 시 수정 요청 최대 2회, 그래도 남으면 `warnings` 를 달고 `draft` 저장) → 저장(`index.json` 갱신 포함). AI 호출은 작업당 최대 4회.
+- **작업 큐**: Drive `_system/ai-jobs.json`, 한 번에 하나씩, heartbeat 로 중단된 작업을 `failed(interrupted)` 처리. 첨부 사진은 `_system/ai-tmp/<jobId>/` 에 두고 작업이 끝나면 지운다.
+- **라우트**: `GET/POST /api/ai/jobs`(multipart `meta`+`files`, 로그인 없으면 401 `ai_not_connected`), `GET /api/ai/jobs/[id]`, `POST /api/ai/jobs/[id]/{cancel,retry}`, `GET /api/ai/providers`, `DELETE|PATCH /api/ai/providers/[provider]`, `GET /api/ai/oauth/chatgpt/{start,callback}`(콜백은 접근 키 검사에서 제외 — 서버 메모리의 state 가 맞아야만 동작).
+- **화면**: 설정 > AI, 레퍼런스 상세의 "AI로 생성하기", 상단 바의 AI 작업 표시기·패널.
